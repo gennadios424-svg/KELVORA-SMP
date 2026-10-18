@@ -430,18 +430,18 @@ TabExecutor {
 
     private List<Map.Entry<Material, Double>> results(SearchState state) {
         String q = state.query.toLowerCase(Locale.ROOT).trim();
-        List list = this.prices.entrySet().stream().filter(e -> {
+        List<Map.Entry<Material, Double>> list = this.prices.entrySet().stream().filter(e -> {
             String display = WorthManager.pretty((Material)e.getKey()).toLowerCase(Locale.ROOT);
             String raw = ((Material)e.getKey()).name().toLowerCase(Locale.ROOT).replace('_', ' ');
             return q.isEmpty() || display.contains(q) || raw.contains(q) || q.equals("dia") && raw.contains("diamond") || q.equals("petals") && raw.contains("pink petals") || q.equals("boat with chest") && raw.contains("chest boat");
         }).collect(Collectors.toCollection(ArrayList::new));
-        Comparator<Map.Entry> alpha = Comparator.comparing(e -> WorthManager.pretty((Material)e.getKey()).toLowerCase(Locale.ROOT));
+        Comparator<Map.Entry<Material, Double>> alpha = Comparator.comparing(e -> WorthManager.pretty(e.getKey()).toLowerCase(Locale.ROOT));
         list.sort(switch (state.sort.ordinal()) {
             default -> throw new MatchException(null, null);
             case 0 -> alpha;
             case 1 -> alpha.reversed();
-            case 2 -> Comparator.comparingDouble(e -> (Double)e.getValue()).thenComparing(alpha);
-            case 3 -> Comparator.comparingDouble(e -> (Double)e.getValue()).reversed().thenComparing(alpha);
+            case 2 -> Comparator.comparingDouble((Map.Entry<Material, Double> e) -> e.getValue()).thenComparing(alpha);
+            case 3 -> Comparator.comparingDouble((Map.Entry<Material, Double> e) -> e.getValue()).reversed().thenComparing(alpha);
         });
         return list;
     }
@@ -475,7 +475,7 @@ TabExecutor {
         this.control(inv, 49, Material.HOPPER, "Sort: " + state.sort.label, "sort", GREEN, List.of("Click to change sorting mode", "Sorting applies to all matching items"));
         this.control(inv, 50, Material.SLIME_BALL, "Clear Search", "clear", GREEN, List.of("Remove the current search filter"));
         this.control(inv, 53, Material.ARROW, "Next Page", "next", (TextColor)NamedTextColor.WHITE, List.of("Go to the next page"));
-        player.getPersistentDataContainer().set(this.stateKey, PersistentDataType.STRING, (Object)this.encode(state));
+        player.getPersistentDataContainer().set(this.stateKey, PersistentDataType.STRING, this.encode(state));
         player.openInventory(inv);
     }
 
@@ -484,7 +484,7 @@ TabExecutor {
         ItemMeta meta = item.getItemMeta();
         meta.displayName((Component)Component.text((String)label, (TextColor)color));
         meta.lore(lore.stream().map(line -> Component.text((String)line, (TextColor)NamedTextColor.GRAY)).toList());
-        meta.getPersistentDataContainer().set(this.actionKey, PersistentDataType.STRING, (Object)action);
+        meta.getPersistentDataContainer().set(this.actionKey, PersistentDataType.STRING, action);
         item.setItemMeta(meta);
         inv.setItem(slot, item);
     }
