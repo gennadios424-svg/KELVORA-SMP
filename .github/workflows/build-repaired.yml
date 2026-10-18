@@ -1,4 +1,4 @@
-name: Build Kelvora SMP Phase 11 plugin
+name: Build Kelvora SMP plugin
 
 on:
   workflow_dispatch:
@@ -7,19 +7,19 @@ on:
     paths:
       - 'src/**'
       - 'pom.xml'
-      - '.github/workflows/build-repaired.yml'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
       - 'src/**'
       - 'pom.xml'
-      - '.github/workflows/build-repaired.yml'
+      - '.github/workflows/**'
 
 permissions:
   contents: write
 
 concurrency:
-  group: kelvora-repair-build
+  group: kelvora-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,23 +35,27 @@ jobs:
       - name: Build plugin
         run: |
           mvn -B -ntp clean package
-          test -s target/KelvoraSMP-2.1.4.jar
-          jar tf target/KelvoraSMP-2.1.4.jar | grep -q 'net/kelvora/smp/ShopSellManager.class'
-          jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'net/kelvora/smp/KelvoraSMP.class'
-          jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'plugin.yml'
-          unzip -p target/KelvoraSMP-2.1.3.jar plugin.yml | grep -q 'version: 2.1.4'
+          VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')
+          JAR="target/KelvoraSMP-${VERSION}.jar"
+          test -s "$JAR"
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/KelvoraSMP.class'
+          jar tf "$JAR" | grep -q 'plugin.yml'
+          unzip -p "$JAR" plugin.yml | grep -q "version: ${VERSION}"
       - name: Publish compiled JAR to repository
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
-          cp target/KelvoraSMP-2.1.3.jar KelvoraSMP-2.1.3.jar
+          VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')
+          cp "target/KelvoraSMP-${VERSION}.jar" "KelvoraSMP-${VERSION}.jar"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add KelvoraSMP-2.1.3.jar
-          git commit -m 'Publish repaired KelvoraSMP 2.1.3 JAR' || echo 'JAR unchanged'
+          git add "KelvoraSMP-${VERSION}.jar"
+          git commit -m "Publish compiled KelvoraSMP ${VERSION} JAR" || echo 'JAR unchanged'
           git push
       - name: Upload compiled JAR
         uses: actions/upload-artifact@v4
         with:
-          name: KelvoraSMP-2.1.3
-          path: target/KelvoraSMP-2.1.3.jar
+          name: KelvoraSMP-JAR
+          path: target/KelvoraSMP-*.jar
           if-no-files-found: error
           retention-days: 14
