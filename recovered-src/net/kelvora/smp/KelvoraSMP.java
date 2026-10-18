@@ -143,6 +143,9 @@ implements Listener {
     }
 
     private void updatePlayer(Player player) {
+        // The TAB plugin owns the tab header/footer, player-list names, teams, and sidebar.
+        // Do not overwrite its configured layout from this plugin's refresh task.
+        if (Bukkit.getPluginManager().isPluginEnabled("TAB")) return;
         Objective objective;
         String serverAddress = this.getConfig().getString("server-address", "Configure server address");
         String rank = this.rankKey(player);
