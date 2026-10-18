@@ -14,6 +14,7 @@ import org.bukkit.Sound;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
@@ -70,8 +71,9 @@ final class SellManager implements Listener {
         return provider == null ? null : provider.getProvider();
     }
 
-    @EventHandler public void onClick(InventoryClickEvent e) {
-        if (!e.getView().title().equals(TITLE)) return;
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false) public void onClick(InventoryClickEvent e) {
+        String viewTitle = e.getView().getTitle().replaceAll("\\s+", " ").trim();
+        if (!viewTitle.startsWith("KELVORA / SELL")) return;
         if (!(e.getWhoClicked() instanceof Player player)) { e.setCancelled(true); return; }
         if (e.getClickedInventory() == null) { e.setCancelled(true); return; }
         if (e.getClickedInventory() != e.getView().getTopInventory()) {
@@ -130,13 +132,13 @@ final class SellManager implements Listener {
         return total;
     }
 
-    @EventHandler public void onDrag(InventoryDragEvent e) {
-        if(!e.getView().title().equals(TITLE))return;
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false) public void onDrag(InventoryDragEvent e) {
+        if(!e.getView().getTitle().replaceAll("\\s+", " ").trim().startsWith("KELVORA / SELL"))return;
         if(e.getRawSlots().stream().anyMatch(s->s>=45))e.setCancelled(true);
     }
 
-    @EventHandler public void onClose(InventoryCloseEvent e) {
-        if(!e.getView().title().equals(TITLE))return;
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false) public void onClose(InventoryCloseEvent e) {
+        if(!e.getView().getTitle().replaceAll("\\s+", " ").trim().startsWith("KELVORA / SELL"))return;
         Inventory inv=e.getView().getTopInventory();
         Player player=(Player)e.getPlayer();
         for(int slot=0;slot<45;slot++) {
