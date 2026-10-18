@@ -121,11 +121,15 @@ final class ShopManager implements Listener {
 
     @EventHandler public void onClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
-        String title=e.getView().getTitle();
-        if (!title.startsWith("KELVORA  /  SHOP")) return;
+        String title=e.getView().getTitle().replaceAll("\\s+", " ").trim();
+        if (!title.startsWith("KELVORA / ")) return;
         e.setCancelled(true);
         if (e.getClickedInventory()!=e.getView().getTopInventory() || e.getCurrentItem()==null || !e.getCurrentItem().hasItemMeta()) return;
         String action=e.getCurrentItem().getItemMeta().getPersistentDataContainer().get(actionKey,PersistentDataType.STRING);
+        // Slot fallback keeps category browsing functional if item metadata was stripped by another plugin.
+        if (action == null && title.equals("KELVORA / SHOP") && e.getRawSlot() >= 10 && e.getRawSlot() <= 15) {
+            action = "category:" + (e.getRawSlot() - 10);
+        }
         if(action==null)return;
         if(action.startsWith("category:")){openCategory(player,Integer.parseInt(action.substring(9)));return;}
         if(action.equals("back")){openHome(player);return;}
@@ -152,7 +156,7 @@ final class ShopManager implements Listener {
         return remaining<=0;
     }
     @EventHandler public void onDrag(InventoryDragEvent e) {
-        if(e.getView().getTitle().startsWith("KELVORA  /  SHOP") && e.getRawSlots().stream().anyMatch(s->s<e.getView().getTopInventory().getSize()))e.setCancelled(true);
+        if(e.getView().getTitle().replaceAll("\\s+", " ").trim().startsWith("KELVORA / ") && e.getRawSlots().stream().anyMatch(s->s<e.getView().getTopInventory().getSize()))e.setCancelled(true);
     }
     private static String pretty(Material m){String[] a=m.name().toLowerCase(Locale.ROOT).split("_");StringBuilder b=new StringBuilder();for(String w:a){if(b.length()>0)b.append(' ');b.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1));}return b.toString();}
     private static String money(double n){return n==Math.rint(n)?String.format(Locale.US,"%.0f",n):String.format(Locale.US,"%.2f",n);}
