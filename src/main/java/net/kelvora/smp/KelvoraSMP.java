@@ -79,6 +79,7 @@ implements Listener {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
                 if (args.length != 0) { player.sendMessage(Component.text("Usage: /bal", NamedTextColor.RED)); return true; }
+                if (!player.hasPermission("kelvora.balance")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
                 if (this.economy == null) this.economy = this.resolveEconomyProvider();
                 double amount = this.economyBalance(player);
                 String money = Double.isFinite(amount) ? "$" + this.formatExactMoney(amount) : "Not connected";
@@ -278,7 +279,7 @@ implements Listener {
         if (ranks != null && ranks.contains(group)) {
             return group;
         }
-        return "member";
+        return group.equals("default") ? "member" : group;
     }
 
     private String getKelvoras(Player player) {
