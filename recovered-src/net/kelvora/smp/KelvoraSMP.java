@@ -73,6 +73,7 @@ implements Listener {
         this.setupIntegrations();
         new WorthManager(this).register();
         new ShopManager(this).register();
+        new SellManager(this).register();
         Bukkit.getPluginManager().registerEvents((Listener)this, (Plugin)this);
         this.refreshTask = Bukkit.getScheduler().scheduleSyncRepeatingTask((Plugin)this, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
