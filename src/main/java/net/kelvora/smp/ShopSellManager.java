@@ -34,6 +34,7 @@ final class ShopSellManager implements Listener {
     private final NamespacedKey actionKey;
     private final Set<UUID> transactions = ConcurrentHashMap.newKeySet();
     private final Map<UUID, QuantitySession> quantitySessions = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> currentCategoryPages = new ConcurrentHashMap<>();
     private Object economy;
 
     ShopSellManager(JavaPlugin plugin) {
@@ -90,6 +91,7 @@ final class ShopSellManager implements Listener {
     }
 
     private void openCategory(Player p, String cat, int page) {
+        currentCategoryPages.put(p.getUniqueId(), page);
         List<ShopEntry> entries = categoryEntries(cat);
         int pages = Math.max(1, (entries.size() + 44) / 45);
         page = Math.max(0, Math.min(page, pages - 1));
@@ -284,7 +286,12 @@ final class ShopSellManager implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
-        if (!stripColor(e.getView().getTitle()).equals(SELL)) return;
+        String title = stripColor(e.getView().getTitle());
+        if (title.equals(QUANTITY)) {
+            quantitySessions.remove(e.getPlayer().getUniqueId());
+            return;
+        }
+        if (!title.equals(SELL)) return;
         Inventory top = e.getView().getTopInventory();
         Player p = (Player)e.getPlayer();
         for (int i = 0; i < SELL_SLOTS; i++) {
@@ -334,7 +341,7 @@ final class ShopSellManager implements Listener {
             return;
         }
         ItemStack prototype = new ItemStack(material);
-        quantitySessions.put(p.getUniqueId(), new QuantitySession(prototype, Math.max(worth * 1.5, worth + 0.01), pretty(material), category, page));
+        quantitySessions.put(p.getUniqueId(), new QuantitySession(prototype, Math.max(worth * 1.5, worth + 0.01), pretty(material), category, currentCategoryPages.getOrDefault(p.getUniqueId(), 0)));
         openQuantity(p, quantitySessions.get(p.getUniqueId()));
     }
 
@@ -346,7 +353,7 @@ final class ShopSellManager implements Listener {
             meta.setBasePotionType(potionType);
             meta.displayName(Component.text(prettyPotion(type), NamedTextColor.WHITE));
             item.setItemMeta(meta);
-            quantitySessions.put(p.getUniqueId(), new QuantitySession(item, Math.max(potionCost(type), price(Material.POTION) + 0.01), prettyPotion(type), categoryFromTitle(title), 0));
+            quantitySessions.put(p.getUniqueId(), new QuantitySession(item, Math.max(potionCost(type), price(Material.POTION) + 0.01), prettyPotion(type), categoryFromTitle(title), currentCategoryPages.getOrDefault(p.getUniqueId(), 0)));
             openQuantity(p, quantitySessions.get(p.getUniqueId()));
         } catch (IllegalArgumentException ex) {
             p.sendMessage(Component.text("That potion is unavailable.", NamedTextColor.RED));
@@ -591,6 +598,22 @@ final class ShopSellManager implements Listener {
     }
 
     private record Valuation(boolean valid, double value, int count) { }
+
+    private static final class QuantitySession {
+        private final ItemStack prototype;
+        private final double unitPrice;
+        private final String name;
+        private final String category;
+        private final int page;
+        private int quantity = 1;
+        private QuantitySession(ItemStack prototype, double unitPrice, String name, String category, int page) {
+            this.prototype = prototype.clone();
+            this.unitPrice = unitPrice;
+            this.name = name;
+            this.category = category;
+            this.page = page;
+        }
+    }
 
     private static final class ShopEntry {
         private final Material material;
