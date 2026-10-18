@@ -1,0 +1,28 @@
+name: KelvoraSMP
+version: 2.1.0
+main: net.kelvora.smp.KelvoraSMP
+api-version: '1.21'
+description: Kelvora SMP TAB list, compact sidebar, and item worth GUI
+softdepend: [LuckPerms, Vault, PlaceholderAPI]
+author: Kelvora SMP
+commands:
+  shop:
+    description: Open the Kelvora item shop
+    usage: /shop
+  sell:
+    description: Open the Kelvora sell chest
+    usage: /sell
+  worth:
+    description: Browse configured item values
+    usage: /worth [search]
+    aliases: [itemworth]
+permissions:
+  kelvora.shop:
+    description: Use the Kelvora shop
+    default: true
+  kelvora.sell:
+    description: Use the Kelvora sell chest
+    default: true
+  kelvora.worth:
+    description: Use the worth GUI
+    default: true
