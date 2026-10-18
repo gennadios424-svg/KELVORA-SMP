@@ -1,0 +1,15 @@
+# Copy this header-footer section into plugins/TAB/config.yml.
+# KelvoraSMP's repaired JAR no longer overwrites the player-list header/footer.
+header-footer:
+  enabled: true
+  designs:
+    default:
+      header:
+        - ''
+        - '<gradient:#00B8FF:#00FFD0><bold>KELVORA SMP</bold></gradient>'
+        - '<gray>%online% players online</gray>'
+        - ''
+      footer:
+        - '<gray>Survival • Economy • Community</gray>'
+        - '<aqua>kelvorasmp.mcsh.gg</aqua>'
+        - ''
