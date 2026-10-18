@@ -1,6 +1,7 @@
 name: Archive existing Kelvora SMP JAR
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
