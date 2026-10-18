@@ -204,7 +204,7 @@ final class ShopSellManager implements Listener {
                 int qty = parsePage(action.substring(4));
                 if (qty <= session.prototype.getMaxStackSize() && validQuantity(qty, session.prototype.getMaxStackSize())) {
                     session.quantity = qty;
-                    openQuantity(p, session);
+                    refreshQuantityView(p, e.getView().getTopInventory(), session);
                 }
             } else if (action.equals("confirm")) confirmPurchase(p, session);
             else if (action.equals("back")) {
@@ -376,6 +376,18 @@ final class ShopSellManager implements Listener {
     private void openQuantity(Player p, QuantitySession session) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
+        refreshQuantityView(p, inv, session);
+        put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
+        if (session.prototype.getMaxStackSize() >= 16) put(inv, 21, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
+        if (session.prototype.getMaxStackSize() >= 32) put(inv, 22, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
+        if (session.prototype.getMaxStackSize() >= 64) put(inv, 23, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
+        put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
+        put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
+        put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
+        p.openInventory(inv);
+    }
+
+    private void refreshQuantityView(Player p, Inventory inv, QuantitySession session) {
         ItemStack display = session.prototype.clone();
         display.setAmount(1);
         ItemMeta dm = display.getItemMeta();
@@ -386,14 +398,13 @@ final class ShopSellManager implements Listener {
             Component.text("Current Money: $" + MONEY.format(balance(p)), NamedTextColor.GRAY)));
         display.setItemMeta(dm);
         inv.setItem(13, display);
-        put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
-        if (session.prototype.getMaxStackSize() >= 16) put(inv, 21, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
-        if (session.prototype.getMaxStackSize() >= 32) put(inv, 22, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
-        if (session.prototype.getMaxStackSize() >= 64) put(inv, 23, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
-        put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
-        put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
-        put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
-        p.openInventory(inv);
+        ItemStack confirm = inv.getItem(31);
+        if (confirm != null) {
+            ItemMeta meta = confirm.getItemMeta();
+            meta.lore(List.of(Component.text("Pay $" + MONEY.format(session.unitPrice * session.quantity), NamedTextColor.GREEN)));
+            confirm.setItemMeta(meta);
+            inv.setItem(31, confirm);
+        }
     }
 
     private void confirmPurchase(Player p, QuantitySession session) {
