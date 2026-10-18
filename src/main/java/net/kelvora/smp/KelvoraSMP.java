@@ -29,6 +29,7 @@
 package net.kelvora.smp;
 
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -296,7 +297,7 @@ implements Listener {
     }
 
     private String formatExactMoney(double amount) {
-        return new DecimalFormat("#,##0.00").format(amount);
+        return new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US)).format(amount);
     }
 
     private String formatMoney(double amount) {
