@@ -134,18 +134,13 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
     }
     private void openSell(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, SELL_MARKER);
-        Map<Material, Double> prices = prices();
-        int slot = 0;
-        for (Map.Entry<Material, Double> entry : prices.entrySet()) {
-            int count = count(player, entry.getKey());
-            if (count < 1 || slot >= 45) continue;
-            ItemStack icon = new ItemStack(entry.getKey(), Math.min(64, count));
-            ItemMeta meta = icon.getItemMeta();
-            if (meta != null) { meta.setDisplayName(ChatColor.GREEN + prettify(entry.getKey()));
-                meta.setLore(List.of(ChatColor.GRAY + "In inventory: " + count, ChatColor.GRAY + "Price each: $" + money.format(entry.getValue()), ChatColor.YELLOW + "Click to sell all of this item")); icon.setItemMeta(meta); }
-            inv.setItem(slot++, icon);
-        }
-        inv.setItem(49, named(Material.EMERALD, ChatColor.GREEN + "Sell GUI", List.of(ChatColor.GRAY + "Click an item to sell all of that type.", ChatColor.GRAY + "Only items with configured prices can be sold.")));
+        inv.setItem(45, named(Material.BARREL, ChatColor.YELLOW + "How to sell",
+            List.of(ChatColor.GRAY + "Place items in the chest area", ChatColor.GRAY + "above, then click Sell Items.")));
+        inv.setItem(49, named(Material.EMERALD, ChatColor.GREEN + "" + ChatColor.BOLD + "SELL ITEMS",
+            List.of(ChatColor.GRAY + "Sells every priced item inside", ChatColor.GRAY + "the chest area (slots 1-45).",
+                    ChatColor.YELLOW + "Unpriced items will be kept.")));
+        inv.setItem(53, named(Material.BARRIER, ChatColor.RED + "Close",
+            List.of(ChatColor.GRAY + "Click to close this menu.")));
         player.openInventory(inv);
     }
     private void openWorth(Player player) {
@@ -176,33 +171,112 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = event.getView().getTitle();
         if (!title.equals(SELL_MARKER) && !title.equals(WORTH_MARKER)) return;
-        event.setCancelled(true);
-        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) return;
-        int slot = event.getRawSlot();
-        if (slot < 0 || slot >= 45) return;
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked == null || clicked.getType().isAir()) return;
-        if (title.equals(WORTH_MARKER)) return;
-        Material material = clicked.getType();
-        Double price = prices().get(material);
-        if (price == null) return;
-        int sold = 0;
-        for (int i = 0; i < 36; i++) {
-            ItemStack item = player.getInventory().getItem(i);
-            if (item == null || item.getType() != material) continue;
-            sold += item.getAmount();
-            player.getInventory().setItem(i, null);
+
+        int rawSlot = event.getRawSlot();
+        Inventory top = event.getView().getTopInventory();
+
+        if (title.equals(SELL_MARKER)) {
+            // The top 45 slots are a real deposit area: players may place, take, and rearrange items.
+            if (rawSlot >= 0 && rawSlot < 45) {
+                if (event.isShiftClick()) {
+                    event.setCancelled(true);
+                    ItemStack moving = event.getCurrentItem();
+                    if (event.getClickedInventory() == player.getInventory() && moving != null && !moving.getType().isAir()) {
+                        Map<Integer, ItemStack> leftovers = top.addItem(moving.clone());
+                        int moved = moving.getAmount();
+                        for (ItemStack left : leftovers.values()) moved -= left.getAmount();
+                        if (moved > 0) {
+                            if (moved >= moving.getAmount()) player.getInventory().setItem(event.getSlot(), null);
+                            else moving.setAmount(moving.getAmount() - moved);
+                        }
+                    }
+                }
+                return;
+            }
+            // Control row must never be moved or taken.
+            if (rawSlot >= 45 && rawSlot < 54) {
+                event.setCancelled(true);
+                if (rawSlot == 49) sellContents(player, top);
+                else if (rawSlot == 53) player.closeInventory();
+            } else if (event.isShiftClick()) {
+                // Shift-click from player inventory: route items only into deposit slots 0-44.
+                event.setCancelled(true);
+                if (event.getClickedInventory() == player.getInventory()) {
+                    ItemStack moving = event.getCurrentItem();
+                    if (moving != null && !moving.getType().isAir()) {
+                        ItemStack remaining = moving.clone();
+                        for (int i = 0; i < 45 && remaining.getAmount() > 0; i++) {
+                            ItemStack existing = top.getItem(i);
+                            if (existing == null || existing.getType().isAir()) {
+                                top.setItem(i, remaining.clone());
+                                remaining.setAmount(0);
+                                break;
+                            }
+                            if (existing.isSimilar(remaining) && existing.getAmount() < existing.getMaxStackSize()) {
+                                int transfer = Math.min(remaining.getAmount(), existing.getMaxStackSize() - existing.getAmount());
+                                existing.setAmount(existing.getAmount() + transfer);
+                                remaining.setAmount(remaining.getAmount() - transfer);
+                            }
+                        }
+                        int moved = moving.getAmount() - remaining.getAmount();
+                        if (moved > 0) {
+                            if (remaining.getAmount() == 0) player.getInventory().setItem(event.getSlot(), null);
+                            else moving.setAmount(remaining.getAmount());
+                        }
+                    }
+                }
+            }
+            return;
         }
-        if (sold == 0) { player.sendMessage(ChatColor.RED + "You no longer have that item."); player.closeInventory(); return; }
-        double earned = sold * price;
+
+        // Worth GUI is display-only.
+        event.setCancelled(true);
+    }
+
+    private void sellContents(Player player, Inventory inv) {
+        Map<Material, Double> prices = prices();
+        int soldCount = 0;
+        double earned = 0;
+        List<String> kept = new ArrayList<>();
+        for (int slot = 0; slot < 45; slot++) {
+            ItemStack item = inv.getItem(slot);
+            if (item == null || item.getType().isAir()) continue;
+            Double unitPrice = prices.get(item.getType());
+            if (unitPrice == null || unitPrice <= 0) {
+                kept.add(prettify(item.getType()));
+                continue;
+            }
+            soldCount += item.getAmount();
+            earned += item.getAmount() * unitPrice;
+            inv.setItem(slot, null);
+        }
+        if (soldCount == 0) {
+            player.sendMessage(ChatColor.RED + "No sellable items found in the sell chest. Unpriced items are kept.");
+            return;
+        }
         setBalance(player.getUniqueId(), balance(player.getUniqueId()) + earned);
         saveBalances();
-        player.sendMessage(ChatColor.GREEN + "Sold " + sold + " " + prettify(material) + " for $" + money.format(earned) + ".");
-        openSell(player);
+        player.sendMessage(ChatColor.GREEN + "Sold " + soldCount + " items from the sell chest for $" + money.format(earned) + ".");
+        if (!kept.isEmpty()) player.sendMessage(ChatColor.YELLOW + "Kept items without a sell price: " + String.join(", ", new LinkedHashSet<>(kept)) + ".");
+        // Keep the GUI open so the player can deposit and sell another batch.
+        player.updateInventory();
     }
+
     @EventHandler public void onInventoryDrag(InventoryDragEvent event) {
         String title = event.getView().getTitle();
-        if (title.equals(SELL_MARKER) || title.equals(WORTH_MARKER)) event.setCancelled(true);
+        if (title.equals(WORTH_MARKER)) {
+            event.setCancelled(true);
+            return;
+        }
+        if (title.equals(SELL_MARKER)) {
+            // Permit dragging into the deposit area, but not into the protected control row.
+            for (int rawSlot : event.getRawSlots()) {
+                if (rawSlot >= 45) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+        }
     }
     @EventHandler public void onJoin(PlayerJoinEvent event) { updatePlayerDisplay(event.getPlayer()); }
 
