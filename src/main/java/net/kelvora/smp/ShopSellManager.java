@@ -233,40 +233,112 @@ final class ShopSellManager implements Listener {
         }
         if (!title.equals(SELL)) return;
         int raw = e.getRawSlot();
+        Inventory top = e.getView().getTopInventory();
         if (raw >= SELL_SLOTS && raw < 54) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p)) return;
             String action = action(e.getCurrentItem());
             if ("cancel".equals(action)) p.closeInventory();
-            else if ("total".equals(action)) tellSellTotal(p, e.getView().getTopInventory());
-            else if ("confirm".equals(action)) confirmSell(p, e.getView().getTopInventory());
+            else if ("total".equals(action)) tellSellTotal(p, top);
+            else if ("confirm".equals(action)) confirmSell(p, top);
             return;
         }
-        if (e.getClickedInventory() == e.getView().getBottomInventory() && e.isShiftClick()) {
+
+        if (raw >= 0 && raw < SELL_SLOTS && e.getClickedInventory() == top) {
+            // Handle sell slots ourselves so other inventory listeners/client prediction
+            // cannot immediately bounce a deposited item back into the player's inventory.
+            e.setCancelled(true);
+            if (e.getWhoClicked() instanceof Player p) {
+                handleSellSlotClick(p, top, raw, e.getClick());
+            }
+        } else if (e.getClickedInventory() == e.getView().getBottomInventory() && e.isShiftClick()) {
             e.setCancelled(true);
             ItemStack stack = e.getCurrentItem();
-            if (stack == null || stack.getType().isAir()) return;
-            Inventory top = e.getView().getTopInventory();
-            int remaining = stack.getAmount();
-            for (int i = 0; i < SELL_SLOTS && remaining > 0; i++) {
-                ItemStack existing = top.getItem(i);
-                if (existing == null || existing.getType().isAir()) {
-                    int moved = Math.min(remaining, stack.getMaxStackSize());
-                    ItemStack placed = stack.clone(); placed.setAmount(moved); top.setItem(i, placed);
-                    remaining -= moved;
-                } else if (existing.isSimilar(stack) && existing.getAmount() < existing.getMaxStackSize()) {
-                    int moved = Math.min(remaining, existing.getMaxStackSize() - existing.getAmount());
-                    existing.setAmount(existing.getAmount() + moved);
-                    remaining -= moved;
+            if (stack != null && !stack.getType().isAir()) {
+                int remaining = stack.getAmount();
+                for (int i = 0; i < SELL_SLOTS && remaining > 0; i++) {
+                    ItemStack existing = top.getItem(i);
+                    if (existing == null || existing.getType().isAir()) {
+                        int moved = Math.min(remaining, stack.getMaxStackSize());
+                        ItemStack placed = stack.clone();
+                        placed.setAmount(moved);
+                        top.setItem(i, placed);
+                        remaining -= moved;
+                    } else if (existing.isSimilar(stack) && existing.getAmount() < existing.getMaxStackSize()) {
+                        int moved = Math.min(remaining, existing.getMaxStackSize() - existing.getAmount());
+                        existing.setAmount(existing.getAmount() + moved);
+                        remaining -= moved;
+                    }
                 }
+                if (remaining <= 0) e.getClickedInventory().setItem(e.getSlot(), null);
+                else if (remaining < stack.getAmount()) stack.setAmount(remaining);
             }
-            if (remaining == 0) e.getClickedInventory().setItem(e.getSlot(), null);
-            else if (remaining < stack.getAmount()) stack.setAmount(remaining);
+        } else if (raw >= 0 && raw < 54 && e.getClickedInventory() == top) {
+            e.setCancelled(true);
         }
-        Inventory top = e.getView().getTopInventory();
+
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (pStillViewingSell(e.getWhoClicked(), top)) updateSellButton(top);
         });
+    }
+
+    private void handleSellSlotClick(Player player, Inventory top, int slotIndex, ClickType click) {
+        if (click != ClickType.LEFT && click != ClickType.RIGHT) return;
+        ItemStack slot = top.getItem(slotIndex);
+        ItemStack cursor = player.getItemOnCursor();
+        boolean slotEmpty = slot == null || slot.getType().isAir();
+        boolean cursorEmpty = cursor == null || cursor.getType().isAir();
+
+        if (cursorEmpty) {
+            if (slotEmpty) return;
+            if (click == ClickType.LEFT) {
+                player.setItemOnCursor(slot.clone());
+                top.setItem(slotIndex, null);
+            } else {
+                int take = (slot.getAmount() + 1) / 2;
+                ItemStack pickedUp = slot.clone();
+                pickedUp.setAmount(take);
+                player.setItemOnCursor(pickedUp);
+                int left = slot.getAmount() - take;
+                if (left <= 0) top.setItem(slotIndex, null);
+                else {
+                    slot.setAmount(left);
+                    top.setItem(slotIndex, slot);
+                }
+            }
+            return;
+        }
+
+        if (slotEmpty) {
+            ItemStack placed = cursor.clone();
+            int amount = click == ClickType.LEFT ? cursor.getAmount() : 1;
+            placed.setAmount(amount);
+            top.setItem(slotIndex, placed);
+            int left = cursor.getAmount() - amount;
+            if (left <= 0) player.setItemOnCursor(null);
+            else {
+                cursor.setAmount(left);
+                player.setItemOnCursor(cursor);
+            }
+            return;
+        }
+
+        if (slot.isSimilar(cursor)) {
+            int capacity = slot.getMaxStackSize() - slot.getAmount();
+            if (capacity <= 0) return;
+            int amount = Math.min(capacity, click == ClickType.LEFT ? cursor.getAmount() : 1);
+            slot.setAmount(slot.getAmount() + amount);
+            top.setItem(slotIndex, slot);
+            int left = cursor.getAmount() - amount;
+            if (left <= 0) player.setItemOnCursor(null);
+            else {
+                cursor.setAmount(left);
+                player.setItemOnCursor(cursor);
+            }
+        } else if (click == ClickType.LEFT) {
+            top.setItem(slotIndex, cursor.clone());
+            player.setItemOnCursor(slot.clone());
+        }
     }
 
     private boolean pStillViewingSell(org.bukkit.entity.HumanEntity human, Inventory inv) {
