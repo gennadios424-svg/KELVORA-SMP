@@ -28,6 +28,10 @@ jobs:
           java -jar cfr.jar 'KelvoraSMP-2.0.0 (2).jar' --outputdir work/decompiled --silent true
           cp work/decompiled/net/kelvora/smp/KelvoraSMP.java work/src/main/java/net/kelvora/smp/
           cp work/decompiled/net/kelvora/smp/WorthManager.java work/src/main/java/net/kelvora/smp/
+          sed -i 's/List list = this.prices.entrySet()/List<Map.Entry<Material, Double>> list = this.prices.entrySet()/' work/src/main/java/net/kelvora/smp/WorthManager.java
+          sed -i 's/Comparator<Map.Entry> alpha = Comparator.comparing(e -> WorthManager.pretty((Material)e.getKey()).toLowerCase(Locale.ROOT));/Comparator<Map.Entry<Material, Double>> alpha = Comparator.comparing(e -> WorthManager.pretty(e.getKey()).toLowerCase(Locale.ROOT));/' work/src/main/java/net/kelvora/smp/WorthManager.java
+          sed -i 's/Comparator.comparingDouble(e -> (Double)e.getValue())/Comparator.<Map.Entry<Material, Double>>comparingDouble(e -> e.getValue())/g' work/src/main/java/net/kelvora/smp/WorthManager.java
+          sed -i 's/(Object)this.encode(state)/this.encode(state)/g; s/(Object)action/action/g' work/src/main/java/net/kelvora/smp/WorthManager.java
           cp work/resources/META-INF/maven/net.kelvora/kelvora-smp/pom.xml work/pom.xml
           cp work/resources/config.yml work/src/main/resources/config.yml
           cp work/resources/plugin.yml work/src/main/resources/plugin.yml
