@@ -19,7 +19,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
       - name: Recover original Java sources and project metadata
         run: |
           curl -fL --retry 3 -o cfr.jar https://www.benf.org/other/cfr/cfr-0.152.jar
@@ -156,8 +155,8 @@ jobs:
 
               @EventHandler
               public void onClick(InventoryClickEvent e) {
-                  String title = e.getView().title().toString();
-                  if (title.equals(Component.text(MAIN).toString())) {
+                  String title = e.getView().getTitle();
+                  if (title.equals(MAIN)) {
                       e.setCancelled(true);
                       if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
                       ItemStack clicked = e.getCurrentItem();
@@ -167,7 +166,7 @@ jobs:
                       else if (action.equals("close")) p.closeInventory();
                       return;
                   }
-                  if (title.startsWith(Component.text(CATEGORY).toString())) {
+                  if (title.startsWith(CATEGORY)) {
                       e.setCancelled(true);
                       if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
                       String action = action(e.getCurrentItem());
@@ -178,7 +177,7 @@ jobs:
                       else if (action.startsWith("buy:")) buy(p, Material.matchMaterial(action.substring(4)), e.isShiftClick() ? 64 : 1);
                       return;
                   }
-                  if (!title.equals(Component.text(SELL).toString())) return;
+                  if (!title.equals(SELL)) return;
                   int raw = e.getRawSlot();
                   if (raw >= 45 && raw < 54) {
                       e.setCancelled(true);
@@ -204,8 +203,8 @@ jobs:
 
               @EventHandler
               public void onDrag(InventoryDragEvent e) {
-                  String title = e.getView().title().toString();
-                  if (title.equals(Component.text(MAIN).toString()) || title.startsWith(Component.text(CATEGORY).toString())) { e.setCancelled(true); return; }
+                  String title = e.getView().getTitle();
+                  if (title.equals(Component.text(MAIN).toString()) || title.startsWith(CATEGORY)) { e.setCancelled(true); return; }
                   if (title.equals(Component.text(SELL).toString()) && e.getRawSlots().stream().anyMatch(s -> s >= 45 && s < 54)) e.setCancelled(true);
               }
 
