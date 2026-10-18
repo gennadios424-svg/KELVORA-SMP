@@ -72,9 +72,9 @@ jobs:
           import org.bukkit.plugin.java.JavaPlugin;
 
           final class ShopSellManager implements Listener {
-              private static final String MAIN = "§2§lKELVORA  /  SHOP";
-              private static final String SELL = "§2§lKELVORA  /  SELL";
-              private static final String CATEGORY = "§2§lKELVORA  /  ";
+              private static final String MAIN = "KELVORA  /  SHOP";
+              private static final String SELL = "KELVORA  /  SELL";
+              private static final String CATEGORY = "KELVORA  /  ";
               private static final DecimalFormat MONEY = new DecimalFormat("#,##0.##");
               private final JavaPlugin plugin;
               private final NamespacedKey actionKey;
@@ -102,7 +102,7 @@ jobs:
               }
 
               private void openShop(Player p) {
-                  Inventory inv = Bukkit.createInventory(null, 54, Component.text(MAIN));
+                  Inventory inv = Bukkit.createInventory(null, 54, Component.text(MAIN, NamedTextColor.DARK_GREEN));
                   fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
                   put(inv, 10, Material.STONE, "Blocks", "cat:blocks", "Building blocks and materials");
                   put(inv, 12, Material.COOKED_BEEF, "Food", "cat:food", "Food and useful supplies");
@@ -114,7 +114,7 @@ jobs:
               }
 
               private void openCategory(Player p, String cat) {
-                  Inventory inv = Bukkit.createInventory(null, 54, Component.text(CATEGORY + cat.toUpperCase(Locale.ROOT)));
+                  Inventory inv = Bukkit.createInventory(null, 54, Component.text(CATEGORY + cat.toUpperCase(Locale.ROOT), NamedTextColor.DARK_GREEN));
                   List<Material> items = categoryItems(cat);
                   int slot = 0;
                   for (Material m : items) {
@@ -155,7 +155,7 @@ jobs:
               }
 
               private void openSell(Player p) {
-                  Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL));
+                  Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL, NamedTextColor.DARK_GREEN));
                   put(inv, 45, Material.BARRIER, "Cancel / Return Items", "cancel", "Close and return all deposited items");
                   put(inv, 49, Material.GOLD_INGOT, "Calculate Total", "total", "Show the value of sellable items");
                   put(inv, 53, Material.LIME_CONCRETE, "Sell Deposited Items", "confirm", "Sell everything sellable in the chest");
@@ -164,7 +164,7 @@ jobs:
 
               @EventHandler
               public void onClick(InventoryClickEvent e) {
-                  String title = e.getView().getTitle();
+                  String title = stripColor(e.getView().getTitle());
                   if (title.equals(MAIN)) {
                       e.setCancelled(true);
                       if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
@@ -213,13 +213,13 @@ jobs:
               @EventHandler
               public void onDrag(InventoryDragEvent e) {
                   String title = e.getView().getTitle();
-                  if (title.equals(Component.text(MAIN).toString()) || title.startsWith(CATEGORY)) { e.setCancelled(true); return; }
-                  if (title.equals(Component.text(SELL).toString()) && e.getRawSlots().stream().anyMatch(s -> s >= 45 && s < 54)) e.setCancelled(true);
+                  if (title.equals(MAIN) || title.startsWith(CATEGORY)) { e.setCancelled(true); return; }
+                  if (title.equals(SELL) && e.getRawSlots().stream().anyMatch(s -> s >= 45 && s < 54)) e.setCancelled(true);
               }
 
               @EventHandler
               public void onClose(InventoryCloseEvent e) {
-                  if (!e.getView().title().toString().equals(Component.text(SELL).toString())) return;
+                  if (!stripColor(e.getView().getTitle()).equals(SELL)) return;
                   Inventory top = e.getView().getTopInventory();
                   Player p = (Player)e.getPlayer();
                   for (int i=0;i<45;i++) {
@@ -301,7 +301,7 @@ jobs:
                   return item.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
               }
 
-              private String pretty(Material m) {
+              private String stripColor(String title) {\n              return title.replaceAll("(?i)§[0-9A-FK-OR]", "");\n          }\n\n          private String pretty(Material m) {
                   String[] words=m.name().toLowerCase(Locale.ROOT).split("_");
                   StringBuilder b=new StringBuilder();
                   for(String word:words){if(b.length()>0)b.append(' ');b.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));}
