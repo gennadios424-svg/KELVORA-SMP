@@ -32,13 +32,11 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import me.clip.placeholderapi.PlaceholderAPI;
 import net.kelvora.smp.WorthManager;
 import net.kyori.adventure.text.Component;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
-import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -60,7 +58,7 @@ import org.bukkit.scoreboard.Team;
 public final class KelvoraSMP
 extends JavaPlugin
 implements Listener {
-    private Economy economy;
+    private Object economy;
     private LuckPerms luckPerms;
     private boolean placeholderApi;
     private int refreshTask;
@@ -97,6 +95,29 @@ implements Listener {
         this.playerBoards.clear();
     }
 
+    private Object resolveEconomyProvider() {
+        if (!Bukkit.getPluginManager().isPluginEnabled("Vault")) return null;
+        try {
+            Class<?> economyType = Class.forName("net.milkbowl.vault.economy.Economy", true,
+                Bukkit.getPluginManager().getPlugin("Vault").getClass().getClassLoader());
+            RegisteredServiceProvider<?> registration = this.getServer().getServicesManager().getRegistration((Class) economyType);
+            return registration == null ? null : registration.getProvider();
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            this.getLogger().warning("Vault economy API unavailable; money will show Not connected.");
+            return null;
+        }
+    }
+
+    private double economyBalance(OfflinePlayer player) {
+        if (this.economy == null) return 0.0;
+        try {
+            Object value = this.economy.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(this.economy, player);
+            return value instanceof Number ? ((Number) value).doubleValue() : 0.0;
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            return 0.0;
+        }
+    }
+
     private void setupIntegrations() {
         RegisteredServiceProvider registration;
         if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
@@ -107,9 +128,7 @@ implements Listener {
                 this.getLogger().warning("LuckPerms API unavailable; ranks will use MEMBER fallback.");
             }
         }
-        if (Bukkit.getPluginManager().isPluginEnabled("Vault") && (registration = this.getServer().getServicesManager().getRegistration(Economy.class)) != null) {
-            this.economy = (Economy)registration.getProvider();
-        }
+        this.economy = this.resolveEconomyProvider();
         this.placeholderApi = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI");
         if (this.economy == null) {
             this.getLogger().warning("No Vault economy provider found. Sidebar will show Not connected for money.");
@@ -168,7 +187,7 @@ implements Listener {
         } else {
             objective.displayName((Component)Component.text((String)this.color(this.getConfig().getString("scoreboard.title", "&a&lKELVORA SMP"))));
         }
-        String money = this.economy == null ? this.color("&cNot connected") : this.formatMoney(this.economy.getBalance((OfflinePlayer)player));
+        String money = this.economy == null ? this.color("&cNot connected") : this.formatMoney(this.economyBalance(player));
         String kelvoras = this.getKelvoras(player);
         String[] lines = new String[]{this.color("&fRank &r" + rankColor + rankLabel), this.color("&fMoney &a$" + money), this.color("&fKelvoras &b" + kelvoras), this.color("&fOnline &a" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()), this.color("&7kelvorasmp.mcsh.gg")};
         for (int i = 0; i < lines.length; ++i) {
@@ -206,7 +225,13 @@ implements Listener {
         if (!this.placeholderApi) {
             return this.color("&cNot connected");
         }
-        String value = PlaceholderAPI.setPlaceholders((Player)player, (String)placeholder);
+        String value;
+        try {
+            Class<?> papi = Class.forName("me.clip.placeholderapi.PlaceholderAPI", true, this.getClass().getClassLoader());
+            value = (String) papi.getMethod("setPlaceholders", Player.class, String.class).invoke(null, player, placeholder);
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            return this.color("&cNot connected");
+        }
         if (value == null || value.isBlank() || value.equals(placeholder) || value.startsWith("%") && value.endsWith("%")) {
             return this.color("&cNot connected");
         }
