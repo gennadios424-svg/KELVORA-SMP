@@ -1,0 +1,28 @@
+server-ip: "kelvorasmp.mcsh.gg"
+brand: "KELVORA SMP"
+prices:
+  KELP: 200
+  SEA_PICKLE: 150
+  PINK_PETALS: 125
+  DIAMOND_HOE: 250
+  SHULKER_BOX: 200
+  NETHERITE_BLOCK: 250000
+  DRAGON_EGG: 2000000
+  BEACON: 400000
+  WHEAT: 12
+  CARROTS: 10
+  POTATO: 10
+  MELON_SLICE: 5
+  SUGAR_CANE: 8
+  BAMBOO: 4
+  COBBLESTONE: 1
+  STONE: 2
+  IRON_INGOT: 35
+  GOLD_INGOT: 50
+  DIAMOND: 150
+  EMERALD: 100
+gui:
+  sell-title: "§2§lKELVORA §8» §aSell Items"
+  worth-title: "§2§lKELVORA §8» §aItem Worth"
+sidebar:
+  enabled: true
