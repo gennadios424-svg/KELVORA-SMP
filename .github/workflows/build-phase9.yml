@@ -38,7 +38,7 @@ jobs:
           import re
           p = Path('src/main/resources/plugin.yml')
           s = p.read_text()
-          if not re.search(r'(?m)^commands:\\s*$', s):
+          if not re.search(r'(?m)^commands:\s*$', s):
               raise SystemExit('plugin.yml has no commands section')
           entries = '''commands:
             shop:
@@ -49,13 +49,13 @@ jobs:
               description: Open the Kelvora sell chest
               usage: /sell
               permission: kelvora.sell'''
-          s = re.sub(r'(?m)^commands:\\s*$', entries, s, count=1)
-          if not re.search(r'(?m)^permissions:\\s*$', s):
-              s += '\\npermissions:\\n'
-          if not re.search(r'(?m)^  kelvora\\.shop:', s):
-              s = re.sub(r'(?m)^permissions:\\s*$', 'permissions:\\n  kelvora.shop:\\n    description: Allows access to the Kelvora shop\\n    default: true', s, count=1)
-          if not re.search(r'(?m)^  kelvora\\.sell:', s):
-              s = re.sub(r'(?m)^permissions:\\s*$', 'permissions:\\n  kelvora.sell:\\n    description: Allows access to the Kelvora sell chest\\n    default: true', s, count=1)
+          s = re.sub(r'(?m)^commands:\s*$', entries, s, count=1)
+          if not re.search(r'(?m)^permissions:\s*$', s):
+              s += '\npermissions:\n'
+          if not re.search(r'(?m)^  kelvora\.shop:', s):
+              s = re.sub(r'(?m)^permissions:\s*$', 'permissions:\n  kelvora.shop:\n    description: Allows access to the Kelvora shop\n    default: true', s, count=1)
+          if not re.search(r'(?m)^  kelvora\.sell:', s):
+              s = re.sub(r'(?m)^permissions:\s*$', 'permissions:\n  kelvora.sell:\n    description: Allows access to the Kelvora sell chest\n    default: true', s, count=1)
           p.write_text(s)
           PY
           grep -nE 'main:|commands:|worth:|shop:' src/main/resources/plugin.yml
