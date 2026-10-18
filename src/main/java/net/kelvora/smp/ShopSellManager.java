@@ -223,7 +223,7 @@ final class ShopSellManager implements Listener {
         double unit = price(m) * 2.5;
         int qty = Math.min(amount, m.getMaxStackSize());
         double cost = unit * qty;
-        if (economy.getBalance(p) + 0.00001 < cost) { p.sendMessage(Component.text("Not enough money. Cost: $" + MONEY.format(cost), NamedTextColor.RED)); return; }
+        if (balance(p) + 0.00001 < cost) { p.sendMessage(Component.text("Not enough money. Cost: $" + MONEY.format(cost), NamedTextColor.RED)); return; }
         if (!p.getInventory().addItem(new ItemStack(m, qty)).isEmpty()) { p.sendMessage(Component.text("Make room in your inventory first.", NamedTextColor.RED)); return; }
         economyCall("withdrawPlayer", p, cost);
         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
@@ -261,7 +261,7 @@ final class ShopSellManager implements Listener {
 
     private void tellBalance(Player p) {
         if (economy == null) p.sendMessage(Component.text("Economy unavailable: Vault provider not found.", NamedTextColor.RED));
-        else p.sendMessage(Component.text("Balance: $" + MONEY.format(economy.getBalance(p)), NamedTextColor.GREEN));
+        else p.sendMessage(Component.text("Balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
     }
 
     private void put(Inventory inv, int slot, Material m, String label, String action, String lore) {
