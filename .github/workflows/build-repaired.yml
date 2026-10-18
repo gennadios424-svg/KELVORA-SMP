@@ -201,12 +201,23 @@ jobs:
                       e.setCancelled(true);
                       ItemStack stack = e.getCurrentItem();
                       if (stack == null || stack.getType().isAir()) return;
-                      Map<Integer, ItemStack> leftovers = e.getView().getTopInventory().addItem(stack.clone());
-                      if (leftovers.isEmpty()) e.getClickedInventory().setItem(e.getSlot(), null);
-                      else {
-                          int moved = stack.getAmount() - leftovers.values().stream().mapToInt(ItemStack::getAmount).sum();
-                          if (moved > 0) stack.setAmount(stack.getAmount() - moved);
+                      Inventory top = e.getView().getTopInventory();
+                      int remaining = stack.getAmount();
+                      for (int i = 0; i < 45 && remaining > 0; i++) {
+                          ItemStack existing = top.getItem(i);
+                          if (existing == null || existing.getType().isAir()) {
+                              int moved = Math.min(remaining, stack.getMaxStackSize());
+                              ItemStack placed = stack.clone(); placed.setAmount(moved); top.setItem(i, placed);
+                              remaining -= moved;
+                          } else if (existing.isSimilar(stack) && existing.getAmount() < existing.getMaxStackSize()) {
+                              int moved = Math.min(remaining, existing.getMaxStackSize() - existing.getAmount());
+                              existing.setAmount(existing.getAmount() + moved);
+                              remaining -= moved;
+                          }
                       }
+                      int moved = stack.getAmount() - remaining;
+                      if (remaining == 0) e.getClickedInventory().setItem(e.getSlot(), null);
+                      else if (moved > 0) stack.setAmount(remaining);
                   }
               }
 
