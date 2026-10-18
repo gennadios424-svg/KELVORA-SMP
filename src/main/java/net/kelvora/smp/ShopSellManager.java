@@ -78,11 +78,11 @@ final class ShopSellManager implements Listener {
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         put(inv, 10, Material.BRICKS, "Blocks", "cat:blocks:0", "Building materials and decoration");
         put(inv, 12, Material.COOKED_BEEF, "Food", "cat:food:0", "Food and survival supplies");
-        put(inv, 14, Material.OBSIDIAN, "PvP", "Crystal PvP consumables");
-        put(inv, 16, Material.HOPPER, "Redstone", "Components and storage");
-        put(inv, 29, Material.WHEAT, "Farm", "Seeds and farming supplies");
-        put(inv, 31, Material.NETHERRACK, "Nether Shop", "Nether materials and potions");
-        put(inv, 33, Material.END_STONE, "End Shop", "End building materials");
+        put(inv, 14, Material.OBSIDIAN, "PvP", "cat:pvp:0", "Crystal PvP consumables");
+        put(inv, 16, Material.HOPPER, "Redstone", "cat:redstone:0", "Components and storage");
+        put(inv, 29, Material.WHEAT, "Farm", "cat:farm:0", "Seeds and farming supplies");
+        put(inv, 31, Material.NETHERRACK, "Nether Shop", "cat:nether:0", "Nether materials and potions");
+        put(inv, 33, Material.END_STONE, "End Shop", "cat:end:0", "End building materials");
         put(inv, 49, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
     }
