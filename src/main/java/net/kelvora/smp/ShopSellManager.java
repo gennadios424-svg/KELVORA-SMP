@@ -2,29 +2,36 @@ package net.kelvora.smp;
 
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.*;
-import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.*;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionType;
 
 final class ShopSellManager implements Listener {
     private static final String MAIN = "KELVORA  /  SHOP";
     private static final String SELL = "KELVORA  /  SELL";
     private static final String CATEGORY = "KELVORA  /  ";
+    private static final int SELL_SLOTS = 45;
     private static final DecimalFormat MONEY = new DecimalFormat("#,##0.##");
     private final JavaPlugin plugin;
     private final NamespacedKey actionKey;
+    private final Set<UUID> transactions = ConcurrentHashMap.newKeySet();
     private Object economy;
 
     ShopSellManager(JavaPlugin plugin) {
@@ -33,17 +40,7 @@ final class ShopSellManager implements Listener {
     }
 
     void register() {
-        if (Bukkit.getPluginManager().isPluginEnabled("Vault")) {
-            try {
-                Class<?> economyType = Class.forName("net.milkbowl.vault.economy.Economy", true,
-                    Bukkit.getPluginManager().getPlugin("Vault").getClass().getClassLoader());
-                org.bukkit.plugin.RegisteredServiceProvider<?> registration =
-                    Bukkit.getServicesManager().getRegistration((Class) economyType);
-                if (registration != null) economy = registration.getProvider();
-            } catch (ReflectiveOperationException | LinkageError ex) {
-                plugin.getLogger().warning("Vault economy API unavailable; shop and sell money features are disabled.");
-            }
-        }
+        connectEconomy();
         if (plugin.getCommand("shop") != null) plugin.getCommand("shop").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof Player p)) { sender.sendMessage("Use this command in-game."); return true; }
             if (!p.hasPermission("kelvora.shop")) { p.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
@@ -55,66 +52,127 @@ final class ShopSellManager implements Listener {
             openSell(p); return true;
         });
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        // Some economy plugins register their Vault provider later in enable order.
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            connectEconomy();
+            if (economy == null) plugin.getLogger().warning("Shop/Sell Money integration is waiting for Vault and a registered economy provider.");
+            else plugin.getLogger().info("Shop/Sell connected to the server Money economy through Vault.");
+        });
+    }
+
+    private void connectEconomy() {
+        economy = null;
+        if (!Bukkit.getPluginManager().isPluginEnabled("Vault")) return;
+        try {
+            Class<?> type = Class.forName("net.milkbowl.vault.economy.Economy", true,
+                Bukkit.getPluginManager().getPlugin("Vault").getClass().getClassLoader());
+            RegisteredServiceProvider<?> registration = Bukkit.getServicesManager().getRegistration((Class) type);
+            if (registration != null) economy = registration.getProvider();
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            plugin.getLogger().warning("Vault economy API unavailable; shop/sell transactions are disabled until fixed.");
+        }
     }
 
     private void openShop(Player p) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(MAIN, NamedTextColor.DARK_GREEN));
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
-        put(inv, 10, Material.STONE, "Blocks", "cat:blocks", "Building blocks and materials");
-        put(inv, 12, Material.COOKED_BEEF, "Food", "cat:food", "Food and useful supplies");
-        put(inv, 14, Material.IRON_SWORD, "PvP", "cat:pvp", "Combat equipment");
-        put(inv, 16, Material.REDSTONE, "Redstone", "cat:redstone", "Redstone components");
-        put(inv, 31, Material.WHEAT, "Farm", "cat:farm", "Farming and mob drops");
+        put(inv, 10, Material.BRICKS, "Blocks", "cat:blocks:0", "Building materials and decoration");
+        put(inv, 12, Material.COOKED_BEEF, "Food", "cat:food:0", "Food and survival supplies");
+        put(inv, 14, Material.OBSIDIAN, "PvP", "Crystal PvP consumables");
+        put(inv, 16, Material.HOPPER, "Redstone", "Components and storage");
+        put(inv, 29, Material.WHEAT, "Farm", "Seeds and farming supplies");
+        put(inv, 31, Material.NETHERRACK, "Nether Shop", "Nether materials and potions");
+        put(inv, 33, Material.END_STONE, "End Shop", "End building materials");
         put(inv, 49, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
     }
 
-    private void openCategory(Player p, String cat) {
+    private void openCategory(Player p, String cat, int page) {
+        List<ShopEntry> entries = categoryEntries(cat);
+        int pages = Math.max(1, (entries.size() + 44) / 45);
+        page = Math.max(0, Math.min(page, pages - 1));
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(CATEGORY + cat.toUpperCase(Locale.ROOT), NamedTextColor.DARK_GREEN));
-        List<Material> items = categoryItems(cat);
-        int slot = 0;
-        for (Material m : items) {
-            if (slot >= 45 || !m.isItem()) continue;
-            double sell = price(m);
-            double buy = sell * 2.5;
-            ItemStack item = new ItemStack(m);
-            ItemMeta meta = item.getItemMeta();
-            meta.displayName(Component.text(pretty(m), NamedTextColor.WHITE));
-            meta.lore(List.of(Component.text("Buy: $" + MONEY.format(buy), NamedTextColor.GREEN),
-                Component.text("Sell value: $" + MONEY.format(sell), NamedTextColor.AQUA),
-                Component.text("Left-click: buy 1", NamedTextColor.GRAY),
-                Component.text("Shift-click: buy 64", NamedTextColor.GRAY)));
-            meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, "buy:" + m.name());
-            item.setItemMeta(meta);
-            inv.setItem(slot++, item);
+        for (int i = 0; i < 45; i++) {
+            int index = page * 45 + i;
+            if (index >= entries.size()) break;
+            inv.setItem(i, entries.get(index).createDisplay(actionKey, price(entries.get(index).material)));
         }
         put(inv, 45, Material.ARROW, "Back", "back", "Return to categories");
-        put(inv, 49, Material.EMERALD, "Balance", "balance", "Current balance");
+        if (page > 0) put(inv, 48, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
+        put(inv, 49, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
+        if (page + 1 < pages) put(inv, 50, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
+        put(inv, 51, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, 53, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
     }
 
-    private List<Material> categoryItems(String cat) {
-        return switch (cat) {
-            case "blocks" -> mats("STONE,COBBLESTONE,DEEPSLATE,COBBLED_DEEPSLATE,DIRT,SAND,GRAVEL,OAK_LOG,SPRUCE_LOG,OAK_PLANKS,SPRUCE_PLANKS,GLASS,BRICKS,OBSIDIAN,END_STONE,BLACKSTONE,IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK,CHEST,BARREL,HOPPER");
-            case "food" -> mats("BREAD,COOKED_BEEF,COOKED_PORKCHOP,COOKED_CHICKEN,COOKED_MUTTON,BAKED_POTATO,APPLE,GOLDEN_CARROT,GOLDEN_APPLE,COOKED_COD,COOKED_SALMON,PUMPKIN_PIE,COOKIE");
-            case "pvp" -> mats("SHIELD,IRON_SWORD,DIAMOND_SWORD,IRON_AXE,DIAMOND_AXE,BOW,CROSSBOW,ARROW,TRIDENT,IRON_HELMET,IRON_CHESTPLATE,IRON_LEGGINGS,IRON_BOOTS,DIAMOND_HELMET,DIAMOND_CHESTPLATE,DIAMOND_LEGGINGS,DIAMOND_BOOTS,ENDER_PEARL");
-            case "redstone" -> mats("REDSTONE,REDSTONE_BLOCK,REPEATER,COMPARATOR,OBSERVER,PISTON,STICKY_PISTON,DISPENSER,DROPPER,HOPPER,LEVER,STONE_BUTTON,REDSTONE_TORCH,TARGET");
-            default -> mats("WHEAT,WHEAT_SEEDS,CARROT,POTATO,BEETROOT,BEETROOT_SEEDS,SUGAR_CANE,PUMPKIN,MELON,CACTUS,BAMBOO,EGG,BONE,BONE_MEAL,ROTTEN_FLESH,STRING,SPIDER_EYE,GUNPOWDER,SLIME_BALL,ENDER_PEARL,BLAZE_ROD,GHAST_TEAR,MAGMA_CREAM,PHANTOM_MEMBRANE,KELP,SEA_PICKLE,PINK_PETALS");
+    private List<ShopEntry> categoryEntries(String cat) {
+        LinkedHashMap<Material, ShopEntry> entries = new LinkedHashMap<>();
+        List<ShopEntry> specialEntries = new ArrayList<>();
+        String csv = switch (cat) {
+            case "blocks" -> "STONE,COBBLESTONE,STONE_BRICKS,CRACKED_STONE_BRICKS,MOSSY_STONE_BRICKS,CHISELED_STONE_BRICKS,ANDESITE,DIORITE,GRANITE,DEEPSLATE,COBBLED_DEEPSLATE,DEEPSLATE_BRICKS,DEEPSLATE_TILES,DIRT,COARSE_DIRT,ROOTED_DIRT,GRASS_BLOCK,SAND,RED_SAND,GRAVEL,CLAY,BRICKS,BRICK,GLASS,GLASS_PANE,TERRACOTTA,SANDSTONE,CUT_SANDSTONE,SMOOTH_SANDSTONE,RED_SANDSTONE,QUARTZ_BLOCK,QUARTZ_BRICKS,CHISELED_QUARTZ_BLOCK,SMOOTH_QUARTZ,PRISMARINE,PRISMARINE_BRICKS,DARK_PRISMARINE,SEA_LANTERN,BOOKSHELF,CRAFTING_TABLE,CHEST,BARREL,IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK";
+            case "food" -> "BREAD,COOKED_BEEF,COOKED_PORKCHOP,COOKED_CHICKEN,COOKED_MUTTON,COOKED_RABBIT,COOKED_COD,COOKED_SALMON,BAKED_POTATO,GOLDEN_CARROT,APPLE,CARROT,POTATO,PUMPKIN_PIE,COOKIE,MELON_SLICE,SWEET_BERRIES,GLOW_BERRIES,DRIED_KELP";
+            case "pvp" -> "OBSIDIAN,END_CRYSTAL,TOTEM_OF_UNDYING,RESPAWN_ANCHOR,GLOWSTONE,EXPERIENCE_BOTTLE,GOLDEN_APPLE,ENDER_PEARL,ENDER_CHEST,ENDER_EYE,ARROW,SPECTRAL_ARROW";
+            case "redstone" -> "REDSTONE,REDSTONE_TORCH,REPEATER,COMPARATOR,OBSERVER,PISTON,STICKY_PISTON,HOPPER,DROPPER,DISPENSER,REDSTONE_LAMP,LEVER,STONE_BUTTON,STONE_PRESSURE_PLATE,TRIPWIRE_HOOK,TARGET,DAYLIGHT_DETECTOR,NOTE_BLOCK,RAIL,POWERED_RAIL,DETECTOR_RAIL,ACTIVATOR_RAIL,MINECART,HOPPER_MINECART,SLIME_BLOCK,HONEY_BLOCK,CHEST,TRAPPED_CHEST,SHULKER_BOX";
+            case "farm" -> "WHEAT_SEEDS,CARROT,POTATO,BEETROOT_SEEDS,PUMPKIN_SEEDS,MELON_SEEDS,WHEAT,SUGAR_CANE,PUMPKIN,MELON,CACTUS,BAMBOO,COCOA_BEANS,NETHER_WART,BONE_MEAL,COMPOSTER,FLOWER_POT,WATER_BUCKET,LAVA_BUCKET,SHEARS,LEAD";
+            case "nether" -> "NETHERRACK,NETHER_BRICKS,RED_NETHER_BRICKS,BLACKSTONE,GILDED_BLACKSTONE,POLISHED_BLACKSTONE,POLISHED_BLACKSTONE_BRICKS,BASALT,POLISHED_BASALT,SMOOTH_BASALT,SOUL_SAND,SOUL_SOIL,GLOWSTONE,MAGMA_BLOCK,NETHER_QUARTZ_ORE,QUARTZ,NETHER_WART,BLAZE_ROD,BLAZE_POWDER,CRYING_OBSIDIAN,OBSIDIAN,GHAST_TEAR,MAGMA_CREAM";
+            case "end" -> "END_STONE,END_STONE_BRICKS,PURPUR_BLOCK,PURPUR_PILLAR,PURPUR_STAIRS,PURPUR_SLAB,END_ROD,CHORUS_FRUIT,POPPED_CHORUS_FRUIT,ENDER_PEARL,ENDER_EYE";
+            default -> "";
         };
+        for (String raw : csv.split(",")) {
+            Material m = Material.matchMaterial(raw.trim().toUpperCase(Locale.ROOT));
+            if (m != null && m.isItem()) entries.putIfAbsent(m, new ShopEntry(m, null, 0));
+        }
+        if (cat.equals("blocks")) {
+            addColorVariants(entries, "WOOL");
+            addColorVariants(entries, "CONCRETE");
+            addColorVariants(entries, "CONCRETE_POWDER");
+            addColorVariants(entries, "TERRACOTTA");
+            addColorVariants(entries, "STAINED_GLASS");
+            addColorVariants(entries, "STAINED_GLASS_PANE");
+            for (String wood : List.of("OAK","SPRUCE","BIRCH","JUNGLE","ACACIA","DARK_OAK","MANGROVE","CHERRY","BAMBOO","CRIMSON","WARPED")) {
+                for (String suffix : List.of("_LOG","_WOOD","_PLANKS","_SLAB","_STAIRS","_FENCE","_FENCE_GATE","_DOOR","_TRAPDOOR")) {
+                    Material m = Material.matchMaterial(wood + suffix);
+                    if (m != null && m.isItem()) entries.putIfAbsent(m, new ShopEntry(m, null, 0));
+                }
+            }
+        }
+        if (cat.equals("pvp") || cat.equals("nether")) {
+            List<String> potions = cat.equals("pvp")
+                ? List.of("FIRE_RESISTANCE","LONG_FIRE_RESISTANCE","STRENGTH","LONG_STRENGTH","SWIFTNESS","LONG_SWIFTNESS","HEALING","STRONG_HEALING","REGENERATION","LONG_REGENERATION","SLOW_FALLING","LONG_SLOW_FALLING")
+                : List.of("FIRE_RESISTANCE","LONG_FIRE_RESISTANCE","STRENGTH","LONG_STRENGTH","REGENERATION","LONG_REGENERATION");
+            for (String type : potions) {
+                try {
+                    PotionType potion = PotionType.valueOf(type);
+                    specialEntries.add(new ShopEntry(Material.POTION, type, potionCost(type)));
+                } catch (IllegalArgumentException ignored) { }
+            }
+        }
+        List<ShopEntry> result = new ArrayList<>(entries.values());
+        result.addAll(specialEntries);
+        return result;
     }
 
-    private List<Material> mats(String csv) {
-        List<Material> out = new ArrayList<>();
-        for (String s : csv.split(",")) { Material m = Material.matchMaterial(s); if (m != null) out.add(m); }
-        return out;
+    private void addColorVariants(Map<Material, ShopEntry> entries, String suffix) {
+        for (String color : List.of("WHITE","ORANGE","MAGENTA","LIGHT_BLUE","YELLOW","LIME","PINK","GRAY","LIGHT_GRAY","CYAN","PURPLE","BLUE","BROWN","GREEN","RED","BLACK")) {
+            Material m = Material.matchMaterial(color + "_" + suffix);
+            if (m != null && m.isItem()) entries.putIfAbsent(m, new ShopEntry(m, null, 0));
+        }
+    }
+
+    private double potionCost(String type) {
+        if (type.contains("FIRE_RESISTANCE")) return 1800;
+        if (type.contains("STRENGTH")) return 2200;
+        if (type.contains("HEALING")) return 1200;
+        if (type.contains("REGENERATION")) return 2500;
+        return 1000;
     }
 
     private void openSell(Player p) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL, NamedTextColor.DARK_GREEN));
         put(inv, 45, Material.BARRIER, "Cancel / Return Items", "cancel", "Close and return all deposited items");
-        put(inv, 49, Material.GOLD_INGOT, "Calculate Total", "total", "Show the value of sellable items");
-        put(inv, 53, Material.LIME_CONCRETE, "Sell Deposited Items", "confirm", "Sell everything sellable in the chest");
+        put(inv, 49, Material.GOLD_INGOT, "Total: $0", "total", "Items in slots 1-45 are sellable");
+        put(inv, 53, Material.LIME_CONCRETE, "Sell Deposited Items", "confirm", "Sell eligible items for Money");
         p.openInventory(inv);
     }
 
@@ -124,11 +182,12 @@ final class ShopSellManager implements Listener {
         if (title.equals(MAIN)) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
-            ItemStack clicked = e.getCurrentItem();
-            String action = action(clicked);
+            String action = action(e.getCurrentItem());
             if (action == null) return;
-            if (action.startsWith("cat:")) openCategory(p, action.substring(4));
-            else if (action.equals("close")) p.closeInventory();
+            if (action.startsWith("cat:")) {
+                String[] bits = action.split(":");
+                if (bits.length >= 3) openCategory(p, bits[1], parsePage(bits[2]));
+            } else if (action.equals("close")) p.closeInventory();
             return;
         }
         if (title.startsWith(CATEGORY)) {
@@ -139,12 +198,16 @@ final class ShopSellManager implements Listener {
             if (action.equals("back")) openShop(p);
             else if (action.equals("close")) p.closeInventory();
             else if (action.equals("balance")) tellBalance(p);
-            else if (action.startsWith("buy:")) buy(p, Material.matchMaterial(action.substring(4)), e.isShiftClick() ? 64 : 1);
+            else if (action.startsWith("page:")) {
+                String[] bits = action.split(":");
+                if (bits.length == 3) openCategory(p, bits[1], parsePage(bits[2]));
+            } else if (action.startsWith("buyPotion:")) buyPotion(p, action.substring("buyPotion:".length()));
+            else if (action.startsWith("buy:")) buy(p, Material.matchMaterial(action.substring(4)), e.isShiftClick() ? 64 : e.isRightClick() ? 16 : 1);
             return;
         }
         if (!title.equals(SELL)) return;
         int raw = e.getRawSlot();
-        if (raw >= 45 && raw < 54) {
+        if (raw >= SELL_SLOTS && raw < 54) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p)) return;
             String action = action(e.getCurrentItem());
@@ -159,7 +222,7 @@ final class ShopSellManager implements Listener {
             if (stack == null || stack.getType().isAir()) return;
             Inventory top = e.getView().getTopInventory();
             int remaining = stack.getAmount();
-            for (int i = 0; i < 45 && remaining > 0; i++) {
+            for (int i = 0; i < SELL_SLOTS && remaining > 0; i++) {
                 ItemStack existing = top.getItem(i);
                 if (existing == null || existing.getType().isAir()) {
                     int moved = Math.min(remaining, stack.getMaxStackSize());
@@ -171,17 +234,28 @@ final class ShopSellManager implements Listener {
                     remaining -= moved;
                 }
             }
-            int moved = stack.getAmount() - remaining;
             if (remaining == 0) e.getClickedInventory().setItem(e.getSlot(), null);
-            else if (moved > 0) stack.setAmount(remaining);
+            else if (remaining < stack.getAmount()) stack.setAmount(remaining);
         }
+        Inventory top = e.getView().getTopInventory();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (pStillViewingSell(e.getWhoClicked(), top)) updateSellButton(top);
+        });
+    }
+
+    private boolean pStillViewingSell(org.bukkit.entity.HumanEntity human, Inventory inv) {
+        return human.getOpenInventory().getTopInventory() == inv && stripColor(human.getOpenInventory().getTitle()).equals(SELL);
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent e) {
-        String title = e.getView().getTitle();
+        String title = stripColor(e.getView().getTitle());
         if (title.equals(MAIN) || title.startsWith(CATEGORY)) { e.setCancelled(true); return; }
-        if (title.equals(SELL) && e.getRawSlots().stream().anyMatch(s -> s >= 45 && s < 54)) e.setCancelled(true);
+        if (title.equals(SELL)) {
+            if (e.getRawSlots().stream().anyMatch(s -> s >= SELL_SLOTS && s < 54)) { e.setCancelled(true); return; }
+            Inventory top = e.getView().getTopInventory();
+            Bukkit.getScheduler().runTask(plugin, () -> updateSellButton(top));
+        }
     }
 
     @EventHandler
@@ -189,68 +263,181 @@ final class ShopSellManager implements Listener {
         if (!stripColor(e.getView().getTitle()).equals(SELL)) return;
         Inventory top = e.getView().getTopInventory();
         Player p = (Player)e.getPlayer();
-        for (int i=0;i<45;i++) {
+        for (int i = 0; i < SELL_SLOTS; i++) {
             ItemStack item = top.getItem(i);
             if (item == null || item.getType().isAir()) continue;
-            Map<Integer, ItemStack> leftovers = p.getInventory().addItem(item);
+            Map<Integer, ItemStack> leftovers = p.getInventory().addItem(item.clone());
             leftovers.values().forEach(drop -> p.getWorld().dropItemNaturally(p.getLocation(), drop));
             top.setItem(i, null);
         }
     }
 
     private double balance(Player player) {
-        Object value = economyCall("getBalance", player);
-        return value instanceof Number ? ((Number) value).doubleValue() : 0.0;
+        Object value = economyCall("getBalance", player, null);
+        return value instanceof Number ? ((Number)value).doubleValue() : 0.0;
     }
 
-    private Object economyCall(String method, Player player, Object... args) {
+    private Object economyCall(String method, Player player, Double amount) {
         if (economy == null) return null;
         try {
-            if (args.length == 0) {
-                return economy.getClass().getMethod(method, org.bukkit.OfflinePlayer.class).invoke(economy, player);
-            }
-            return economy.getClass().getMethod(method, org.bukkit.OfflinePlayer.class, double.class)
-                .invoke(economy, player, ((Number) args[0]).doubleValue());
+            if (amount == null) return economy.getClass().getMethod(method, org.bukkit.OfflinePlayer.class).invoke(economy, player);
+            return economy.getClass().getMethod(method, org.bukkit.OfflinePlayer.class, double.class).invoke(economy, player, amount.doubleValue());
         } catch (ReflectiveOperationException | LinkageError ex) {
-            plugin.getLogger().warning("Economy operation failed: " + method);
+            plugin.getLogger().warning("Money transaction failed (" + method + "): " + ex.getClass().getSimpleName());
             return null;
         }
     }
 
-    private void buy(Player p, Material m, int amount) {
-        if (m == null) return;
-        if (economy == null) { p.sendMessage(Component.text("Shop is unavailable: install Vault and an economy provider.", NamedTextColor.RED)); return; }
-        double unit = price(m) * 2.5;
-        int qty = Math.min(amount, m.getMaxStackSize());
+    private boolean transactionSucceeded(Object response) {
+        if (response == null) return false;
+        try {
+            Object type = response.getClass().getField("type").get(response);
+            return type != null && type.toString().equalsIgnoreCase("SUCCESS");
+        } catch (ReflectiveOperationException ignored) {
+            try { return Boolean.TRUE.equals(response.getClass().getMethod("transactionSuccess").invoke(response)); }
+            catch (ReflectiveOperationException ex) { return false; }
+        }
+    }
+
+    private void buy(Player p, Material m, int requested) {
+        if (m == null || m.isAir()) return;
+        double worth = price(m);
+        if (worth <= 0) { p.sendMessage(Component.text("This item has no configured /worth price and cannot be bought.", NamedTextColor.RED)); return; }
+        buyStack(p, new ItemStack(m), requested, Math.max(worth * 1.5, worth + 0.01), pretty(m));
+    }
+
+    private void buyPotion(Player p, String type) {
+        try {
+            PotionType potionType = PotionType.valueOf(type);
+            ItemStack item = new ItemStack(Material.POTION);
+            PotionMeta meta = (PotionMeta)item.getItemMeta();
+            meta.setBasePotionType(potionType);
+            meta.displayName(Component.text(prettyPotion(type), NamedTextColor.WHITE));
+            item.setItemMeta(meta);
+            buyStack(p, item, 1, Math.max(potionCost(type), price(Material.POTION) + 0.01), prettyPotion(type));
+        } catch (IllegalArgumentException ex) {
+            p.sendMessage(Component.text("That potion is unavailable.", NamedTextColor.RED));
+        }
+    }
+
+    private void buyStack(Player p, ItemStack prototype, int requested, double unit, String name) {
+        if (economy == null) { p.sendMessage(Component.text("Money is not connected. Install Vault and an economy plugin, then restart.", NamedTextColor.RED)); return; }
+        int qty = Math.max(1, Math.min(requested, 64));
         double cost = unit * qty;
-        if (balance(p) + 0.00001 < cost) { p.sendMessage(Component.text("Not enough money. Cost: $" + MONEY.format(cost), NamedTextColor.RED)); return; }
-        if (!p.getInventory().addItem(new ItemStack(m, qty)).isEmpty()) { p.sendMessage(Component.text("Make room in your inventory first.", NamedTextColor.RED)); return; }
-        economyCall("withdrawPlayer", p, cost);
-        p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
-        p.sendMessage(Component.text("Bought " + qty + "x " + pretty(m) + " for $" + MONEY.format(cost), NamedTextColor.GREEN));
+        if (!Double.isFinite(cost) || cost <= 0) { p.sendMessage(Component.text("Invalid shop price.", NamedTextColor.RED)); return; }
+        if (balance(p) + 0.000001 < cost) { p.sendMessage(Component.text("Not enough Money. Cost: $" + MONEY.format(cost), NamedTextColor.RED)); return; }
+        ItemStack grant = prototype.clone();
+        grant.setAmount(qty);
+        if (!simulateAdd(p.getInventory(), grant).isEmpty()) { p.sendMessage(Component.text("Make room in your inventory first.", NamedTextColor.RED)); return; }
+        if (!transactions.add(p.getUniqueId())) return;
+        try {
+            Object response = economyCall("withdrawPlayer", p, cost);
+            if (!transactionSucceeded(response)) {
+                p.sendMessage(Component.text("Payment failed. No items were given.", NamedTextColor.RED)); return;
+            }
+            Map<Integer, ItemStack> failed = p.getInventory().addItem(grant);
+            if (!failed.isEmpty()) {
+                Object refund = economyCall("depositPlayer", p, cost);
+                failed.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
+                p.sendMessage(Component.text(transactionSucceeded(refund) ? "Inventory changed during purchase; payment refunded." : "Inventory changed; leftover items dropped safely. Please contact staff about the refund.", NamedTextColor.RED));
+                return;
+            }
+            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
+            p.sendMessage(Component.text("Bought " + qty + "x " + name + " for $" + MONEY.format(cost), NamedTextColor.GREEN));
+        } finally { transactions.remove(p.getUniqueId()); }
+    }
+
+    private Map<Integer, ItemStack> simulateAdd(PlayerInventory inventory, ItemStack grant) {
+        ItemStack[] contents = inventory.getStorageContents();
+        Inventory temp = Bukkit.createInventory(null, contents.length);
+        temp.setContents(contents);
+        return temp.addItem(grant.clone());
     }
 
     private void confirmSell(Player p, Inventory inv) {
-        if (economy == null) { p.sendMessage(Component.text("Selling is unavailable: install Vault and an economy provider.", NamedTextColor.RED)); return; }
-        double total = 0; int sold = 0;
-        for (int i=0;i<45;i++) {
-            ItemStack item = inv.getItem(i);
-            if (item == null || item.getType().isAir()) continue;
-            double unit = price(item.getType());
-            if (unit <= 0) continue;
-            total += unit * item.getAmount(); sold += item.getAmount(); inv.setItem(i, null);
+        if (economy == null) { p.sendMessage(Component.text("Money is not connected. Install Vault and an economy plugin, then restart.", NamedTextColor.RED)); return; }
+        if (!transactions.add(p.getUniqueId())) return;
+        try {
+            double total = 0;
+            int soldCount = 0;
+            Set<Integer> sellSlots = new LinkedHashSet<>();
+            for (int i = 0; i < SELL_SLOTS; i++) {
+                ItemStack item = inv.getItem(i);
+                if (item == null || item.getType().isAir()) continue;
+                Valuation valuation = valuation(item);
+                if (isShulker(item.getType()) && !valuation.valid) {
+                    p.sendMessage(Component.text("Sale stopped: every item inside a shulker must have a valid /worth price. Nothing was sold.", NamedTextColor.RED)); return;
+                }
+                if (!valuation.valid) continue;
+                total += valuation.value; soldCount += valuation.count; sellSlots.add(i);
+            }
+            if (sellSlots.isEmpty() || total <= 0 || !Double.isFinite(total)) {
+                p.sendMessage(Component.text("No items with a valid /worth price were found.", NamedTextColor.RED)); return;
+            }
+            Object response = economyCall("depositPlayer", p, total);
+            if (!transactionSucceeded(response)) {
+                p.sendMessage(Component.text("Money payment failed. Your items are still in the sell chest.", NamedTextColor.RED)); return;
+            }
+            for (int slot : sellSlots) inv.setItem(slot, null);
+            p.sendMessage(Component.text("Sold " + soldCount + " items for $" + MONEY.format(total), NamedTextColor.GREEN));
+            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, 1.0f);
+            p.closeInventory();
+        } finally { transactions.remove(p.getUniqueId()); }
+    }
+
+    private Valuation valuation(ItemStack item) {
+        if (item == null || item.getType().isAir()) return new Valuation(true, 0, 0);
+        double unit = price(item.getType());
+        if (unit <= 0) return new Valuation(false, 0, 0);
+        double total = unit * item.getAmount();
+        int count = item.getAmount();
+        if (item.getItemMeta() instanceof BlockStateMeta blockMeta && isShulker(item.getType())) {
+            if (!(blockMeta.getBlockState() instanceof ShulkerBox box)) return new Valuation(false, 0, 0);
+            for (ItemStack content : box.getInventory().getContents()) {
+                if (content == null || content.getType().isAir()) continue;
+                Valuation nested = valuation(content);
+                if (!nested.valid) return new Valuation(false, 0, 0);
+                total += nested.value * item.getAmount();
+                count += nested.count * item.getAmount();
+            }
         }
-        if (sold == 0) { p.sendMessage(Component.text("Put items into the chest first.", NamedTextColor.RED)); return; }
-        economyCall("depositPlayer", p, total);
-        p.sendMessage(Component.text("Sold " + sold + " items for $" + MONEY.format(total), NamedTextColor.GREEN));
-        p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, 1.0f);
-        p.closeInventory();
+        return Double.isFinite(total) ? new Valuation(true, total, count) : new Valuation(false, 0, 0);
+    }
+
+    private boolean isShulker(Material material) {
+        return material == Material.SHULKER_BOX || material.name().endsWith("_SHULKER_BOX");
     }
 
     private void tellSellTotal(Player p, Inventory inv) {
-        double total = 0; int count = 0;
-        for (int i=0;i<45;i++) { ItemStack item=inv.getItem(i); if(item!=null&&!item.getType().isAir()){total+=price(item.getType())*item.getAmount();count+=item.getAmount();} }
-        p.sendMessage(Component.text("Sell chest: " + count + " items worth $" + MONEY.format(total), NamedTextColor.GOLD));
+        double total = 0; int count = 0; boolean invalidShulker = false;
+        for (int i = 0; i < SELL_SLOTS; i++) {
+            ItemStack item = inv.getItem(i);
+            if (item == null || item.getType().isAir()) continue;
+            Valuation value = valuation(item);
+            if (isShulker(item.getType()) && !value.valid) invalidShulker = true;
+            else if (value.valid) { total += value.value; count += value.count; }
+        }
+        if (invalidShulker) p.sendMessage(Component.text("Total unavailable: a shulker contains an item without a valid /worth price.", NamedTextColor.RED));
+        else p.sendMessage(Component.text("Sell chest: " + count + " items worth $" + MONEY.format(total), NamedTextColor.GOLD));
+    }
+
+    private void updateSellButton(Inventory inv) {
+        if (inv == null || inv.getSize() < 54) return;
+        double total = 0; boolean invalidShulker = false;
+        for (int i = 0; i < SELL_SLOTS; i++) {
+            ItemStack item = inv.getItem(i);
+            if (item == null || item.getType().isAir()) continue;
+            Valuation v = valuation(item);
+            if (isShulker(item.getType()) && !v.valid) invalidShulker = true;
+            else if (v.valid) total += v.value;
+        }
+        ItemStack button = new ItemStack(Material.GOLD_INGOT);
+        ItemMeta meta = button.getItemMeta();
+        meta.displayName(Component.text(invalidShulker ? "Total: Cannot price shulker" : "Total: $" + MONEY.format(total), invalidShulker ? NamedTextColor.RED : NamedTextColor.GOLD));
+        meta.lore(List.of(Component.text("Click to calculate full value", NamedTextColor.GRAY)));
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, "total");
+        button.setItemMeta(meta);
+        inv.setItem(49, button);
     }
 
     private double price(Material m) {
@@ -260,7 +447,7 @@ final class ShopSellManager implements Listener {
     }
 
     private void tellBalance(Player p) {
-        if (economy == null) p.sendMessage(Component.text("Economy unavailable: Vault provider not found.", NamedTextColor.RED));
+        if (economy == null) p.sendMessage(Component.text("Money unavailable: Vault economy provider not found.", NamedTextColor.RED));
         else p.sendMessage(Component.text("Balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
     }
 
@@ -279,7 +466,7 @@ final class ShopSellManager implements Listener {
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(name, NamedTextColor.GRAY));
         item.setItemMeta(meta);
-        for (int i=0;i<inv.getSize();i++) inv.setItem(i,item);
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, item.clone());
     }
 
     private String action(ItemStack item) {
@@ -287,14 +474,58 @@ final class ShopSellManager implements Listener {
         return item.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
     }
 
-    private String stripColor(String title) {
-    return title.replaceAll("(?i)§[0-9A-FK-OR]", "");
-}
+    private String stripColor(String title) { return title.replaceAll("(?i)§[0-9A-FK-OR]", ""); }
+    private int parsePage(String value) { try { return Math.max(0, Integer.parseInt(value)); } catch (NumberFormatException ex) { return 0; } }
 
-private String pretty(Material m) {
-        String[] words=m.name().toLowerCase(Locale.ROOT).split("_");
-        StringBuilder b=new StringBuilder();
-        for(String word:words){if(b.length()>0)b.append(' ');b.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));}
-        return b.toString();
+    private String pretty(Material m) {
+        return Arrays.stream(m.name().toLowerCase(Locale.ROOT).split("_"))
+            .map(s -> Character.toUpperCase(s.charAt(0)) + s.substring(1)).reduce((a,b) -> a + " " + b).orElse(m.name());
+    }
+
+    private String prettyPotion(String type) {
+        String name = type.toLowerCase(Locale.ROOT).replace("long_", "extended ").replace("strong_", "strong ");
+        return Arrays.stream(name.split("_")).map(s -> Character.toUpperCase(s.charAt(0)) + s.substring(1))
+            .reduce((a,b) -> a + " " + b).orElse(name) + " Potion";
+    }
+
+    private record Valuation(boolean valid, double value, int count) { }
+
+    private static final class ShopEntry {
+        private final Material material;
+        private final String potionType;
+        private final double customPrice;
+        private ShopEntry(Material material, String potionType, double customPrice) {
+            this.material = material; this.potionType = potionType; this.customPrice = customPrice;
+        }
+        private ItemStack createDisplay(NamespacedKey actionKey, double worth) {
+            ItemStack item = new ItemStack(material);
+            if (potionType != null) {
+                PotionMeta pm = (PotionMeta)item.getItemMeta();
+                pm.setBasePotionType(PotionType.valueOf(potionType));
+                item.setItemMeta(pm);
+            }
+            ItemMeta meta = item.getItemMeta();
+            String label = potionType == null ? prettyStatic(material) : prettyPotionStatic(potionType);
+            meta.displayName(Component.text(label, NamedTextColor.WHITE));
+            double buy = customPrice > 0 ? Math.max(customPrice, worth + 0.01) : Math.max(worth * 1.5, worth + 0.01);
+            meta.lore(List.of(Component.text("Buy: $" + MONEY.format(buy), NamedTextColor.GREEN),
+                Component.text("Worth reference: $" + MONEY.format(worth), NamedTextColor.AQUA),
+                Component.text("Left-click: buy 1", NamedTextColor.GRAY),
+                Component.text("Right-click: buy 16", NamedTextColor.GRAY),
+                Component.text("Shift-click: buy 64", NamedTextColor.GRAY)));
+            meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING,
+                potionType == null ? "buy:" + material.name() : "buyPotion:" + potionType);
+            item.setItemMeta(meta);
+            return item;
+        }
+        private static String prettyStatic(Material m) {
+            return Arrays.stream(m.name().toLowerCase(Locale.ROOT).split("_"))
+                .map(s -> Character.toUpperCase(s.charAt(0)) + s.substring(1)).reduce((a,b) -> a + " " + b).orElse(m.name());
+        }
+        private static String prettyPotionStatic(String type) {
+            String name = type.toLowerCase(Locale.ROOT).replace("long_", "extended ").replace("strong_", "strong ");
+            return Arrays.stream(name.split("_")).map(s -> Character.toUpperCase(s.charAt(0)) + s.substring(1))
+                .reduce((a,b) -> a + " " + b).orElse(name) + " Potion";
+        }
     }
 }
