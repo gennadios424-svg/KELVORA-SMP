@@ -29,11 +29,11 @@ jobs:
       - name: Build plugin
         run: |
           mvn -B -ntp clean package
-          test -s target/KelvoraSMP-2.1.3.jar
-          jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'net/kelvora/smp/ShopSellManager.class'
+          test -s target/KelvoraSMP-2.1.4.jar
+          jar tf target/KelvoraSMP-2.1.4.jar | grep -q 'net/kelvora/smp/ShopSellManager.class'
           jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'net/kelvora/smp/KelvoraSMP.class'
           jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'plugin.yml'
-          unzip -p target/KelvoraSMP-2.1.3.jar plugin.yml | grep -q 'version: 2.1.3'
+          unzip -p target/KelvoraSMP-2.1.3.jar plugin.yml | grep -q 'version: 2.1.4'
       - name: Publish compiled JAR to repository
         run: |
           cp target/KelvoraSMP-2.1.3.jar KelvoraSMP-2.1.3.jar
