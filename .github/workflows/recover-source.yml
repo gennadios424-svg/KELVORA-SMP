@@ -1,0 +1,43 @@
+name: Recover Kelvora SMP source for repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/recover-source.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Download Java decompiler
+        run: |
+          curl -fL --retry 3 -o cfr.jar https://www.benf.org/other/cfr/cfr-0.152.jar
+      - name: Extract plugin metadata and decompile existing classes
+        run: |
+          mkdir -p recovered
+          cd recovered
+          jar xf '../KelvoraSMP-2.0.0 (2).jar'
+          cd ..
+          java -jar cfr.jar 'KelvoraSMP-2.0.0 (2).jar' --outputdir recovered-src --silent true
+          cp -R recovered recovered-src/resources
+          find recovered-src -maxdepth 4 -type f | sort | head -200
+      - name: Upload recovered source and resources
+        uses: actions/upload-artifact@v4
+        with:
+          name: kelvora-recovered-source
+          path: |
+            recovered-src/
+            cfr.jar
+          if-no-files-found: error
+          retention-days: 7
