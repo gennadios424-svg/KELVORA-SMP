@@ -124,11 +124,19 @@ final class ShopManager implements Listener {
         String title=e.getView().getTitle().replaceAll("\\s+", " ").trim();
         if (!title.startsWith("KELVORA / ")) return;
         e.setCancelled(true);
-        if (e.getClickedInventory()!=e.getView().getTopInventory() || e.getCurrentItem()==null || !e.getCurrentItem().hasItemMeta()) return;
-        String action=e.getCurrentItem().getItemMeta().getPersistentDataContainer().get(actionKey,PersistentDataType.STRING);
-        // Slot fallback keeps category browsing functional if item metadata was stripped by another plugin.
-        if (action == null && title.equals("KELVORA / SHOP") && e.getRawSlot() >= 10 && e.getRawSlot() <= 15) {
+        if (e.getClickedInventory()!=e.getView().getTopInventory()) return;
+        ItemStack clicked = e.getCurrentItem();
+        String action = null;
+        if (clicked != null && clicked.hasItemMeta()) {
+            action = clicked.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
+        }
+        // Always derive home navigation from the slot, even if another plugin strips item metadata.
+        if (title.equals("KELVORA / SHOP") && e.getRawSlot() >= 10 && e.getRawSlot() <= 15) {
             action = "category:" + (e.getRawSlot() - 10);
+        }
+        // Category back button fallback.
+        if (action == null && e.getRawSlot() == 49 && clicked != null && clicked.getType() == Material.ARROW) {
+            action = "back";
         }
         if(action==null)return;
         if(action.startsWith("category:")){openCategory(player,Integer.parseInt(action.substring(9)));return;}
