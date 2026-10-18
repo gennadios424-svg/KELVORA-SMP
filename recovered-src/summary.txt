@@ -1,0 +1,9 @@
+Summary for KelvoraSMP-2.0.0 (2).jar
+Decompiled with CFR 0.152
+
+
+gg.kelvora.smp.KelvoraSMP
+----------------------------
+
+openWorth(org.bukkit.entity.Player gg.kelvora.smp.KelvoraSMP$SearchState )
+  Exception : java.lang.ClassCastException: class org.benf.cfr.reader.bytecode.analysis.opgraph.Op03SimpleStatement cannot be cast to class org.benf.cfr.reader.bytecode.analysis.opgraph.Op04StructuredStatement (org.benf.cfr.reader.bytecode.analysis.opgraph.Op03SimpleStatement and org.benf.cfr.reader.bytecode.analysis.opgraph.Op04StructuredStatement are in unnamed module of loader 'app')
