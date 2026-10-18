@@ -8,6 +8,12 @@ on:
       - 'src/**'
       - 'pom.xml'
       - '.github/workflows/build-repaired.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+      - '.github/workflows/build-repaired.yml'
 
 permissions:
   contents: write
