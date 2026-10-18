@@ -29,23 +29,23 @@ jobs:
       - name: Build plugin
         run: |
           mvn -B -ntp clean package
-          test -s target/KelvoraSMP-2.1.2.jar
-          jar tf target/KelvoraSMP-2.1.2.jar | grep -q 'net/kelvora/smp/ShopSellManager.class'
-          jar tf target/KelvoraSMP-2.1.2.jar | grep -q 'net/kelvora/smp/KelvoraSMP.class'
-          jar tf target/KelvoraSMP-2.1.2.jar | grep -q 'plugin.yml'
-          unzip -p target/KelvoraSMP-2.1.2.jar plugin.yml | grep -q 'version: 2.1.2'
+          test -s target/KelvoraSMP-2.1.3.jar
+          jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'net/kelvora/smp/ShopSellManager.class'
+          jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'net/kelvora/smp/KelvoraSMP.class'
+          jar tf target/KelvoraSMP-2.1.3.jar | grep -q 'plugin.yml'
+          unzip -p target/KelvoraSMP-2.1.3.jar plugin.yml | grep -q 'version: 2.1.3'
       - name: Publish compiled JAR to repository
         run: |
-          cp target/KelvoraSMP-2.1.2.jar KelvoraSMP-2.1.2.jar
+          cp target/KelvoraSMP-2.1.3.jar KelvoraSMP-2.1.3.jar
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add KelvoraSMP-2.1.2.jar
-          git commit -m 'Publish repaired KelvoraSMP 2.1.2 JAR' || echo 'JAR unchanged'
+          git add KelvoraSMP-2.1.3.jar
+          git commit -m 'Publish repaired KelvoraSMP 2.1.3 JAR' || echo 'JAR unchanged'
           git push
       - name: Upload compiled JAR
         uses: actions/upload-artifact@v4
         with:
-          name: KelvoraSMP-2.1.2
-          path: target/KelvoraSMP-2.1.2.jar
+          name: KelvoraSMP-2.1.3
+          path: target/KelvoraSMP-2.1.3.jar
           if-no-files-found: error
           retention-days: 14
