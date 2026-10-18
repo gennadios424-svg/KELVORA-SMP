@@ -14,6 +14,7 @@ import org.bukkit.Sound;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -119,7 +120,7 @@ final class ShopManager implements Listener {
         return 0;
     }
 
-    @EventHandler public void onClick(InventoryClickEvent e) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false) public void onClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
         String title=e.getView().getTitle().replaceAll("\\s+", " ").trim();
         if (!title.startsWith("KELVORA / ")) return;
@@ -163,7 +164,7 @@ final class ShopManager implements Listener {
         }
         return remaining<=0;
     }
-    @EventHandler public void onDrag(InventoryDragEvent e) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false) public void onDrag(InventoryDragEvent e) {
         if(e.getView().getTitle().replaceAll("\\s+", " ").trim().startsWith("KELVORA / ") && e.getRawSlots().stream().anyMatch(s->s<e.getView().getTopInventory().getSize()))e.setCancelled(true);
     }
     private static String pretty(Material m){String[] a=m.name().toLowerCase(Locale.ROOT).split("_");StringBuilder b=new StringBuilder();for(String w:a){if(b.length()>0)b.append(' ');b.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1));}return b.toString();}
