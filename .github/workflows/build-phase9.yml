@@ -65,7 +65,10 @@ jobs:
         run: |
           test -s target/*.jar
           jar tf target/*.jar | grep -q 'net/kelvora/smp/ShopManager.class'
+          jar tf target/*.jar | grep -q 'net/kelvora/smp/SellManager.class'
           jar tf target/*.jar | grep -q 'plugin.yml'
+          unzip -p target/*.jar plugin.yml | grep -q '^  shop:'
+          unzip -p target/*.jar plugin.yml | grep -q '^  sell:'
       - name: Publish JAR on recovery branch
         run: |
           cp "$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)" KelvoraSMP-2.1.0-phase9.jar
