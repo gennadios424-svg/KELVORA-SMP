@@ -4,7 +4,6 @@ import java.text.DecimalFormat;
 import java.util.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -17,7 +16,6 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 final class ShopSellManager implements Listener {
@@ -27,7 +25,7 @@ final class ShopSellManager implements Listener {
     private static final DecimalFormat MONEY = new DecimalFormat("#,##0.##");
     private final JavaPlugin plugin;
     private final NamespacedKey actionKey;
-    private Economy economy;
+    private Object economy;
 
     ShopSellManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -35,8 +33,17 @@ final class ShopSellManager implements Listener {
     }
 
     void register() {
-        RegisteredServiceProvider<Economy> registration = Bukkit.getServicesManager().getRegistration(Economy.class);
-        if (registration != null) economy = registration.getProvider();
+        if (Bukkit.getPluginManager().isPluginEnabled("Vault")) {
+            try {
+                Class<?> economyType = Class.forName("net.milkbowl.vault.economy.Economy", true,
+                    Bukkit.getPluginManager().getPlugin("Vault").getClass().getClassLoader());
+                org.bukkit.plugin.RegisteredServiceProvider<?> registration =
+                    Bukkit.getServicesManager().getRegistration((Class) economyType);
+                if (registration != null) economy = registration.getProvider();
+            } catch (ReflectiveOperationException | LinkageError ex) {
+                plugin.getLogger().warning("Vault economy API unavailable; shop and sell money features are disabled.");
+            }
+        }
         if (plugin.getCommand("shop") != null) plugin.getCommand("shop").setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof Player p)) { sender.sendMessage("Use this command in-game."); return true; }
             if (!p.hasPermission("kelvora.shop")) { p.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
@@ -191,6 +198,25 @@ final class ShopSellManager implements Listener {
         }
     }
 
+    private double balance(Player player) {
+        Object value = economyCall("getBalance", player);
+        return value instanceof Number ? ((Number) value).doubleValue() : 0.0;
+    }
+
+    private Object economyCall(String method, Player player, Object... args) {
+        if (economy == null) return null;
+        try {
+            if (args.length == 0) {
+                return economy.getClass().getMethod(method, org.bukkit.OfflinePlayer.class).invoke(economy, player);
+            }
+            return economy.getClass().getMethod(method, org.bukkit.OfflinePlayer.class, double.class)
+                .invoke(economy, player, ((Number) args[0]).doubleValue());
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            plugin.getLogger().warning("Economy operation failed: " + method);
+            return null;
+        }
+    }
+
     private void buy(Player p, Material m, int amount) {
         if (m == null) return;
         if (economy == null) { p.sendMessage(Component.text("Shop is unavailable: install Vault and an economy provider.", NamedTextColor.RED)); return; }
@@ -199,7 +225,7 @@ final class ShopSellManager implements Listener {
         double cost = unit * qty;
         if (economy.getBalance(p) + 0.00001 < cost) { p.sendMessage(Component.text("Not enough money. Cost: $" + MONEY.format(cost), NamedTextColor.RED)); return; }
         if (!p.getInventory().addItem(new ItemStack(m, qty)).isEmpty()) { p.sendMessage(Component.text("Make room in your inventory first.", NamedTextColor.RED)); return; }
-        economy.withdrawPlayer(p, cost);
+        economyCall("withdrawPlayer", p, cost);
         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
         p.sendMessage(Component.text("Bought " + qty + "x " + pretty(m) + " for $" + MONEY.format(cost), NamedTextColor.GREEN));
     }
@@ -215,7 +241,7 @@ final class ShopSellManager implements Listener {
             total += unit * item.getAmount(); sold += item.getAmount(); inv.setItem(i, null);
         }
         if (sold == 0) { p.sendMessage(Component.text("Put items into the chest first.", NamedTextColor.RED)); return; }
-        economy.depositPlayer(p, total);
+        economyCall("depositPlayer", p, total);
         p.sendMessage(Component.text("Sold " + sold + " items for $" + MONEY.format(total), NamedTextColor.GREEN));
         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, 1.0f);
         p.closeInventory();
