@@ -1,0 +1,38 @@
+name: Recover Kelvora source for repair
+
+on:
+  push:
+    branches: [fix/sell-worth-recovery]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  decompile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Decompile existing plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://repo.maven.apache.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar -o /tmp/cfr.jar
+          mkdir -p recovered-src
+          java -jar /tmp/cfr.jar 'KelvoraSMP-2.0.0 (2).jar' --outputdir recovered-src --silent true
+          echo "=== Decompiled files ==="
+          find recovered-src -type f -name '*.java' -print
+          echo "=== WorthManager source ==="
+          find recovered-src -type f -name 'WorthManager.java' -exec sed -n '1,260p' {} \; || true
+          echo "=== Main plugin source ==="
+          find recovered-src -type f -name 'KelvoraSMP.java' -exec sed -n '1,320p' {} \; || true
+          zip -qr recovered-source.zip recovered-src
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kelvora-recovered-source
+          path: recovered-source.zip
+          if-no-files-found: error
