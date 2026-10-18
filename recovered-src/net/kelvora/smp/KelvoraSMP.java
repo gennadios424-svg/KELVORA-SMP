@@ -145,22 +145,22 @@ implements Listener {
     private void updatePlayer(Player player) {
         Objective objective;
         String serverAddress = this.getConfig().getString("server-address", "Configure server address");
-        player.setPlayerListHeaderFooter(this.color("&a&lKELVORA SMP"), this.color("&7" + serverAddress));
         String rank = this.rankKey(player);
         String rankLabel = this.getConfig().getString("ranks." + rank + ".label", rank.toUpperCase(Locale.ROOT));
         String rankColor = this.getConfig().getString("ranks." + rank + ".color", "&a");
-        String prefix = this.color(rankColor + "[" + rankLabel + "] ");
+        player.setPlayerListHeaderFooter(this.color("&8&m---------------- &a&lKELVORA SMP &8&m----------------\n&7Survive. Build. Dominate."), this.color("&7" + serverAddress + "  &8|  &aOnline: &f" + Bukkit.getOnlinePlayers().size() + "&8/&f" + Bukkit.getMaxPlayers() + "\n&7Your rank: " + rankColor + rankLabel));
+        String prefix = this.color(rankColor + "&l" + rankLabel + " &8┃ &r");
         player.setPlayerListName(prefix + this.color("&f" + player.getName()));
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
             board = Bukkit.getScoreboardManager().getNewScoreboard();
             Objective created = board.registerNewObjective("kelvora", "dummy", this.color(this.getConfig().getString("scoreboard.title", "&a&lKELVORA SMP")));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
-            for (int i = 0; i < 5; ++i) {
+            for (int i = 0; i < 7; ++i) {
                 String entry = ChatColor.values()[i].toString() + String.valueOf(ChatColor.RESET);
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
-                created.getScore(entry).setScore(5 - i);
+                created.getScore(entry).setScore(7 - i);
             }
             this.playerBoards.put(player.getUniqueId(), board);
         }
@@ -172,7 +172,7 @@ implements Listener {
         }
         String money = this.economy == null ? this.color("&cNot connected") : this.formatMoney(this.economy.getBalance((OfflinePlayer)player));
         String kelvoras = this.getKelvoras(player);
-        String[] lines = new String[]{this.color("&fRank &r" + rankColor + rankLabel), this.color("&fMoney &a$" + money), this.color("&fKelvoras &b" + kelvoras), this.color("&fOnline &a" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()), this.color("&7kelvorasmp.mcsh.gg")};
+        String[] lines = new String[]{this.color("&8&m------------------"), this.color("&a&lPLAYER"), this.color("&7Rank: " + rankColor + rankLabel), this.color("&7Money: &a$" + money), this.color("&7Kelvoras: &b" + kelvoras), this.color("&7Online: &f" + Bukkit.getOnlinePlayers().size() + "&8/&f" + Bukkit.getMaxPlayers()), this.color("&8kelvorasmp.mcsh.gg")};
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
             if (team == null) continue;
