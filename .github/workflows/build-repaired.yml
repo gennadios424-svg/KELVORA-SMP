@@ -312,7 +312,11 @@ jobs:
                   return item.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
               }
 
-              private String stripColor(String title) {\n              return title.replaceAll("(?i)§[0-9A-FK-OR]", "");\n          }\n\n          private String pretty(Material m) {
+              private String stripColor(String title) {
+              return title.replaceAll("(?i)§[0-9A-FK-OR]", "");
+          }
+
+          private String pretty(Material m) {
                   String[] words=m.name().toLowerCase(Locale.ROOT).split("_");
                   StringBuilder b=new StringBuilder();
                   for(String word:words){if(b.length()>0)b.append(' ');b.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));}
