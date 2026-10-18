@@ -1,0 +1,52 @@
+name: Recover Kelvora source from existing JAR
+
+on:
+  push:
+    branches:
+      - phase-9-shop-recovery
+    paths:
+      - ".github/workflows/recover-jar-source.yml"
+      - "KelvoraSMP-2.0.0 (2).jar"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  decompile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+        with:
+          ref: phase-9-shop-recovery
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Decompile the current plugin JAR
+        run: |
+          curl --fail --location --retry 3 \
+            https://repo.maven.apache.org/maven2/org/benf/cfr/0.152/cfr-0.152.jar \
+            --output /tmp/cfr.jar
+          rm -rf recovered-src
+          mkdir -p recovered-src
+          java -jar /tmp/cfr.jar "KelvoraSMP-2.0.0 (2).jar" \
+            --outputdir recovered-src --silent true
+          test -n "$(find recovered-src -type f -name '*.java' -print -quit)"
+          find recovered-src -type f -name '*.java' -print
+
+      - name: Preserve decompiled source on recovery branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add recovered-src
+          if git diff --cached --quiet; then
+            echo "No recovered-source changes to commit."
+          else
+            git commit -m "Recover Java sources from existing Kelvora plugin JAR [skip ci]"
+            git push origin phase-9-shop-recovery
+          fi
