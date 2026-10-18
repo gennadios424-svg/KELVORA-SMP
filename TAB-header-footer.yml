@@ -1,7 +1,7 @@
 # Copy this header-footer section into plugins/TAB/config.yml.
 # KelvoraSMP's repaired JAR no longer overwrites the player-list header/footer.
 # Use this snippet with the TAB plugin; do not put it in the Kelvora config.
-# Build revision: 2.1.0
+# Build revision: 2.1.1
 header-footer:
   enabled: true
   designs:
