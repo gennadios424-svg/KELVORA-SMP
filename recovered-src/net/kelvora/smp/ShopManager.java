@@ -141,7 +141,7 @@ final class ShopManager implements Listener {
         Map<Integer,ItemStack> overflow=player.getInventory().addItem(purchase);
         if(!overflow.isEmpty()){eco.depositPlayer(player,price);player.sendMessage(Component.text("Purchase cancelled: inventory full.",NamedTextColor.RED));return;}
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP,0.5f,1.2f);
-        player.sendMessage(Component.text("Purchased " + amount + "x " + pretty(material) + " for $" + money(price) + ".",NamedTextColor.GREEN);
+        player.sendMessage(Component.text("Purchased " + amount + "x " + pretty(material) + " for $" + money(price) + ".",NamedTextColor.GREEN));
     }
     private boolean canFit(Player p, ItemStack item) {
         int remaining=item.getAmount();
