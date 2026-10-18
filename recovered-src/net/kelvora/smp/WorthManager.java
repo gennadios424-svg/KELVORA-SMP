@@ -60,6 +60,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -489,12 +490,12 @@ TabExecutor {
         inv.setItem(slot, item);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onClick(InventoryClickEvent event) {
         Player player;
         block22: {
             block21: {
-                if (!event.getView().title().equals((Object)TITLE)) {
+                if (!event.getView().getTitle().replaceAll("\\s+", " ").trim().startsWith("KELVORA / WORTH")) {
                     return;
                 }
                 event.setCancelled(true);
@@ -555,9 +556,9 @@ TabExecutor {
         this.openWorth(player, state);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onDrag(InventoryDragEvent event) {
-        if (event.getView().title().equals((Object)TITLE) && event.getRawSlots().stream().anyMatch(slot -> slot < event.getView().getTopInventory().getSize())) {
+        if (event.getView().getTitle().replaceAll("\\s+", " ").trim().startsWith("KELVORA / WORTH") && event.getRawSlots().stream().anyMatch(slot -> slot < event.getView().getTopInventory().getSize())) {
             event.setCancelled(true);
         }
     }
