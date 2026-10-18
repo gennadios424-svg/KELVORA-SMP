@@ -646,11 +646,7 @@ final class ShopSellManager implements Listener {
             String label = potionType == null ? prettyStatic(material) : prettyPotionStatic(potionType);
             meta.displayName(Component.text(label, NamedTextColor.WHITE));
             double buy = customPrice > 0 ? Math.max(customPrice, worth + 0.01) : Math.max(worth * 1.5, worth + 0.01);
-            meta.lore(List.of(Component.text("Buy: $" + MONEY.format(buy), NamedTextColor.GREEN),
-                Component.text("Worth reference: $" + MONEY.format(worth), NamedTextColor.AQUA),
-                Component.text("Left-click: buy 1", NamedTextColor.GRAY),
-                Component.text("Right-click: buy 16", NamedTextColor.GRAY),
-                Component.text("Shift-click: buy 64", NamedTextColor.GRAY)));
+            meta.lore(List.of(Component.text("Price: $" + MONEY.format(buy), NamedTextColor.GREEN)));
             meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING,
                 potionType == null ? "buy:" + material.name() : "buyPotion:" + potionType);
             item.setItemMeta(meta);

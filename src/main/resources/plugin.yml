@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.1.3
+version: 2.1.4
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP TAB list, compact sidebar, and item worth GUI
@@ -16,7 +16,13 @@ commands:
     description: Browse configured item values
     usage: /worth [search]
     aliases: [itemworth]
+  bal:
+    description: Show your Money and Kelvoras balances
+    usage: /bal
 permissions:
+  kelvora.balance:
+    description: View your own currency balances
+    default: true
   kelvora.shop:
     description: Use the Kelvora shop
     default: true
