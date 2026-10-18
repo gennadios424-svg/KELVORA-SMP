@@ -291,7 +291,8 @@ implements Listener {
             Class<?> papi = Class.forName("me.clip.placeholderapi.PlaceholderAPI", true, papiPlugin.getClass().getClassLoader());
             String value = (String) papi.getMethod("setPlaceholders", Player.class, String.class).invoke(null, player, placeholder);
             if (value == null || value.isBlank() || value.equals(placeholder) || value.startsWith("%") && value.endsWith("%")) return "Not connected";
-            return ChatColor.stripColor(value);
+            String plain = ChatColor.stripColor(value);
+            return plain == null || plain.isBlank() ? "Not connected" : plain;
         } catch (ReflectiveOperationException | LinkageError ex) {
             return "Not connected";
         }
