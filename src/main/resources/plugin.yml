@@ -1,0 +1,25 @@
+name: KelvoraSMP
+version: 3.0.0
+main: gg.kelvora.smp.KelvoraSMP
+api-version: '1.21'
+author: Kelvora
+description: Kelvora SMP core economy, sell and worth GUIs, TAB and sidebar.
+commands:
+  sell:
+    description: Open the Kelvora sell GUI
+    usage: /sell
+  worth:
+    description: View item sell prices
+    usage: /worth
+  bal:
+    aliases: [balance, money]
+    description: View your balance
+    usage: /bal [player]
+  pay:
+    description: Pay another player
+    usage: /pay <player> <amount>
+    usage: /pay <player> <amount>
+permissions:
+  kelvora.admin:
+    description: Access to Kelvora administration
+    default: op
