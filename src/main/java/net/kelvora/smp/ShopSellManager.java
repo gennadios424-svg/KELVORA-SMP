@@ -475,7 +475,8 @@ final class ShopSellManager implements Listener {
     }
 
     private void confirmSell(Player p, Inventory inv) {
-        if (economy == null) { p.sendMessage(Component.text("Money is not connected. Install Vault and an economy plugin, then restart.", NamedTextColor.RED)); return; }
+        if (economy == null) connectEconomy();
+        if (economy == null) { p.sendMessage(Component.text("Money is not connected. The server needs Vault and its existing Money economy provider.", NamedTextColor.RED)); return; }
         if (!transactions.add(p.getUniqueId())) return;
         try {
             double total = 0;
@@ -499,7 +500,8 @@ final class ShopSellManager implements Listener {
                 p.sendMessage(Component.text("Money payment failed. Your items are still in the sell chest.", NamedTextColor.RED)); return;
             }
             for (int slot : sellSlots) inv.setItem(slot, null);
-            p.sendMessage(Component.text("Sold " + soldCount + " items for $" + MONEY.format(total), NamedTextColor.GREEN));
+            p.sendMessage(Component.text("Sold " + soldCount + " items for $" + MONEY.format(total)
+                + " Money. New balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
             p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, 1.0f);
             p.closeInventory();
         } finally { transactions.remove(p.getUniqueId()); }
