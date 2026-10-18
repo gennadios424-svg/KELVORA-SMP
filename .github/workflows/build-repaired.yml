@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: kelvora-repair-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -323,6 +327,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src pom.xml KelvoraSMP-2.1.0.jar
           git commit -m 'Repair TAB header ownership and add shop and sell GUIs' || echo 'No source changes to commit'
+          git pull --rebase origin main
           git push
       - name: Upload compiled JAR
         uses: actions/upload-artifact@v4
