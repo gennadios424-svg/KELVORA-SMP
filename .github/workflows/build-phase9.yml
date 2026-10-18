@@ -1,0 +1,67 @@
+name: Build Kelvora SMP Phase 9 JAR
+
+on:
+  push:
+    branches: [phase-9-shop-recovery]
+    paths:
+      - "recovered-src/**"
+      - ".github/workflows/build-phase9.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-9-shop-recovery
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Reconstruct project around the existing JAR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          unzip -p "KelvoraSMP-2.0.0 (2).jar" META-INF/maven/net.kelvora/kelvora-smp/pom.xml > pom.xml
+          test -s pom.xml
+          mkdir -p src/main/java/net/kelvora/smp src/main/resources
+          cp recovered-src/net/kelvora/smp/*.java src/main/java/net/kelvora/smp/
+          cp recovered-src/net/kelvora/smp/ShopManager.java src/main/java/net/kelvora/smp/
+          unzip -p "KelvoraSMP-2.0.0 (2).jar" plugin.yml > src/main/resources/plugin.yml
+          unzip -p "KelvoraSMP-2.0.0 (2).jar" config.yml > src/main/resources/config.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("src/main/resources/plugin.yml")
+          s=p.read_text()
+          if "\n  shop:" not in s:
+              s += "\n  shop:\n    description: Open the Kelvora SMP shop\n    usage: /shop\n    permission: k elvora.shop\n".replace("k elvora","kelvora")
+          if "kelvora.shop:" not in s:
+              s += "\npermissions:\n  kelvora.shop:\n    description: Allows access to the Kelvora shop\n    default: true\n"
+          p.write_text(s)
+          PY
+          grep -nE 'main:|commands:|worth:|shop:' src/main/resources/plugin.yml
+      - name: Compile plugin
+        run: mvn -B -DskipTests package
+      - name: Validate compiled JAR
+        run: |
+          test -s target/*.jar
+          jar tf target/*.jar | grep -q 'net/kelvora/smp/ShopManager.class'
+          jar tf target/*.jar | grep -q 'plugin.yml'
+      - name: Publish JAR on recovery branch
+        run: |
+          cp "$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)" KelvoraSMP-2.1.0-phase9.jar
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add KelvoraSMP-2.1.0-phase9.jar
+          git commit -m "Build Kelvora SMP Phase 9 shop JAR [skip ci]"
+          git push origin phase-9-shop-recovery
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KelvoraSMP-2.1.0-phase9
+          path: KelvoraSMP-2.1.0-phase9.jar
+          if-no-files-found: error
