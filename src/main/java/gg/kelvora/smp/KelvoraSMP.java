@@ -14,6 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -31,6 +32,12 @@ import java.util.*;
 
 public final class KelvoraSMP extends JavaPlugin implements Listener {
     private final Map<UUID, Double> balances = new HashMap<>();
+    private static final class WorthState {
+        String query = "";
+        boolean sortByPrice = false;
+        int page = 0;
+    }
+    private final Map<UUID, WorthState> worthStates = new HashMap<>();
     private final DecimalFormat money = new DecimalFormat("#,##0.##");
     private File balanceFile;
     private YamlConfiguration balanceData;
@@ -91,6 +98,17 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
         }
         if (name.equals("worth")) {
             if (!(sender instanceof Player player)) { sender.sendMessage("This command can only be used in-game."); return true; }
+            WorthState state = worthStates.computeIfAbsent(player.getUniqueId(), id -> new WorthState());
+            if (args.length > 0 && args[0].equalsIgnoreCase("sort")) {
+                state.sortByPrice = !state.sortByPrice;
+                state.page = 0;
+            } else if (args.length > 0 && args[0].equalsIgnoreCase("clear")) {
+                state.query = "";
+                state.page = 0;
+            } else if (args.length > 0) {
+                state.query = String.join(" ", args).trim();
+                state.page = 0;
+            }
             openWorth(player); return true;
         }
         if (name.equals("bal")) {
@@ -144,14 +162,43 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
         player.openInventory(inv);
     }
     private void openWorth(Player player) {
+        WorthState state = worthStates.computeIfAbsent(player.getUniqueId(), id -> new WorthState());
         Inventory inv = Bukkit.createInventory(null, 54, WORTH_MARKER);
+        List<Map.Entry<Material, Double>> entries = new ArrayList<>(prices().entrySet());
+        String query = state.query.toLowerCase(Locale.ROOT);
+        if (!query.isBlank()) {
+            entries.removeIf(entry -> !entry.getKey().name().toLowerCase(Locale.ROOT).contains(query)
+                && !prettify(entry.getKey()).toLowerCase(Locale.ROOT).contains(query));
+        }
+        if (state.sortByPrice) {
+            entries.sort(Map.Entry.<Material, Double>comparingByValue().reversed()
+                .thenComparing(entry -> prettify(entry.getKey()), String.CASE_INSENSITIVE_ORDER));
+        } else {
+            entries.sort(Comparator.comparing(entry -> prettify(entry.getKey()), String.CASE_INSENSITIVE_ORDER));
+        }
+        int maxPage = Math.max(0, (entries.size() - 1) / 45);
+        state.page = Math.max(0, Math.min(state.page, maxPage));
+        int start = state.page * 45;
+        int end = Math.min(start + 45, entries.size());
         int slot = 0;
-        for (Map.Entry<Material, Double> entry : prices().entrySet()) {
-            if (slot >= 45) break;
+        for (int i = start; i < end; i++) {
+            Map.Entry<Material, Double> entry = entries.get(i);
             inv.setItem(slot++, named(entry.getKey(), ChatColor.GREEN + prettify(entry.getKey()),
                 List.of(ChatColor.GRAY + "Sell price: $" + money.format(entry.getValue()))));
         }
-        inv.setItem(49, named(Material.BOOK, ChatColor.GREEN + "Item Worth", List.of(ChatColor.GRAY + "Prices are per item.")));
+        inv.setItem(45, named(Material.ARROW, ChatColor.YELLOW + "Previous Page",
+            List.of(ChatColor.GRAY + "Page " + Math.max(1, state.page) + " of " + (maxPage + 1))));
+        inv.setItem(48, named(Material.HOPPER, ChatColor.AQUA + "Sort: " + (state.sortByPrice ? "Highest Price" : "Name A-Z"),
+            List.of(ChatColor.GRAY + "Click to change sorting.")));
+        inv.setItem(49, named(Material.BOOK, ChatColor.GREEN + "Item Worth",
+            List.of(ChatColor.GRAY + "Page " + (state.page + 1) + " of " + (maxPage + 1),
+                ChatColor.GRAY + "Search: " + (state.query.isBlank() ? "All items" : state.query),
+                ChatColor.YELLOW + "Use /worth <item> to search",
+                ChatColor.YELLOW + "Use /worth clear to reset search")));
+        inv.setItem(50, named(Material.BARRIER, ChatColor.RED + "Clear Search",
+            List.of(ChatColor.GRAY + "Show all priced items.")));
+        inv.setItem(53, named(Material.ARROW, ChatColor.YELLOW + "Next Page",
+            List.of(ChatColor.GRAY + "Page " + (Math.min(state.page + 2, maxPage + 1)) + " of " + (maxPage + 1))));
         player.openInventory(inv);
     }
     private int count(Player player, Material material) {
@@ -229,8 +276,34 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
             return;
         }
 
-        // Worth GUI is display-only.
+        // Worth GUI is display-only except for its navigation controls.
         event.setCancelled(true);
+        if (rawSlot == 45) {
+            WorthState state = worthStates.computeIfAbsent(player.getUniqueId(), id -> new WorthState());
+            state.page = Math.max(0, state.page - 1);
+            openWorth(player);
+        } else if (rawSlot == 48) {
+            WorthState state = worthStates.computeIfAbsent(player.getUniqueId(), id -> new WorthState());
+            state.sortByPrice = !state.sortByPrice;
+            state.page = 0;
+            openWorth(player);
+        } else if (rawSlot == 50) {
+            WorthState state = worthStates.computeIfAbsent(player.getUniqueId(), id -> new WorthState());
+            state.query = "";
+            state.page = 0;
+            openWorth(player);
+        } else if (rawSlot == 53) {
+            WorthState state = worthStates.computeIfAbsent(player.getUniqueId(), id -> new WorthState());
+            int filteredCount = 0;
+            String query = state.query.toLowerCase(Locale.ROOT);
+            for (Material material : prices().keySet()) {
+                if (query.isBlank() || material.name().toLowerCase(Locale.ROOT).contains(query)
+                    || prettify(material).toLowerCase(Locale.ROOT).contains(query)) filteredCount++;
+            }
+            int maxPage = Math.max(0, (filteredCount - 1) / 45);
+            state.page = Math.min(maxPage, state.page + 1);
+            openWorth(player);
+        }
     }
 
     private void sellContents(Player player, Inventory inv) {
@@ -260,6 +333,21 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
         if (!kept.isEmpty()) player.sendMessage(ChatColor.YELLOW + "Kept items without a sell price: " + String.join(", ", new LinkedHashSet<>(kept)) + ".");
         // Keep the GUI open so the player can deposit and sell another batch.
         player.updateInventory();
+    }
+
+    @EventHandler public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        if (!event.getView().getTitle().equals(SELL_MARKER)) return;
+        Inventory top = event.getInventory();
+        for (int slot = 0; slot < 45; slot++) {
+            ItemStack item = top.getItem(slot);
+            if (item == null || item.getType().isAir()) continue;
+            top.setItem(slot, null);
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
+            for (ItemStack leftover : leftovers.values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+            }
+        }
     }
 
     @EventHandler public void onInventoryDrag(InventoryDragEvent event) {
