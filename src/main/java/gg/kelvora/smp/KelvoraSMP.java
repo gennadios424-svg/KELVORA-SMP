@@ -1,5 +1,6 @@
 package gg.kelvora.smp;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -33,8 +34,8 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
     private final DecimalFormat money = new DecimalFormat("#,##0.##");
     private File balanceFile;
     private YamlConfiguration balanceData;
-    private static final String SELL_MARKER = ChatColor.DARK_GREEN + "KELVORA_SELL";
-    private static final String WORTH_MARKER = ChatColor.DARK_GREEN + "KELVORA_WORTH";
+    private static final String SELL_MARKER = ChatColor.DARK_GREEN + "" + ChatColor.BOLD + "KELVORA " + ChatColor.DARK_GRAY + "» " + ChatColor.GREEN + "Sell Items";
+    private static final String WORTH_MARKER = ChatColor.DARK_GREEN + "" + ChatColor.BOLD + "KELVORA " + ChatColor.DARK_GRAY + "» " + ChatColor.GREEN + "Item Worth";
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -132,7 +133,7 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
         return item;
     }
     private void openSell(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GREEN + "KELVORA_SELL");
+        Inventory inv = Bukkit.createInventory(null, 54, SELL_MARKER);
         Map<Material, Double> prices = prices();
         int slot = 0;
         for (Map.Entry<Material, Double> entry : prices.entrySet()) {
@@ -148,7 +149,7 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
         player.openInventory(inv);
     }
     private void openWorth(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GREEN + "KELVORA_WORTH");
+        Inventory inv = Bukkit.createInventory(null, 54, WORTH_MARKER);
         int slot = 0;
         for (Map.Entry<Material, Double> entry : prices().entrySet()) {
             if (slot >= 45) break;
@@ -224,7 +225,7 @@ public final class KelvoraSMP extends JavaPlugin implements Listener {
             String entry = ChatColor.values()[i].toString() + ChatColor.values()[(i + 8) % ChatColor.values().length];
             Team team = board.registerNewTeam("line" + i);
             team.addEntry(entry);
-            team.prefix(lines[i]);
+            team.prefix(LegacyComponentSerializer.legacySection().deserialize(lines[i]));
             objective.getScore(entry).setScore(score--);
         }
         player.setScoreboard(board);
