@@ -22,7 +22,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
       - name: Reconstruct project around the existing JAR
         run: |
           sudo apt-get update
