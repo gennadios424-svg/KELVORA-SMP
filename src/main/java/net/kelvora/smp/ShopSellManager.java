@@ -26,12 +26,14 @@ import org.bukkit.potion.PotionType;
 final class ShopSellManager implements Listener {
     private static final String MAIN = "KELVORA  /  SHOP";
     private static final String SELL = "KELVORA  /  SELL";
+    private static final String QUANTITY = "KELVORA  /  QUANTITY";
     private static final String CATEGORY = "KELVORA  /  ";
     private static final int SELL_SLOTS = 45;
     private static final DecimalFormat MONEY = new DecimalFormat("#,##0.##");
     private final JavaPlugin plugin;
     private final NamespacedKey actionKey;
     private final Set<UUID> transactions = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, QuantitySession> quantitySessions = new ConcurrentHashMap<>();
     private Object economy;
 
     ShopSellManager(JavaPlugin plugin) {
@@ -190,6 +192,28 @@ final class ShopSellManager implements Listener {
             } else if (action.equals("close")) p.closeInventory();
             return;
         }
+        if (title.equals(QUANTITY)) {
+            e.setCancelled(true);
+            if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
+            String action = action(e.getCurrentItem());
+            QuantitySession session = quantitySessions.get(p.getUniqueId());
+            if (action == null || session == null) return;
+            if (action.startsWith("qty:")) {
+                int qty = parsePage(action.substring(4));
+                if (qty <= session.prototype.getMaxStackSize() && validQuantity(qty, session.prototype.getMaxStackSize())) {
+                    session.quantity = qty;
+                    openQuantity(p, session);
+                }
+            } else if (action.equals("confirm")) confirmPurchase(p, session);
+            else if (action.equals("back")) {
+                quantitySessions.remove(p.getUniqueId());
+                openCategory(p, session.category, session.page);
+            } else if (action.equals("cancel")) {
+                quantitySessions.remove(p.getUniqueId());
+                openCategory(p, session.category, session.page);
+            }
+            return;
+        }
         if (title.startsWith(CATEGORY)) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
@@ -201,8 +225,8 @@ final class ShopSellManager implements Listener {
             else if (action.startsWith("page:")) {
                 String[] bits = action.split(":");
                 if (bits.length == 3) openCategory(p, bits[1], parsePage(bits[2]));
-            } else if (action.startsWith("buyPotion:")) buyPotion(p, action.substring("buyPotion:".length()));
-            else if (action.startsWith("buy:")) buy(p, Material.matchMaterial(action.substring(4)), e.isShiftClick() ? 64 : e.isRightClick() ? 16 : 1);
+            } else if (action.startsWith("buyPotion:")) openPotionQuantity(p, action.substring("buyPotion:".length()), title);
+            else if (action.startsWith("buy:")) openMaterialQuantity(p, Material.matchMaterial(action.substring(4)), title);
             return;
         }
         if (!title.equals(SELL)) return;
@@ -273,6 +297,7 @@ final class ShopSellManager implements Listener {
     }
 
     private double balance(Player player) {
+        if (economy == null) connectEconomy();
         Object value = economyCall("getBalance", player, null);
         return value instanceof Number ? ((Number)value).doubleValue() : 0.0;
     }
@@ -299,14 +324,21 @@ final class ShopSellManager implements Listener {
         }
     }
 
-    private void buy(Player p, Material m, int requested) {
-        if (m == null || m.isAir()) return;
-        double worth = price(m);
-        if (worth <= 0) { p.sendMessage(Component.text("This item has no configured /worth price and cannot be bought.", NamedTextColor.RED)); return; }
-        buyStack(p, new ItemStack(m), requested, Math.max(worth * 1.5, worth + 0.01), pretty(m));
+    private void openMaterialQuantity(Player p, Material material, String title) {
+        if (material == null || material.isAir()) return;
+        String category = categoryFromTitle(title);
+        int page = 0;
+        double worth = price(material);
+        if (worth <= 0) {
+            p.sendMessage(Component.text("This item has no configured /worth price and cannot be bought.", NamedTextColor.RED));
+            return;
+        }
+        ItemStack prototype = new ItemStack(material);
+        quantitySessions.put(p.getUniqueId(), new QuantitySession(prototype, Math.max(worth * 1.5, worth + 0.01), pretty(material), category, page));
+        openQuantity(p, quantitySessions.get(p.getUniqueId()));
     }
 
-    private void buyPotion(Player p, String type) {
+    private void openPotionQuantity(Player p, String type, String title) {
         try {
             PotionType potionType = PotionType.valueOf(type);
             ItemStack item = new ItemStack(Material.POTION);
@@ -314,37 +346,107 @@ final class ShopSellManager implements Listener {
             meta.setBasePotionType(potionType);
             meta.displayName(Component.text(prettyPotion(type), NamedTextColor.WHITE));
             item.setItemMeta(meta);
-            buyStack(p, item, 1, Math.max(potionCost(type), price(Material.POTION) + 0.01), prettyPotion(type));
+            quantitySessions.put(p.getUniqueId(), new QuantitySession(item, Math.max(potionCost(type), price(Material.POTION) + 0.01), prettyPotion(type), categoryFromTitle(title), 0));
+            openQuantity(p, quantitySessions.get(p.getUniqueId()));
         } catch (IllegalArgumentException ex) {
             p.sendMessage(Component.text("That potion is unavailable.", NamedTextColor.RED));
         }
     }
 
-    private void buyStack(Player p, ItemStack prototype, int requested, double unit, String name) {
-        if (economy == null) { p.sendMessage(Component.text("Money is not connected. Install Vault and an economy plugin, then restart.", NamedTextColor.RED)); return; }
-        int qty = Math.max(1, Math.min(requested, 64));
-        double cost = unit * qty;
-        if (!Double.isFinite(cost) || cost <= 0) { p.sendMessage(Component.text("Invalid shop price.", NamedTextColor.RED)); return; }
-        if (balance(p) + 0.000001 < cost) { p.sendMessage(Component.text("Not enough Money. Cost: $" + MONEY.format(cost), NamedTextColor.RED)); return; }
-        ItemStack grant = prototype.clone();
-        grant.setAmount(qty);
-        if (!simulateAdd(p.getInventory(), grant).isEmpty()) { p.sendMessage(Component.text("Make room in your inventory first.", NamedTextColor.RED)); return; }
-        if (!transactions.add(p.getUniqueId())) return;
+    private String categoryFromTitle(String title) {
+        String category = title.substring(CATEGORY.length()).toLowerCase(Locale.ROOT);
+        return switch (category) {
+            case "blocks", "food", "pvp", "redstone", "farm", "nether", "end" -> category;
+            default -> "blocks";
+        };
+    }
+
+    private boolean validQuantity(int quantity, int maxStack) {
+        return quantity == 1 || (quantity == 16 && maxStack >= 16)
+            || (quantity == 32 && maxStack >= 32) || (quantity == 64 && maxStack >= 64);
+    }
+
+    private void openQuantity(Player p, QuantitySession session) {
+        Inventory inv = Bukkit.createInventory(null, 45, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
+        fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
+        ItemStack display = session.prototype.clone();
+        display.setAmount(1);
+        ItemMeta dm = display.getItemMeta();
+        dm.displayName(Component.text(session.name, NamedTextColor.WHITE));
+        dm.lore(List.of(Component.text("Unit price: $" + MONEY.format(session.unitPrice), NamedTextColor.GREEN),
+            Component.text("Selected quantity: " + session.quantity, NamedTextColor.AQUA),
+            Component.text("Total: $" + MONEY.format(session.unitPrice * session.quantity), NamedTextColor.GOLD),
+            Component.text("Current Money: $" + MONEY.format(balance(p)), NamedTextColor.GRAY)));
+        display.setItemMeta(dm);
+        inv.setItem(13, display);
+        put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
+        if (session.prototype.getMaxStackSize() >= 16) put(inv, 21, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
+        if (session.prototype.getMaxStackSize() >= 32) put(inv, 22, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
+        if (session.prototype.getMaxStackSize() >= 64) put(inv, 23, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
+        put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
+        put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
+        put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
+        p.openInventory(inv);
+    }
+
+    private void confirmPurchase(Player p, QuantitySession session) {
+        if (quantitySessions.get(p.getUniqueId()) != session || !transactions.add(p.getUniqueId())) return;
         try {
+            double unit = session.unitPrice;
+            Material type = session.prototype.getType();
+            if (session.prototype.getItemMeta() instanceof PotionMeta) {
+                // Rebuild the price from the actual base potion type immediately before charging.
+                unit = Math.max(session.unitPrice, price(Material.POTION) + 0.01);
+            } else {
+                double worth = price(type);
+                if (worth <= 0) {
+                    p.sendMessage(Component.text("This item no longer has a valid /worth price. No charge was made.", NamedTextColor.RED));
+                    return;
+                }
+                unit = Math.max(worth * 1.5, worth + 0.01);
+            }
+            int qty = session.quantity;
+            if (!validQuantity(qty, session.prototype.getMaxStackSize())) {
+                p.sendMessage(Component.text("Invalid quantity. No charge was made.", NamedTextColor.RED)); return;
+            }
+            double cost = unit * qty;
+            if (!Double.isFinite(cost) || cost <= 0) {
+                p.sendMessage(Component.text("Invalid price. No charge was made.", NamedTextColor.RED)); return;
+            }
+            if (economy == null) connectEconomy();
+            if (economy == null) {
+                p.sendMessage(Component.text("Money is not connected. The server needs Vault and its existing Money economy provider.", NamedTextColor.RED)); return;
+            }
+            double available = balance(p);
+            if (available + 0.000001 < cost) {
+                p.sendMessage(Component.text("Not enough Money. Need $" + MONEY.format(cost) + "; your balance is $" + MONEY.format(available) + ".", NamedTextColor.RED)); return;
+            }
+            ItemStack grant = session.prototype.clone();
+            grant.setAmount(qty);
+            if (!simulateAdd(p.getInventory(), grant).isEmpty()) {
+                p.sendMessage(Component.text("Not enough inventory space for that quantity. No charge was made.", NamedTextColor.RED)); return;
+            }
             Object response = economyCall("withdrawPlayer", p, cost);
             if (!transactionSucceeded(response)) {
-                p.sendMessage(Component.text("Payment failed. No items were given.", NamedTextColor.RED)); return;
+                p.sendMessage(Component.text("Money transaction failed. No items were given.", NamedTextColor.RED)); return;
             }
             Map<Integer, ItemStack> failed = p.getInventory().addItem(grant);
             if (!failed.isEmpty()) {
                 Object refund = economyCall("depositPlayer", p, cost);
                 failed.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
-                p.sendMessage(Component.text(transactionSucceeded(refund) ? "Inventory changed during purchase; payment refunded." : "Inventory changed; leftover items dropped safely. Please contact staff about the refund.", NamedTextColor.RED));
+                p.sendMessage(Component.text(transactionSucceeded(refund)
+                    ? "Inventory changed during purchase; payment was refunded."
+                    : "Inventory changed; leftover items were dropped safely. Contact staff to verify the refund.", NamedTextColor.RED));
                 return;
             }
+            quantitySessions.remove(p.getUniqueId(), session);
             p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
-            p.sendMessage(Component.text("Bought " + qty + "x " + name + " for $" + MONEY.format(cost), NamedTextColor.GREEN));
-        } finally { transactions.remove(p.getUniqueId()); }
+            p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
+                + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
+            openCategory(p, session.category, session.page);
+        } finally {
+            transactions.remove(p.getUniqueId());
+        }
     }
 
     private Map<Integer, ItemStack> simulateAdd(PlayerInventory inventory, ItemStack grant) {
