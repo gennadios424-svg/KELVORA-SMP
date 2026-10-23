@@ -87,10 +87,15 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
                 ConfigurationSection h = userSection.getConfigurationSection(key);
                 if (h == null) continue;
                 String worldName = h.getString("world", "");
-                World world = Bukkit.getWorld(worldName);
-                if (world == null) continue;
+                UUID worldId;
+                try { worldId = UUID.fromString(h.getString("world-uuid", "")); }
+                catch (IllegalArgumentException ex) {
+                    World known = Bukkit.getWorld(worldName);
+                    if (known == null) continue;
+                    worldId = known.getUID();
+                }
                 playerHomes.put(key.toLowerCase(Locale.ROOT), new SavedHome(
-                    h.getString("name", key), world.getUID(), worldName,
+                    h.getString("name", key), worldId, worldName,
                     h.getDouble("x"), h.getDouble("y"), h.getDouble("z"),
                     (float)h.getDouble("yaw"), (float)h.getDouble("pitch")));
             }
@@ -215,7 +220,9 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
             inv.setItem(i - start, icon);
         }
         inv.setItem(48, item(Material.ARROW, "§ePrevious page", List.of()));
-        inv.setItem(49, item(Material.PAPER, "§aHomes: " + entries.size() + "/" + homeLimitText(p), List.of("§7Saved homes persist after restarts.")));
+        ItemStack count = item(Material.PAPER, "§aHomes: " + entries.size() + "/" + homeLimitText(p), List.of("§7Page " + (safePage + 1) + "/" + pages, "§7Saved homes persist after restarts."));
+        count.getItemMeta().getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, "page:" + safePage);
+        inv.setItem(49, count);
         inv.setItem(50, item(Material.ARROW, "§eNext page", List.of()));
         inv.setItem(53, item(Material.BARRIER, "§cClose", List.of()));
         if (entries.isEmpty()) inv.setItem(22, item(Material.BOOK, "§7No homes saved", List.of("§fUse /sethome <name> to save one.")));
@@ -241,8 +248,8 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
         if (clicked == null || !clicked.hasItemMeta()) return;
         if (clicked.getType() == Material.BARRIER) { p.closeInventory(); return; }
         if (clicked.getType() == Material.ARROW) {
-            int page = e.getRawSlot() == 48 ? -1 : 1;
-            openHomes(p, currentPage(e.getView().getTopInventory()) + page); p.playSound(p, Sound.UI_BUTTON_CLICK, 0.45f, 1.2f); return;
+            int page = currentPage(e.getView().getTopInventory()) + (e.getRawSlot() == 48 ? -1 : 1);
+            openHomes(p, page); p.playSound(p, Sound.UI_BUTTON_CLICK, 0.45f, 1.2f); return;
         }
         String action = clicked.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
         if (action == null || !action.startsWith("home:")) return;
@@ -263,9 +270,10 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
 
     private int currentPage(Inventory inv) {
         ItemStack paper = inv.getItem(49);
-        if (paper == null) return 0;
-        String name = ChatColor.stripColor(paper.getItemMeta().getDisplayName());
-        try { return Integer.parseInt(name.substring(name.lastIndexOf("Page ") + 5)); } catch (RuntimeException ignored) { return 0; }
+        if (paper == null || !paper.hasItemMeta()) return 0;
+        String value = paper.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
+        if (value == null || !value.startsWith("page:")) return 0;
+        try { return Integer.parseInt(value.substring(5)); } catch (NumberFormatException ignored) { return 0; }
     }
 
     @EventHandler public void onInventoryDrag(InventoryDragEvent e) {
