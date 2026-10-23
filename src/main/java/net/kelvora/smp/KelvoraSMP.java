@@ -85,6 +85,7 @@ implements Listener {
         new CoinflipManager(this, combatManager).register();
         new RtpManager(this, combatManager).register();
         new HomesManager(this, combatManager).register();
+        new RankKitManager(this).register();
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
@@ -286,6 +287,9 @@ implements Listener {
             return "member";
         }
         group = group.toLowerCase(Locale.ROOT);
+        if (group.equals("default") || group.equals("member")) return "i_sprout";
+        if (group.equals("mod")) return "moderator";
+        if (group.equals("vip")) return "verdant";
         ConfigurationSection ranks = this.getConfig().getConfigurationSection("ranks");
         if (ranks != null && ranks.contains(group)) {
             return group;
