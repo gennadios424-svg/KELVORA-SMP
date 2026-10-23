@@ -642,14 +642,14 @@ shardshop:
       red: { name: "Red Glow", description: "Red glow effect", icon: RED_DYE, color: RED, price: 5000, duration-seconds: 0, available: false }
       gold: { name: "Gold Glow", description: "Gold glow effect", icon: GOLD_INGOT, color: GOLD, price: 5000, duration-seconds: 0, available: false }
     chat:
-      white: { name: "White Chat", description: "White message text", icon: WHITE_DYE, legacy-color: "&f", price: 1500, duration-seconds: 0, available: true }
-      green: { name: "Green Chat", description: "Green message text", icon: LIME_DYE, legacy-color: "&a", price: 2500, duration-seconds: 0, available: true }
-      aqua: { name: "Aqua Chat", description: "Aqua message text", icon: LIGHT_BLUE_DYE, legacy-color: "&b", price: 2500, duration-seconds: 0, available: true }
-      blue: { name: "Blue Chat", description: "Blue message text", icon: BLUE_DYE, legacy-color: "&9", price: 2500, duration-seconds: 0, available: true }
-      purple: { name: "Purple Chat", description: "Purple message text", icon: PURPLE_DYE, legacy-color: "&5", price: 3000, duration-seconds: 0, available: true }
-      gold: { name: "Gold Chat", description: "Gold message text", icon: GOLD_INGOT, legacy-color: "&6", price: 4000, duration-seconds: 0, available: true }
-      pink: { name: "Pink Chat", description: "Pink message text", icon: PINK_DYE, legacy-color: "&d", price: 3500, duration-seconds: 0, available: true }
-      red: { name: "Red Chat", description: "Red message text", icon: RED_DYE, legacy-color: "&c", price: 3000, duration-seconds: 0, available: true }
+      white: { name: "White Chat", description: "White message text", icon: WHITE_DYE, legacy-color: "&f", price: 1500, duration-seconds: 0, available: false }
+      green: { name: "Green Chat", description: "Green message text", icon: LIME_DYE, legacy-color: "&a", price: 2500, duration-seconds: 0, available: false }
+      aqua: { name: "Aqua Chat", description: "Aqua message text", icon: LIGHT_BLUE_DYE, legacy-color: "&b", price: 2500, duration-seconds: 0, available: false }
+      blue: { name: "Blue Chat", description: "Blue message text", icon: BLUE_DYE, legacy-color: "&9", price: 2500, duration-seconds: 0, available: false }
+      purple: { name: "Purple Chat", description: "Purple message text", icon: PURPLE_DYE, legacy-color: "&5", price: 3000, duration-seconds: 0, available: false }
+      gold: { name: "Gold Chat", description: "Gold message text", icon: GOLD_INGOT, legacy-color: "&6", price: 4000, duration-seconds: 0, available: false }
+      pink: { name: "Pink Chat", description: "Pink message text", icon: PINK_DYE, legacy-color: "&d", price: 3500, duration-seconds: 0, available: false }
+      red: { name: "Red Chat", description: "Red message text", icon: RED_DYE, legacy-color: "&c", price: 3000, duration-seconds: 0, available: false }
 
 
 # Team system. Teams are independent of progression and staff ranks.
