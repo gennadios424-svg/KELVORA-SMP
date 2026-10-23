@@ -126,7 +126,7 @@ final class RankKitManager implements Listener {
 
     private boolean rankCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length > 0 && args[0].equalsIgnoreCase("set")) {
-            if (!sender.isOp()) {
+            if (!sender.isOp() && !sender.hasPermission("kelvora.rank.admin")) {
                 sender.sendMessage(Component.text("You do not have permission to assign ranks.", NamedTextColor.RED));
                 return true;
             }
