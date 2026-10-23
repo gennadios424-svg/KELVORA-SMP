@@ -73,6 +73,7 @@ implements Listener {
     private ShardShopManager shardShopManager;
     private TeamManager teamManager;
     private int refreshTask;
+    private int tabFrame;
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<UUID, Scoreboard>();
 
     public void onEnable() {
@@ -116,10 +117,12 @@ implements Listener {
         }
         Bukkit.getPluginManager().registerEvents((Listener)this, (Plugin)this);
         this.refreshTask = Bukkit.getScheduler().scheduleSyncRepeatingTask((Plugin)this, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                this.updatePlayer(player);
-            }
+            for (Player player : Bukkit.getOnlinePlayers()) this.updatePlayer(player);
         }, 1L, Math.max(20L, this.getConfig().getLong("refresh-ticks", 40L)));
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            this.tabFrame = (this.tabFrame + 1) % 3;
+            for (Player online : Bukkit.getOnlinePlayers()) this.updatePlayer(online);
+        }, 60L, 60L);
         for (Player player : Bukkit.getOnlinePlayers()) {
             this.updatePlayer(player);
         }
@@ -234,23 +237,27 @@ implements Listener {
         String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
         String cosmeticPrefix = cosmeticTitle == null ? "" : this.color("&6{" + cosmeticTitle + "} ");
         String cosmeticSuffix = cosmeticTag == null ? "" : this.color(" &b[" + cosmeticTag + "]");
-        // Vanilla player names only; no custom prefixes or ping text in the player list.
-        player.setPlayerListName(player.getName());
+        // Use the existing LuckPerms prefix where available; fallback to the resolved rank label.
+        player.setPlayerListName(this.color(prefix) + player.getName());
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
         String kelvoras = this.getKelvoras(player);
-        Component footer = Component.text("💬 Discord: discord.gg/gUt2uGcwe", NamedTextColor.AQUA)
-            .append(Component.newline())
-            .append(Component.text("🛒 Store: Coming Soon", NamedTextColor.GOLD))
-            .append(Component.newline())
-            .append(Component.text("🌐 IP: kelvorasmp.mcsh.gg", NamedTextColor.GRAY));
-        player.sendPlayerListHeaderAndFooter(Component.empty(), footer);
+        Component rotatingMessage;
+        if (this.tabFrame == 0) {
+            rotatingMessage = Component.text("💬 Join our Discord", NamedTextColor.AQUA)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
+        } else if (this.tabFrame == 1) {
+            rotatingMessage = Component.text("🛡️ Apply for Staff", NamedTextColor.GOLD);
+        } else {
+            rotatingMessage = Component.text("🎥 Apply for Media", NamedTextColor.LIGHT_PURPLE);
+        }
+        player.sendPlayerListHeaderAndFooter(Component.empty(), rotatingMessage);
 
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
             board = Bukkit.getScoreboardManager().getNewScoreboard();
-            Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN));
+            Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
             for (int i = 0; i < 9; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
@@ -264,10 +271,10 @@ implements Listener {
         }
         Objective objective = board.getObjective("kelvora");
         if (objective == null) {
-            objective = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN));
+            objective = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         } else {
-            objective.displayName(Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN));
+            objective.displayName(Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
         }
         int kills = player.getStatistic(Statistic.PLAYER_KILLS);
         int deaths = player.getStatistic(Statistic.DEATHS);
@@ -277,9 +284,9 @@ implements Listener {
         // Keep the two authoritative currencies immediately under the server title.
         String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
+            this.color("&6&l⭐ RANK: &e&l" + rankDisplay),
             this.color("&6&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
-            this.color("&d&l💎 Kelvoras: &f" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
-            this.color("&b&l⭐ RANK: &b&l" + rankDisplay),
+            this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
             this.color("&3🛡 Team: &f" + teamName),
             this.color("&6⚔ Kills: &f" + kills),
             this.color("&c☠ Deaths: &f" + deaths),
