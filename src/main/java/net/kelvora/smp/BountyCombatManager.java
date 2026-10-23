@@ -47,6 +47,7 @@ final class BountyCombatManager implements Listener {
     private final Map<UUID, Combat> combat = new HashMap<>();
     private final Map<UUID, Long> recentCrystalUse = new HashMap<>();
     private final Map<String, TimedOwner> explosiveBlocks = new HashMap<>();
+    private final List<RecentExplosion> recentExplosions = new ArrayList<>();
     private final Map<UUID, UUID> crystalOwners = new HashMap<>();
     private final NamespacedKey guiAction;
     private Object economy;
@@ -340,14 +341,10 @@ final class BountyCombatManager implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockExplosion(BlockExplodeEvent e) {
-        TimedOwner owner = explosiveBlocks.get(key(e.getBlock().getLocation()));
+        TimedOwner owner = explosiveBlocks.remove(key(e.getBlock().getLocation()));
         if (owner == null || owner.expires < System.currentTimeMillis()) return;
-        Player attacker = Bukkit.getPlayer(owner.owner);
-        if (attacker == null) return;
-        for (Player victim : e.getBlock().getWorld().getPlayers()) {
-            if (victim.getLocation().distanceSquared(e.getBlock().getLocation()) <= 64) tag(attacker, victim);
-        }
-        explosiveBlocks.remove(key(e.getBlock().getLocation()));
+        recentExplosions.add(new RecentExplosion(e.getBlock().getLocation().add(.5, .5, .5), owner.owner,
+                System.currentTimeMillis() + 1500L));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -357,11 +354,24 @@ final class BountyCombatManager implements Listener {
             UUID owner = crystalOwners.remove(crystal.getUniqueId());
             if (owner != null) attacker = Bukkit.getPlayer(owner);
         }
-        if (attacker == null) return;
-        Location loc = e.getLocation();
-        for (Player victim : loc.getWorld().getPlayers()) {
-            if (victim.getLocation().distanceSquared(loc) <= 64 && victim != attacker) tag(attacker, victim);
-        }
+        if (attacker != null) recentExplosions.add(new RecentExplosion(e.getLocation(), attacker.getUniqueId(),
+                System.currentTimeMillis() + 1500L));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onExplosionDamage(EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player victim) || e instanceof EntityDamageByEntityEvent
+                || e.getCause() != EntityDamageEvent.DamageCause.BLOCK_EXPLOSION
+                || e.getFinalDamage() <= 0) return;
+        long now = System.currentTimeMillis();
+        recentExplosions.removeIf(x -> x.expires < now);
+        RecentExplosion source = recentExplosions.stream()
+                .filter(x -> x.location.getWorld().equals(victim.getWorld()))
+                .filter(x -> x.location.distanceSquared(victim.getLocation()) <= 64)
+                .max(Comparator.comparingLong(x -> x.expires)).orElse(null);
+        if (source == null) return;
+        Player attacker = Bukkit.getPlayer(source.owner);
+        if (attacker != null && !attacker.equals(victim)) tag(attacker, victim);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -544,6 +554,10 @@ final class BountyCombatManager implements Listener {
     private static final class Combat {
         final long until; final UUID opponent; final long lastHit;
         Combat(long until, UUID opponent, long lastHit) { this.until = until; this.opponent = opponent; this.lastHit = lastHit; }
+    }
+    private static final class RecentExplosion {
+        final Location location; final UUID owner; final long expires;
+        RecentExplosion(Location location, UUID owner, long expires) { this.location = location.clone(); this.owner = owner; this.expires = expires; }
     }
     private static final class TimedOwner {
         final UUID owner; final long expires;
