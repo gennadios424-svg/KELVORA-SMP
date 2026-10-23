@@ -516,7 +516,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private void generateCoverageReport(){
         File report=new File(plugin.getDataFolder(),"crate-item-coverage.txt");List<String> lines=new ArrayList<>();int eligible=0,configured=0,excluded=0;
         lines.add("Kelvora crate material coverage report — generated "+new Date());lines.add("Reward config uses RELATIVE WEIGHTS per opening, not exact per-opening percentages.");
-        Set<String> configuredNames=new HashSet<>();for(String type:TYPES)for(String r:plugin.getConfig().getStringList("crates.types."+type+".rewards")){String[] b=r.split(":");if(b.length>0)configuredNames.add(b[0]);}
+        Set<String> configuredNames=new HashSet<>();for(String type:TYPES)for(String r:configuredRewards(type)){String[] b=r.split(":");if(b.length>0)configuredNames.add(b[0]);}
         for(Material m:Material.values()){
             String n=m.name();String reason=null;
             if(!m.isItem()||m.isAir())reason="not an item / air";
