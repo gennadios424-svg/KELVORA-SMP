@@ -109,12 +109,14 @@ final class ShardShopManager implements Listener {
                 boolean owned = owns(player.getUniqueId(), category, id);
                 boolean equipped = id.equals(data.getString(player.getUniqueId() + ".equipped." + category, ""));
                 long expires = data.getLong(player.getUniqueId() + ".owned." + category + "." + id, 0);
+                boolean expired = data.getBoolean(player.getUniqueId() + ".expired." + category + "." + id, false);
                 List<String> lore = new ArrayList<>();
                 lore.add(desc);
                 lore.add(available ? "Price: ✦" + KelvorasManager.format(price) + " Kelvoras" : "Unavailable");
                 if (duration > 0) lore.add("Duration: " + durationLabel(duration));
                 if (owned && expires > 0) lore.add("Expires: " + new Date(expires).toString());
-                lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : available ? "&aClick to purchase" : "&cUnavailable");
+                if (expired) lore.add("&cExpired — click to renew");
+                lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : expired ? "&eClick to renew" : available ? "&aClick to purchase" : "&cUnavailable");
                 Material icon = material(entry.getString("icon", "NAME_TAG"));
                 add(inv, slot++, icon, (equipped ? "&a" : "&f") + name, lore, "item:" + category + ":" + id);
             }
@@ -159,6 +161,7 @@ final class ShardShopManager implements Listener {
             long duration = Math.max(0, entry.getLong("duration-seconds", 0));
             long expires = duration == 0 ? 0 : System.currentTimeMillis() + duration * 1000L;
             data.set(uuid + ".owned." + category + "." + id, expires);
+            data.set(uuid + ".expired." + category + "." + id, null);
             String previous = data.getString(uuid + ".equipped." + category, "");
             data.set(uuid + ".equipped." + category, id);
             if (!saveData()) {
@@ -265,6 +268,7 @@ final class ShardShopManager implements Listener {
         long expires = data.getLong(path, 0);
         if (expires > 0 && expires <= System.currentTimeMillis()) {
             data.set(path, null);
+            data.set(uuid + ".expired." + category + "." + id, true);
             if (id.equals(data.getString(uuid + ".equipped." + category))) data.set(uuid + ".equipped." + category, null);
             saveData();
         }
@@ -285,6 +289,7 @@ final class ShardShopManager implements Listener {
                     long expires = cosmetics.getLong(id, 0);
                     if (expires > 0 && expires <= System.currentTimeMillis()) {
                         data.set(uuidText + ".owned." + category + "." + id, null);
+                        data.set(uuidText + ".expired." + category + "." + id, true);
                         if (id.equals(data.getString(uuidText + ".equipped." + category))) {
                             data.set(uuidText + ".equipped." + category, null);
                             if (category.equals("glows")) {
