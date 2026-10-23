@@ -200,12 +200,17 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
 
     private boolean safeBody(Block block) {
         Material m = block.getType();
-        return block.isPassable() && !m.isLiquid() && !isHazard(m);
+        return block.isPassable() && !isLiquid(m) && !isHazard(m);
+    }
+
+    private boolean isLiquid(Material m) {
+        return m == Material.WATER || m == Material.LAVA || m.name().contains("WATER")
+                || m.name().contains("LAVA") || m == Material.BUBBLE_COLUMN;
     }
 
     private boolean isHazard(Material m) {
         String n = m.name();
-        return m.isLiquid() || m == Material.FIRE || m == Material.SOUL_FIRE || m == Material.CACTUS
+        return isLiquid(m) || m == Material.FIRE || m == Material.SOUL_FIRE || m == Material.CACTUS
                 || m == Material.MAGMA_BLOCK || m == Material.CAMPFIRE || m == Material.SOUL_CAMPFIRE
                 || m == Material.POWDER_SNOW || m == Material.SWEET_BERRY_BUSH
                 || n.contains("LAVA") || n.contains("WATER") || n.contains("FIRE") || n.contains("KELP")
