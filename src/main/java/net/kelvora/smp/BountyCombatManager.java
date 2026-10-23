@@ -221,7 +221,7 @@ final class BountyCombatManager implements Listener {
         }
         inv.setItem(49, item(Material.EMERALD, "§aBounty Menu", List.of("§7Set a bounty: §f/bounty set <player> <amount>", "§7Top rewards: §f/bounty top")));
         inv.setItem(53, item(Material.BARRIER, "§cClose", List.of()));
-        p.openInventory(inv); sound(p, Sound.BLOCK_CHEST_OPEN);
+        p.openInventory(inv);
     }
 
     private ItemStack item(Material material, String name, List<String> lore) {
@@ -272,8 +272,8 @@ final class BountyCombatManager implements Listener {
         combat.put(attacker.getUniqueId(), new Combat(now + COMBAT_MS, victim.getUniqueId(), now));
         combat.put(victim.getUniqueId(), new Combat(now + COMBAT_MS, attacker.getUniqueId(), now));
         lastAttackers.put(victim.getUniqueId(), new TimedOwner(attacker.getUniqueId(), now + COMBAT_MS));
-        if (freshA) { attacker.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(attacker, Sound.ENTITY_IRON_GOLEM_HURT); }
-        if (freshV) { victim.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(victim, Sound.ENTITY_IRON_GOLEM_HURT); }
+        if (freshA) { attacker.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(attacker, Sound.UI_BUTTON_CLICK); }
+        if (freshV) { victim.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(victim, Sound.UI_BUTTON_CLICK); }
     }
 
     private boolean active(UUID id, long now) { Combat c = combat.get(id); return c != null && c.until > now; }
@@ -428,7 +428,7 @@ final class BountyCombatManager implements Listener {
         victim.sendMessage(Component.text("Your $" + money(reward) + " bounty was claimed by " + killer.getName() + ".", NamedTextColor.RED));
         for (Player online : Bukkit.getOnlinePlayers()) if (!online.equals(killer) && !online.equals(victim))
             online.sendMessage(Component.text(killer.getName() + " claimed $" + money(reward) + " for eliminating " + victim.getName() + ".", NamedTextColor.GREEN));
-        sound(killer, Sound.UI_TOAST_CHALLENGE_COMPLETE);
+        killer.playSound(killer.getLocation(), Sound.UI_TOAST_IN, 0.3f, 1.1f);
         paying.remove(victimId);
     }
 
@@ -534,7 +534,7 @@ final class BountyCombatManager implements Listener {
     private void fail(Player p, String text) {
         p.sendMessage(Component.text(text, NamedTextColor.RED)); sound(p, Sound.BLOCK_NOTE_BLOCK_BASS);
     }
-    private void sound(Player p, Sound sound) { p.playSound(p.getLocation(), sound, 0.55f, 1.1f); }
+    private void sound(Player p, Sound sound) { p.playSound(p.getLocation(), sound, 0.18f, 1.1f); }
     private static String money(double n) { return String.format(Locale.US, "%,.2f", n).replaceAll("\\.00$", ""); }
     private static double round(double n) { return Math.round(n * 100.0) / 100.0; }
     private static String strip(String s) { return org.bukkit.ChatColor.stripColor(s == null ? "" : s); }
