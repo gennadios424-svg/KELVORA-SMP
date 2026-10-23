@@ -15,6 +15,12 @@ commands:
   gamble:
     description: Use your daily rank-based reward attempts
     usage: /gamble [remaining]
+  rtq:
+    description: Join or leave random 1v1 matchmaking
+    usage: /rtq [leave|status|admin reload]
+  stats:
+    description: View public player statistics
+    usage: /stats [player]
   leaderboard:
     description: View persistent Kelvora player leaderboards
     usage: /leaderboard [kills|deaths|playtime|money|kelvoras|rank]
