@@ -237,8 +237,11 @@ implements Listener {
         String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
         String cosmeticPrefix = cosmeticTitle == null ? "" : this.color("&6{" + cosmeticTitle + "} ");
         String cosmeticSuffix = cosmeticTag == null ? "" : this.color(" &b[" + cosmeticTag + "]");
-        // Use the existing LuckPerms prefix where available; fallback to the resolved rank label.
-        player.setPlayerListName(this.color(prefix) + cosmeticPrefix + player.getName() + cosmeticSuffix);
+        // Always show the actual progression rank, and retain a separate LuckPerms staff/media prefix if it is different.
+        String plainPrefix = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', prefix));
+        boolean prefixShowsProgression = plainPrefix != null && plainPrefix.toLowerCase(Locale.ROOT).contains(rankLabel.toLowerCase(Locale.ROOT));
+        String progressionPrefix = this.color(rankColor + "[" + rankLabel + "] ");
+        player.setPlayerListName(progressionPrefix + (prefixShowsProgression ? "" : this.color(prefix)) + cosmeticPrefix + player.getName() + cosmeticSuffix);
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
