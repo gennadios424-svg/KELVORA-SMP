@@ -35,6 +35,7 @@ final class ShopSellManager implements Listener {
     private static final DecimalFormat MONEY = new DecimalFormat("#,##0.##");
     private final JavaPlugin plugin;
     private final NamespacedKey actionKey;
+    private final NamespacedKey kelvoraToolIdKey;
     private final Set<UUID> transactions = ConcurrentHashMap.newKeySet();
     private final Map<UUID, QuantitySession> quantitySessions = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> currentCategoryPages = new ConcurrentHashMap<>();
@@ -43,6 +44,7 @@ final class ShopSellManager implements Listener {
     ShopSellManager(JavaPlugin plugin) {
         this.plugin = plugin;
         this.actionKey = new NamespacedKey(plugin, "shop-sell-action");
+        this.kelvoraToolIdKey = new NamespacedKey(plugin, "kelvora-tool-id");
     }
 
     void register() {
@@ -586,6 +588,8 @@ final class ShopSellManager implements Listener {
 
     private Valuation valuation(ItemStack item) {
         if (item == null || item.getType().isAir()) return new Valuation(true, 0, 0);
+        if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(kelvoraToolIdKey, PersistentDataType.STRING))
+            return new Valuation(false, 0, 0);
         double unit = price(item.getType());
         if (unit <= 0) return new Valuation(false, 0, 0);
         double total = unit * item.getAmount();
