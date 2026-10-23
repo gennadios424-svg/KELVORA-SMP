@@ -91,6 +91,7 @@ final class ShopSellManager implements Listener {
         put(inv, 33, Material.END_STONE, "End Shop", "cat:end:0", "End building materials");
         put(inv, 49, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        playUiSound(p, Sound.BLOCK_CHEST_OPEN);
     }
 
     private void openCategory(Player p, String cat, int page) {
@@ -111,6 +112,7 @@ final class ShopSellManager implements Listener {
         put(inv, 51, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, 53, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        playUiSound(p, Sound.BLOCK_CHEST_OPEN);
     }
 
     private List<ShopEntry> categoryEntries(String cat) {
@@ -203,6 +205,7 @@ final class ShopSellManager implements Listener {
         put(inv, 53, Material.LIME_DYE, "CONFIRM SALE", "confirm", "Sell priced items for Money");
         updateSellButton(inv);
         p.openInventory(inv);
+        playUiSound(p, Sound.BLOCK_CHEST_OPEN);
     }
 
     @EventHandler
