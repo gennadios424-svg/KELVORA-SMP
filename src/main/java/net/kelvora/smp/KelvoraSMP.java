@@ -281,7 +281,7 @@ implements Listener {
             this.color("&c☠ Deaths &f" + deaths),
             this.color("&b⏱ Playtime &f" + playtime),
             this.color("&6$ Money &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
-            this.color("&d✦ Shards &f" + kelvoras),
+            this.color("&d✦ Shards &f" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
             this.color("&b👥 Online &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
             this.color("&7🌐 IP &f" + serverAddress)
         };
@@ -328,6 +328,7 @@ implements Listener {
 
     ShardShopManager getShardShopManager() { return this.shardShopManager; }
     TeamManager getTeamManager() { return this.teamManager; }
+    void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
 
     private String getKelvoras(Player player) {
         if (this.kelvorasManager == null) return "✦0";
