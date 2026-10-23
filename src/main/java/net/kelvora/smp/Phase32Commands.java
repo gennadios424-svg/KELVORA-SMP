@@ -196,9 +196,14 @@ final class Phase32Commands implements Listener {
             try {
                 claims.save(claimsFile);
             } catch (IOException ex) {
-                // Payment already succeeded; do not roll again in this session and restore the cooldown in memory.
-                claims.set(path, now);
-                plugin.getLogger().severe("Could not persist daily claim for " + player.getUniqueId() + "; manual review required: " + ex.getMessage());
+                claims.set(path, last);
+                boolean reversed = withdrawMoney(player, reward);
+                try { claims.save(claimsFile); } catch (IOException ignored) {}
+                plugin.getLogger().severe("Could not persist daily claim for " + player.getUniqueId() + "; payout reversal=" + reversed + ": " + ex.getMessage());
+                player.sendMessage(Component.text(reversed
+                    ? "The reward could not be recorded, so the Money payment was reversed. Your claim is still available."
+                    : "CRITICAL: The daily claim could not be saved and the payout could not be reversed. Contact staff before claiming again.", NamedTextColor.RED));
+                return;
             }
             player.closeInventory();
             player.sendMessage(Component.text("Daily reward: +$" + new DecimalFormat("#,##0.##").format(reward) + " Money!", NamedTextColor.GREEN));
@@ -235,6 +240,21 @@ final class Phase32Commands implements Listener {
             if (pick <= 0) return tier[0];
         }
         return parsed.get(parsed.size() - 1)[0];
+    }
+
+    private boolean withdrawMoney(Player player, double amount) {
+        try {
+            Class<?> type = Class.forName("net.milkbowl.vault.economy.Economy");
+            var registration = Bukkit.getServicesManager().getRegistration((Class) type);
+            if (registration == null) return false;
+            Object economy = registration.getProvider();
+            Object response = economy.getClass().getMethod("withdrawPlayer", OfflinePlayer.class, double.class).invoke(economy, player, amount);
+            Object success = response.getClass().getMethod("transactionSuccess").invoke(response);
+            return Boolean.TRUE.equals(success);
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            plugin.getLogger().severe("Daily Money payout reversal failed: " + ex.getMessage());
+            return false;
+        }
     }
 
     private boolean payMoney(Player player, double amount) {
