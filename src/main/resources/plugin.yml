@@ -26,7 +26,6 @@ commands:
   kelvoras:
     description: View or transfer your separate Kelvoras currency
     usage: /kelvoras [pay <player> <amount>]
-    aliases: [shards]
   baltop:
     description: Show the richest players by Money balance
     usage: /baltop [page]
