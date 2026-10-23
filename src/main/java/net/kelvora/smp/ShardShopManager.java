@@ -1,0 +1,339 @@
+package net.kelvora.smp;
+
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.Scoreboard;
+import org.bukkit.Team;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+final class ShardShopManager implements Listener {
+    private static final String TITLE = "Kelvora | ShardShop";
+    private static final String DISCORD = "https://discord.gg/gUt2uGcwe";
+    private final KelvoraSMP plugin;
+    private final KelvorasManager currency;
+    private final NamespacedKey actionKey;
+    private final File dataFile;
+    private YamlConfiguration data;
+    private final Set<UUID> processing = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, String> openCategory = new HashMap<>();
+
+    ShardShopManager(KelvoraSMP plugin, KelvorasManager currency) {
+        this.plugin = plugin;
+        this.currency = currency;
+        this.actionKey = new NamespacedKey(plugin, "shardshop-action");
+        this.dataFile = new File(plugin.getDataFolder(), "shardshop-data.yml");
+    }
+
+    void register() {
+        data = YamlConfiguration.loadConfiguration(dataFile);
+        expireAll();
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+        if (plugin.getCommand("shardshop") != null) plugin.getCommand("shardshop").setExecutor(this::execute);
+        if (plugin.getCommand("shards") != null) plugin.getCommand("shards").setExecutor(this::execute);
+        if (plugin.getCommand("shardshopreload") != null) plugin.getCommand("shardshopreload").setExecutor(this::execute);
+        Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
+    }
+
+    private boolean execute(CommandSender sender, Command command, String label, String[] args) {
+        if (label.equalsIgnoreCase("shardshopreload")) {
+            if (!sender.hasPermission("kelvora.shardshop.admin")) { sender.sendMessage("You do not have permission."); return true; }
+            plugin.reloadConfig();
+            sender.sendMessage("Kelvora cosmetic configuration reloaded. Ownership and expiration data were preserved.");
+            return true;
+        }
+        if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
+        if (label.equalsIgnoreCase("shards")) {
+            player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
+            return true;
+        }
+        if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
+        openCategories(player);
+        return true;
+    }
+
+    private void openCategories(Player player) {
+        openCategory.put(player.getUniqueId(), "categories");
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        add(inv, 10, Material.NAME_TAG, "&aTags", List.of("Decorative labels beside your name", "Click to browse"), "category:tags");
+        add(inv, 11, Material.CLOCK, "&eTemporary Ranks", List.of("Cosmetic titles only", "No permissions or gameplay benefits"), "category:titles");
+        add(inv, 13, Material.GLOW_INK_SAC, "&bGlows", List.of("Cosmetic player glow effects", "Click to browse"), "category:glows");
+        add(inv, 15, Material.WRITABLE_BOOK, "&dChat Colours", List.of("Colour your message text", "Click to browse"), "category:chat");
+        add(inv, 22, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
+        add(inv, 26, Material.BARRIER, "&cClose", List.of(), "close");
+        player.openInventory(inv);
+    }
+
+    private void openItems(Player player, String category) {
+        openCategory.put(player.getUniqueId(), category);
+        Inventory inv = Bukkit.createInventory(null, 54, Component.text(TITLE + " | " + categoryLabel(category), NamedTextColor.DARK_GREEN));
+        ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
+        int slot = 10;
+        if (entries != null) {
+            for (String id : entries.getKeys(false)) {
+                if (slot >= 44) break;
+                ConfigurationSection entry = entries.getConfigurationSection(id);
+                if (entry == null) continue;
+                String name = entry.getString("name", id);
+                String desc = entry.getString("description", "Cosmetic");
+                double price = entry.getDouble("price", -1);
+                long duration = entry.getLong("duration-seconds", 0);
+                boolean available = price >= 0 && Double.isFinite(price);
+                boolean owned = owns(player.getUniqueId(), category, id);
+                boolean equipped = id.equals(data.getString(player.getUniqueId() + ".equipped." + category, ""));
+                long expires = data.getLong(player.getUniqueId() + ".owned." + category + "." + id, 0);
+                List<String> lore = new ArrayList<>();
+                lore.add(desc);
+                lore.add(available ? "Price: ✦" + KelvorasManager.format(price) + " Kelvoras" : "Unavailable");
+                if (duration > 0) lore.add("Duration: " + durationLabel(duration));
+                if (owned && expires > 0) lore.add("Expires: " + new Date(expires).toString());
+                lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : available ? "&aClick to purchase" : "&cUnavailable");
+                Material icon = material(entry.getString("icon", "NAME_TAG"));
+                add(inv, slot++, icon, (equipped ? "&a" : "&f") + name, lore, "item:" + category + ":" + id);
+            }
+        }
+        add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
+        add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
+        add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
+        player.openInventory(inv);
+    }
+
+    private void handleItem(Player player, String category, String id) {
+        ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category + "." + id);
+        if (entry == null) return;
+        UUID uuid = player.getUniqueId();
+        if (!processing.add(uuid)) return;
+        try {
+            expire(uuid, category, id);
+            boolean owned = owns(uuid, category, id);
+            String equipped = data.getString(uuid + ".equipped." + category, "");
+            if (owned) {
+                if (id.equals(equipped)) {
+                    data.set(uuid + ".equipped." + category, null);
+                    saveData();
+                    applyCosmetic(player, category, null, null);
+                    player.sendMessage(Component.text("Cosmetic unequipped.", NamedTextColor.YELLOW));
+                } else {
+                    data.set(uuid + ".equipped." + category, id);
+                    saveData();
+                    applyCosmetic(player, category, id, entry);
+                    player.sendMessage(Component.text("Equipped " + entry.getString("name", id) + ".", NamedTextColor.GREEN));
+                }
+                openItems(player, category);
+                return;
+            }
+            double price = entry.getDouble("price", -1);
+            if (price < 0 || !Double.isFinite(price)) { player.sendMessage(Component.text("This cosmetic is unavailable.", NamedTextColor.RED)); return; }
+            double balance = currency.balance(player);
+            if (!Double.isFinite(balance) || balance + 0.000001 < price) {
+                player.sendMessage(Component.text("Not enough Kelvoras. Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED)); return;
+            }
+            // Save ownership first; currency withdrawal is atomic and rolls back on persistence failure.
+            long duration = Math.max(0, entry.getLong("duration-seconds", 0));
+            long expires = duration == 0 ? 0 : System.currentTimeMillis() + duration * 1000L;
+            data.set(uuid + ".owned." + category + "." + id, expires);
+            String previous = data.getString(uuid + ".equipped." + category, "");
+            data.set(uuid + ".equipped." + category, id);
+            if (!saveData()) {
+                data.set(uuid + ".owned." + category + "." + id, null);
+                data.set(uuid + ".equipped." + category, previous.isBlank() ? null : previous);
+                player.sendMessage(Component.text("Purchase could not be saved; no charge was made.", NamedTextColor.RED)); return;
+            }
+            if (!currency.withdraw(player, price)) {
+                data.set(uuid + ".owned." + category + "." + id, null);
+                data.set(uuid + ".equipped." + category, previous.isBlank() ? null : previous);
+                saveData();
+                player.sendMessage(Component.text("Purchase failed; no charge was made.", NamedTextColor.RED)); return;
+            }
+            applyCosmetic(player, category, id, entry);
+            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
+            openItems(player, category);
+        } finally { processing.remove(uuid); }
+    }
+
+    private void applyCosmetic(Player player, String category, String id, ConfigurationSection entry) {
+        if (category.equals("glows")) {
+            player.removePotionEffect(PotionEffectType.GLOWING);
+            if (id != null) {
+                // Colorized glowing uses scoreboard teams; teams are added to each viewer's current scoreboard.
+                ChatColor color = ChatColor.valueOf(entry.getString("color", "GREEN").toUpperCase(Locale.ROOT));
+                player.setGlowing(true);
+                for (Player viewer : Bukkit.getOnlinePlayers()) {
+                    Scoreboard board = viewer.getScoreboard();
+                    String teamName = "ksglow_" + player.getUniqueId().toString().substring(0, 8);
+                    Team old = board.getTeam(teamName);
+                    Team team = old == null ? board.registerNewTeam(teamName) : old;
+                    team.color(color);
+                    team.addEntry(player.getName());
+                }
+            } else {
+                player.setGlowing(false);
+                removeGlowTeams(player);
+            }
+        }
+    }
+
+    private void removeGlowTeams(Player player) {
+        String teamName = "ksglow_" + player.getUniqueId().toString().substring(0, 8);
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            Team team = viewer.getScoreboard().getTeam(teamName);
+            if (team != null) team.removeEntry(player.getName());
+        }
+    }
+
+    String equippedTag(Player player) {
+        return activeCosmetic(player.getUniqueId(), "tags");
+    }
+
+    String equippedTitle(Player player) {
+        return activeCosmetic(player.getUniqueId(), "titles");
+    }
+
+    String chatColour(Player player) {
+        String id = activeCosmetic(player.getUniqueId(), "chat");
+        if (id == null) return null;
+        ConfigurationSection section = plugin.getConfig().getConfigurationSection("shardshop.catalogue.chat." + id);
+        return section == null ? null : section.getString("legacy-color", null);
+    }
+
+    private String activeCosmetic(UUID uuid, String category) {
+        String id = data.getString(uuid + ".equipped." + category);
+        if (id == null || id.isBlank() || !owns(uuid, category, id)) return null;
+        return id;
+    }
+
+    private boolean owns(UUID uuid, String category, String id) {
+        String path = uuid + ".owned." + category + "." + id;
+        if (!data.contains(path)) return false;
+        long expires = data.getLong(path, 0);
+        return expires == 0 || expires > System.currentTimeMillis();
+    }
+
+    private void expire(UUID uuid, String category, String id) {
+        String path = uuid + ".owned." + category + "." + id;
+        long expires = data.getLong(path, 0);
+        if (expires > 0 && expires <= System.currentTimeMillis()) {
+            data.set(path, null);
+            if (id.equals(data.getString(uuid + ".equipped." + category))) data.set(uuid + ".equipped." + category, null);
+            saveData();
+        }
+    }
+
+    private void expireAll() {
+        if (data == null) return;
+        boolean changed = false;
+        for (String uuidText : data.getKeys(false)) {
+            UUID uuid;
+            try { uuid = UUID.fromString(uuidText); } catch (IllegalArgumentException ex) { continue; }
+            ConfigurationSection owned = data.getConfigurationSection(uuidText + ".owned");
+            if (owned == null) continue;
+            for (String category : owned.getKeys(false)) {
+                ConfigurationSection cosmetics = owned.getConfigurationSection(category);
+                if (cosmetics == null) continue;
+                for (String id : cosmetics.getKeys(false)) {
+                    long expires = cosmetics.getLong(id, 0);
+                    if (expires > 0 && expires <= System.currentTimeMillis()) {
+                        data.set(uuidText + ".owned." + category + "." + id, null);
+                        if (id.equals(data.getString(uuidText + ".equipped." + category))) data.set(uuidText + ".equipped." + category, null);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (changed) saveData();
+    }
+
+    private String categoryLabel(String category) {
+        return switch (category) { case "tags" -> "Tags"; case "titles" -> "Temporary Ranks"; case "glows" -> "Glows"; default -> "Chat Colours"; };
+    }
+    private String durationLabel(long seconds) {
+        if (seconds % 86400 == 0) return (seconds / 86400) + " day(s)";
+        if (seconds % 3600 == 0) return (seconds / 3600) + " hour(s)";
+        return seconds + " seconds";
+    }
+    private Material material(String name) {
+        Material value = Material.matchMaterial(name);
+        return value == null || !value.isItem() ? Material.NAME_TAG : value;
+    }
+    private void add(Inventory inv, int slot, Material material, String name, List<String> lore, String action) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(name));
+        List<Component> lines = new ArrayList<>();
+        for (String line : lore) lines.add(LegacyComponentSerializer.legacyAmpersand().deserialize("&7" + line));
+        meta.lore(lines);
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, action);
+        item.setItemMeta(meta);
+        inv.setItem(slot, item);
+    }
+    private boolean saveData() {
+        try { if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs(); data.save(dataFile); return true; }
+        catch (IOException ex) { plugin.getLogger().severe("Could not save ShardShop ownership: " + ex.getMessage()); return false; }
+    }
+
+    @EventHandler public void onClick(InventoryClickEvent event) {
+        String title = event.getView().title().toString();
+        if (!title.contains(TITLE)) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player) || event.getClickedInventory() != event.getView().getTopInventory()) return;
+        ItemStack item = event.getCurrentItem();
+        if (item == null || !item.hasItemMeta()) return;
+        String action = item.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
+        if (action == null) return;
+        if (action.equals("close")) { player.closeInventory(); return; }
+        if (action.equals("back")) { openCategories(player); return; }
+        if (action.startsWith("category:")) { openItems(player, action.substring(9)); return; }
+        if (action.startsWith("item:")) {
+            String[] parts = action.split(":", 3);
+            if (parts.length == 3) handleItem(player, parts[1], parts[2]);
+        }
+    }
+    @EventHandler public void onDrag(InventoryDragEvent event) {
+        if (event.getView().title().toString().contains(TITLE)) event.setCancelled(true);
+    }
+    @EventHandler public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (String category : List.of("glows")) {
+                String id = activeCosmetic(player.getUniqueId(), category);
+                if (id != null) {
+                    ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category + "." + id);
+                    if (entry != null) applyCosmetic(player, category, id, entry);
+                }
+            }
+        });
+    }
+    @EventHandler public void onQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        if (activeCosmetic(player.getUniqueId(), "glows") != null) removeGlowTeams(player);
+    }
+}
