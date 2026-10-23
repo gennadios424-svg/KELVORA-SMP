@@ -225,28 +225,26 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     @EventHandler public void protectPiston(org.bukkit.event.block.BlockPistonRetractEvent e){for(Block b:e.getBlocks())if(crates.containsKey(locKey(b.getLocation()))){e.setCancelled(true);return;}}
 
     private void startKeyallAnimation(Player player, String type, int amount) {
-        final String animationTitle = "KELVORA | KEY DELIVERY";
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text(animationTitle, NamedTextColor.DARK_PURPLE));
-        inv.setItem(4, button(Material.CHEST, "&d&l" + titleCase(type) + " Keys", List.of("&7Digital keys already credited", "&f+" + amount + " key(s)", "&8Presentation only; no reward roll")));
-        player.openInventory(inv);
+        final UUID id = player.getUniqueId();
+        final String[] frames = new String[] { "━━━━━━━━━━━━━━━━━━━━", "🌿 KELVORA SMP", "Rolling out a server reward...",
+            "✦ " + titleCase(type).toUpperCase(Locale.ROOT) + " CRATE ✦", "✦ KEYS RECEIVED! ✦",
+            "+" + amount + " " + titleCase(type) + " key(s)", "━━━━━━━━━━━━━━━━━━━━" };
+        final NamedTextColor[] colors = new NamedTextColor[] { NamedTextColor.GREEN, NamedTextColor.GREEN, NamedTextColor.LIGHT_PURPLE,
+            NamedTextColor.GOLD, NamedTextColor.AQUA, NamedTextColor.GOLD, NamedTextColor.GREEN };
         final org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
         task[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             int step = 0;
             public void run() {
-                if (!player.isOnline() || !player.getOpenInventory().getTitle().equals(animationTitle)) { Bukkit.getScheduler().cancelTask(task[0].getTaskId()); return; }
-                if (step < 8) {
-                    Material[] cycle = {Material.CHEST, Material.ENDER_CHEST, Material.TRIPWIRE_HOOK, Material.AMETHYST_SHARD, Material.GOLD_INGOT};
-                    inv.setItem(13, button(cycle[step % cycle.length], "&d&lRolling delivery...", List.of("&7Your keys are safe")));
-                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.4f, 0.8f + step * 0.1f);
-                    step++;
-                } else {
-                    inv.setItem(13, button(Material.LIME_DYE, "&a&lKEYS DELIVERED", List.of("&f+" + amount + " " + titleCase(type) + " key(s)", "&7Use a physical crate to open them")));
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
-                    Bukkit.getScheduler().cancelTask(task[0].getTaskId());
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> { if (player.isOnline() && player.getOpenInventory().getTitle().equals(animationTitle)) player.closeInventory(); }, 30L);
+                Player current = Bukkit.getPlayer(id);
+                if (current == null || !current.isOnline()) { Bukkit.getScheduler().cancelTask(task[0].getTaskId()); return; }
+                current.sendActionBar(Component.text(frames[step], colors[step]));
+                if (step == frames.length - 1) {
+                    current.sendMessage(Component.text("You received exactly " + amount + " " + titleCase(type) + " key(s).", NamedTextColor.GREEN));
+                    Bukkit.getScheduler().cancelTask(task[0].getTaskId()); return;
                 }
+                step++;
             }
-        }, 1L, 3L);
+        }, 1L, 12L);
     }
 
     @EventHandler public void click(InventoryClickEvent e) {
