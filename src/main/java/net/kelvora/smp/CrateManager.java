@@ -36,6 +36,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private YamlConfiguration data;
     private final Map<String, Location> crates = new LinkedHashMap<>();
     private final Map<UUID, String> openCrate = new HashMap<>();
+    private final Set<Inventory> protectedInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> pendingRemoval = new HashMap<>();
     private final Map<UUID, Long> pendingRemovalAt = new HashMap<>();
@@ -195,12 +196,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
 
     private void openAdmin(Player p) {
         Inventory inv=Bukkit.createInventory(null,27,Component.text(ADMIN,NamedTextColor.DARK_GREEN));
+        protectedInventories.add(inv);
         int slot=10;for(String type:TYPES){ItemStack item=new ItemStack(Material.CHEST);ItemMeta meta=item.getItemMeta();meta.displayName(color("&6"+titleCase(type)+" Crate"));meta.lore(List.of(color("&7Spawn a physical crate"),color("&fClick to spawn at your target/location")));item.setItemMeta(meta);inv.setItem(slot++,item);}
         ItemStack list=new ItemStack(Material.PAPER);ItemMeta lm=list.getItemMeta();lm.displayName(color("&aRegistered crates: "+crates.size()));list.setItemMeta(lm);inv.setItem(22,list);p.openInventory(inv);
     }
     private void openCrate(Player p,String type) {
         openCrate.put(p.getUniqueId(),type);
         Inventory inv=Bukkit.createInventory(null,27,Component.text(GUI+" | "+titleCase(type),NamedTextColor.DARK_GREEN));
+        protectedInventories.add(inv);
         inv.setItem(4,button(Material.CHEST,"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
         inv.setItem(13,button(Material.TRIPWIRE_HOOK,"&eYour Keys: &f"+keys(p,type),List.of("&7Digital keys only","&7One key per successful opening")));
         List<String> rewards=plugin.getConfig().getStringList("crates.types."+type+".rewards");
@@ -250,8 +253,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     @EventHandler public void click(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
         String title = e.getView().getTitle();
-        if (title.equals("KELVORA | KEY DELIVERY")) { e.setCancelled(true); return; }
-        if (!title.startsWith(GUI) && !title.equals(ADMIN)) return;
+        if (!protectedInventories.contains(e.getView().getTopInventory())) return;
         e.setCancelled(true);
         if (e.getClickedInventory() == null || e.getClickedInventory() != e.getView().getTopInventory()) return;
         if (title.equals(ADMIN)) {
@@ -410,7 +412,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         return remaining <= 0 || player.getInventory().firstEmpty() != -1;
     }
 
-    @EventHandler public void drag(InventoryDragEvent e){String t=e.getView().getTitle();if(t.startsWith(GUI)||t.equals(ADMIN)||t.equals("KELVORA | KEY DELIVERY"))e.setCancelled(true);}
+    @EventHandler public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
+    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){protectedInventories.remove(e.getInventory());}
     @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
         openCrate.remove(e.getPlayer().getUniqueId());
         // A consumed key is refunded by the pending completion if the player disconnects.
