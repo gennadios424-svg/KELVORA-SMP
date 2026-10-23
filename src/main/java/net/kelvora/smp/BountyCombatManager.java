@@ -288,14 +288,14 @@ final class BountyCombatManager implements Listener {
             if (c.until <= now || p == null || !p.isOnline() || p.isDead()) {
                 if (p != null && p.isOnline() && c.until <= now && !p.isDead()) {
                     p.sendMessage(Component.text("You are no longer in combat.", NamedTextColor.GREEN));
-                    sound(p, Sound.BLOCK_NOTE_BLOCK_PLING);
+                    sound(p, Sound.UI_BUTTON_CLICK);
                 }
                 it.remove(); continue;
             }
             long seconds = Math.max(1, (c.until - now + 999) / 1000);
             if (seconds == 10 || seconds == 5 || seconds == 3 || seconds == 2 || seconds == 1) {
                 p.sendMessage(Component.text("Combat ends in " + seconds + "s.", NamedTextColor.RED));
-                sound(p, Sound.BLOCK_NOTE_BLOCK_HAT);
+                sound(p, Sound.UI_BUTTON_CLICK);
             }
         }
     }
