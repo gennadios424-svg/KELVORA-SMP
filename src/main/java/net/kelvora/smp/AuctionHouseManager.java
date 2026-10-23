@@ -207,10 +207,9 @@ final class AuctionHouseManager implements Listener {
         if (economy == null) { msg(p, NamedTextColor.RED, "Money is unavailable right now. Try again later."); return; }
         final double price;
         try {
-            if (rawPrice == null || !rawPrice.matches("[0-9]+(?:\\.[0-9]{1,2})?")) throw new NumberFormatException();
-            price = Double.parseDouble(rawPrice);
-            if (!Double.isFinite(price) || price <= 0 || price > 1_000_000_000_000d) throw new NumberFormatException();
-        } catch (NumberFormatException ex) { msg(p, NamedTextColor.RED, "Enter a valid price greater than $0."); return; }
+            price = Phase32Commands.parseAmount(rawPrice);
+            if (!Double.isFinite(price) || price <= 0 || price > 1_000_000_000_000d) throw new IllegalArgumentException();
+        } catch (IllegalArgumentException ex) { msg(p, NamedTextColor.RED, "Enter a valid price greater than $0. Examples: 1000, 10k, 1.5m, 2b."); return; }
         ItemStack hand = p.getInventory().getItemInMainHand();
         if (hand.getType().isAir() || !listable(hand)) { msg(p, NamedTextColor.RED, "That item cannot be listed."); return; }
         ItemStack listed = hand.clone();
