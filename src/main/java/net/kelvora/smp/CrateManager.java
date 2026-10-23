@@ -292,11 +292,11 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
 
     private void startKeyallAnimation(Player player, String type, int amount) {
         final UUID id = player.getUniqueId();
-        final String[] frames = new String[] { "━━━━━━━━━━━━━━━━━━━━", "🌿 KELVORA SMP", "Rolling out a server reward...",
-            "✦ " + titleCase(type).toUpperCase(Locale.ROOT) + " CRATE ✦", "✦ KEYS RECEIVED! ✦",
-            "+" + amount + " " + titleCase(type) + " key(s)", "━━━━━━━━━━━━━━━━━━━━" };
+        final String[] frames = new String[] { "━━━━━━━━━━━━━━━━━━━━", "🌿 KELVORA SMP", "Distributing server keys...",
+            "✦ " + titleCase(type).toUpperCase(Locale.ROOT) + " CRATE ✦",
+            "✦ " + amount + " " + titleCase(type).toUpperCase(Locale.ROOT) + " KEYS RECEIVED ✦" };
         final NamedTextColor[] colors = new NamedTextColor[] { NamedTextColor.GREEN, NamedTextColor.GREEN, NamedTextColor.LIGHT_PURPLE,
-            NamedTextColor.GOLD, NamedTextColor.AQUA, NamedTextColor.GOLD, NamedTextColor.GREEN };
+            NamedTextColor.GOLD, NamedTextColor.AQUA };
         final org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
         task[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             int step = 0;
