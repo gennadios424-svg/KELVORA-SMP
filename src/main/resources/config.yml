@@ -643,6 +643,16 @@ shardshop:
       title_1d: { name: "Supporter", description: "Temporary cosmetic title only", icon: NAME_TAG, price: 500, duration-seconds: 86400, available: true }
       title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: DIAMOND_HELMET, price: 2500, duration-seconds: 604800, available: true }
       title_30d: { name: "Mythic", description: "Temporary cosmetic title only", icon: NETHER_STAR, price: 8000, duration-seconds: 2592000, available: true }
+    ranks:
+      verdant_1d: { name: "Verdant - 1 day", description: "Temporary Verdant rank overlay", icon: EMERALD, rank: verdant, price: 8000, duration-seconds: 86400, available: true }
+      verdant_3d: { name: "Verdant - 3 days", description: "Temporary Verdant rank overlay", icon: EMERALD, rank: verdant, price: 13000, duration-seconds: 259200, available: true }
+      verdant_7d: { name: "Verdant - 7 days", description: "Temporary Verdant rank overlay", icon: EMERALD, rank: verdant, price: 21000, duration-seconds: 604800, available: true }
+      emerald_1d: { name: "Emerald - 1 day", description: "Temporary Emerald rank overlay", icon: EMERALD, rank: emerald, price: 12000, duration-seconds: 86400, available: true }
+      emerald_3d: { name: "Emerald - 3 days", description: "Temporary Emerald rank overlay", icon: EMERALD, rank: emerald, price: 17000, duration-seconds: 259200, available: true }
+      emerald_7d: { name: "Emerald - 7 days", description: "Temporary Emerald rank overlay", icon: EMERALD, rank: emerald, price: 25000, duration-seconds: 604800, available: true }
+      sovereign_1d: { name: "Sovereign - 1 day", description: "Temporary Sovereign rank overlay", icon: NETHER_STAR, rank: sovereign, price: 17000, duration-seconds: 86400, available: true }
+      sovereign_3d: { name: "Sovereign - 3 days", description: "Temporary Sovereign rank overlay", icon: NETHER_STAR, rank: sovereign, price: 28000, duration-seconds: 259200, available: true }
+      sovereign_7d: { name: "Sovereign - 7 days", description: "Temporary Sovereign rank overlay", icon: NETHER_STAR, rank: sovereign, price: 36000, duration-seconds: 604800, available: true }
     glows:
       green: { name: "Green Glow", description: "Emerald glow effect", icon: LIME_DYE, color: GREEN, price: 5000, duration-seconds: 0, available: false }
       cyan: { name: "Cyan Glow", description: "Cool cyan glow effect", icon: CYAN_DYE, color: AQUA, price: 5000, duration-seconds: 0, available: false }
