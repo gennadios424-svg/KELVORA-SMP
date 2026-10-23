@@ -186,7 +186,16 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         if (event.isCancelled()) return;
         org.bukkit.block.Container container=(org.bukkit.block.Container)clicked.getState();
         Inventory inventory=container.getInventory();
-        String token="sellaxe-inventory:"+System.identityHashCode(inventory);
+        String token;
+        InventoryHolder holder = inventory.getHolder();
+        if (holder instanceof org.bukkit.block.DoubleChest doubleChest) {
+            String left = holderLocation(doubleChest.getLeftSide(), clicked.getLocation());
+            String right = holderLocation(doubleChest.getRightSide(), clicked.getLocation());
+            if (left.compareTo(right) > 0) { String swap = left; left = right; right = swap; }
+            token = "sellaxe-inventory:" + left + "|" + right;
+        } else {
+            token = "sellaxe-inventory:" + clicked.getWorld().getName() + ":" + clicked.getX() + ":" + clicked.getY() + ":" + clicked.getZ();
+        }
         if(!processing.add(token)) return;
         ItemStack[] before=null;
         boolean paid=false;
@@ -223,6 +232,14 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             plugin.getLogger().warning("Sellaxe chest transaction failed: "+ex.getMessage());
             player.sendMessage(Component.text("Chest sale failed. Please check the chest before trying again.",NamedTextColor.RED));
         } finally { processing.remove(token); }
+    }
+
+    private String holderLocation(InventoryHolder holder, org.bukkit.Location fallback) {
+        if (holder instanceof org.bukkit.block.BlockState state) {
+            org.bukkit.Location location = state.getLocation();
+            return location.getWorld().getName() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
+        }
+        return fallback.getWorld().getName() + ":" + fallback.getBlockX() + ":" + fallback.getBlockY() + ":" + fallback.getBlockZ();
     }
 
     private boolean containsKelvoraTool(ItemStack item) {
