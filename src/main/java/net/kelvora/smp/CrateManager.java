@@ -429,7 +429,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     private List<String> configuredRewards(String type) {
-        List<String> entries = new ArrayList<>(configuredRewards(type));
+        List<String> entries = new ArrayList<>(plugin.getConfig().getStringList("crates.types." + type + ".rewards"));
         if (!type.equals("gambling") || !plugin.getConfig().getBoolean("crates.types.gambling.include-eligible-catalogue", true)) return entries;
         Set<String> configured = new HashSet<>();
         for (String entry : entries) { String[] bits = entry.split(":", 4); if (bits.length > 0) configured.add(bits[0].toUpperCase(Locale.ROOT)); }
