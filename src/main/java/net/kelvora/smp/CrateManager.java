@@ -283,7 +283,9 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             public void run() {
                 Player current = Bukkit.getPlayer(id);
                 if (current == null || !current.isOnline()) { Bukkit.getScheduler().cancelTask(task[0].getTaskId()); return; }
-                current.sendActionBar(Component.text(frames[step], colors[step]));
+                Component headline = Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN);
+                Component subtitle = Component.text(frames[step], colors[step]);
+                current.showTitle(net.kyori.adventure.title.Title.title(headline, subtitle));
                 if (step == frames.length - 1) {
                     current.sendMessage(Component.text("You received exactly " + amount + " " + titleCase(type) + " key(s).", NamedTextColor.GREEN));
                     Bukkit.getScheduler().cancelTask(task[0].getTaskId()); return;
