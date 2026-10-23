@@ -6,7 +6,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.milkbowl.vault.economy.Economy;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -39,7 +38,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     private final File dataFile;
     private org.bukkit.configuration.file.YamlConfiguration data;
     private final java.security.SecureRandom random=new java.security.SecureRandom();
-    private Economy economy;
+    private Object economy;
 
     SpecialToolsManager(JavaPlugin plugin,KelvorasManager currency,WorthManager worth){
         this.plugin=plugin;this.currency=currency;this.worth=worth;
@@ -53,8 +52,18 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         for(String s:data.getStringList("placed-blocks"))placedBlocks.add(s);
         Bukkit.getPluginManager().registerEvents(this,plugin);
         if(plugin.getCommand("kelvoratools")!=null){plugin.getCommand("kelvoratools").setExecutor(this);plugin.getCommand("kelvoratools").setTabCompleter(this);}
-        RegisteredServiceProvider<Economy> rsp=Bukkit.getServicesManager().getRegistration(Economy.class);
-        if(rsp!=null)economy=rsp.getProvider();
+        economy=resolveEconomy();
+    }
+    @SuppressWarnings({"unchecked","rawtypes"})
+    private Object resolveEconomy(){
+        try {
+            Class<?> api=Class.forName("net.milkbowl.vault.economy.Economy",false,plugin.getClass().getClassLoader());
+            RegisteredServiceProvider<?> provider=Bukkit.getServicesManager().getRegistration((Class)api);
+            return provider==null?null:provider.getProvider();
+        } catch (ClassNotFoundException ex) {
+            plugin.getLogger().fine("Vault API is absent; Sellaxe Money payouts remain unavailable until Vault is installed.");
+            return null;
+        }
     }
     private boolean admin(CommandSender s){return s.isOp();}
     private String id(ItemStack item){if(item==null||!item.hasItemMeta())return null;return item.getItemMeta().getPersistentDataContainer().get(idKey,PersistentDataType.STRING);}
@@ -182,7 +191,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         ItemStack[] before=null;
         boolean paid=false;
         try {
-            if(economy==null){RegisteredServiceProvider<Economy> rsp=Bukkit.getServicesManager().getRegistration(Economy.class);if(rsp!=null)economy=rsp.getProvider();}
+            if(economy==null)economy=resolveEconomy();
             if(economy==null){player.sendMessage(Component.text("Money economy is unavailable; nothing was sold.",NamedTextColor.RED));return;}
             before=inventory.getContents().clone();
             ItemStack[] after=inventory.getContents().clone();
@@ -199,8 +208,9 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             }
             if(sold==0||!Double.isFinite(total)||total<=0){player.sendMessage(Component.text("No sellable items were found. The chest was left unchanged.",NamedTextColor.YELLOW));return;}
             inventory.setContents(after);
-            var response=economy.depositPlayer(player,total);
-            if(response==null||!response.transactionSuccess()){
+            Object response=economy.getClass().getMethod("depositPlayer",OfflinePlayer.class,double.class).invoke(economy,player,total);
+            boolean transactionSuccess=response!=null && (Boolean)Class.forName("net.milkbowl.vault.economy.EconomyResponse").getMethod("transactionSuccess").invoke(response);
+            if(!transactionSuccess){
                 inventory.setContents(before);
                 player.sendMessage(Component.text("Money payment failed; all chest contents were restored.",NamedTextColor.RED));
                 return;
