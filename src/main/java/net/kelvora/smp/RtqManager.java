@@ -9,6 +9,7 @@ import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -20,6 +21,7 @@ final class RtqManager implements Listener, CommandExecutor, TabCompleter {
     private final LinkedHashSet<UUID> queue = new LinkedHashSet<>();
     private final Map<UUID, UUID> opponents = new ConcurrentHashMap<>();
     private final Set<UUID> active = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> fighting = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Location> returnLocations = new HashMap<>();
     private boolean matching;
 
@@ -110,7 +112,7 @@ final class RtqManager implements Listener, CommandExecutor, TabCompleter {
     private void matchNext() {
         if (matching) return;
         while (queue.size() >= 2) {
-            Iterator<UUID> it=queue.iterator(); UUID a=it.next(), b=it.next();
+            List<UUID> waiting=new ArrayList<>(queue); UUID a=waiting.get(0), b=waiting.get(1);
             Player p1=Bukkit.getPlayer(a), p2=Bukkit.getPlayer(b);
             if (p1==null || !p1.isOnline() || active.contains(a) || combat.isInCombat(p1)) { queue.remove(a); continue; }
             if (p2==null || !p2.isOnline() || active.contains(b) || combat.isInCombat(p2)) { queue.remove(b); continue; }
@@ -151,6 +153,7 @@ final class RtqManager implements Listener, CommandExecutor, TabCompleter {
             if (!active.contains(a)||!active.contains(b)||p==null||q==null) { cancelMatch(a,b,"Duel cancelled because a player became unavailable."); return; }
             p.showTitle(net.kyori.adventure.title.Title.title(Component.text("FIGHT!",NamedTextColor.RED),Component.text("Good luck",NamedTextColor.WHITE)));
             q.showTitle(net.kyori.adventure.title.Title.title(Component.text("FIGHT!",NamedTextColor.RED),Component.text("Good luck",NamedTextColor.WHITE)));
+            fighting.add(a); fighting.add(b);
             p.sendMessage(Component.text("RTQ duel started against "+q.getName()+".",NamedTextColor.GREEN));
             q.sendMessage(Component.text("RTQ duel started against "+p.getName()+".",NamedTextColor.GREEN));
         }, (long)duration*20L);
@@ -158,13 +161,16 @@ final class RtqManager implements Listener, CommandExecutor, TabCompleter {
 
     private void cancelMatch(UUID a, UUID b, String reason) {
         Player p=Bukkit.getPlayer(a), q=Bukkit.getPlayer(b);
+        Location pr=returnLocations.get(a), qr=returnLocations.get(b);
         if(p!=null) p.sendMessage(Component.text(reason,NamedTextColor.RED));
         if(q!=null) q.sendMessage(Component.text(reason,NamedTextColor.RED));
         finish(a); finish(b);
-        if(p!=null && q!=null) { matchNext(); }
+        if(p!=null && p.isOnline() && pr!=null) p.teleport(pr);
+        if(q!=null && q.isOnline() && qr!=null) q.teleport(qr);
+        matchNext();
     }
     private void finish(UUID id) {
-        active.remove(id); queue.remove(id);
+        active.remove(id); fighting.remove(id); queue.remove(id);
         UUID other=opponents.remove(id); if(other!=null) opponents.remove(other,id);
         returnLocations.remove(id);
     }
@@ -180,6 +186,13 @@ final class RtqManager implements Listener, CommandExecutor, TabCompleter {
         matchNext();
     }
 
+    @EventHandler public void onDamage(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Player victim)) return;
+        Player attacker=null;
+        if (e.getDamager() instanceof Player p) attacker=p;
+        else if (e.getDamager() instanceof org.bukkit.entity.Projectile projectile && projectile.getShooter() instanceof Player p) attacker=p;
+        if ((active.contains(victim.getUniqueId()) && !fighting.contains(victim.getUniqueId())) || (attacker!=null && active.contains(attacker.getUniqueId()) && !fighting.contains(attacker.getUniqueId()))) e.setCancelled(true);
+    }
     @EventHandler public void onDeath(PlayerDeathEvent e) {
         UUID id=e.getEntity().getUniqueId();
         if(active.contains(id)) Bukkit.getScheduler().runTask(plugin,()->endFor(id,"Duel finished."));
