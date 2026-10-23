@@ -3,6 +3,11 @@ name: Build and verify KelvoraSMP
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
@@ -61,18 +66,3 @@ jobs:
           path: KelvoraSMP-2.3.0.jar
           if-no-files-found: error
           retention-days: 30
-      - name: Record build result for verification
-        if: always()
-        run: |
-          git pull --rebase origin main
-          printf 'commit=%s\nstatus=%s\ncompile=%s\nverify=%s\npublish=%s\n' "$GITHUB_SHA" "${{ job.status }}" "${{ steps.compile.outcome }}" "${{ steps.verify.outcome }}" "${{ steps.publish.outcome }}" > build-status.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add build-status.txt
-          if [ -f build.log ]; then git add build.log; fi
-          if git diff --cached --quiet; then
-            echo "Build status is unchanged."
-          else
-            git commit -m "Record KelvoraSMP build status"
-            git push
-          fi
