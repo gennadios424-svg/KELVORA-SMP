@@ -133,10 +133,6 @@ final class ShopSellManager implements Listener {
         }
         if (cat.equals("blocks")) {
             entries.putIfAbsent(Material.SHULKER_BOX, new ShopEntry(Material.SHULKER_BOX, null, 0));
-            for (String color : List.of("WHITE","ORANGE","MAGENTA","LIGHT_BLUE","YELLOW","LIME","PINK","GRAY","LIGHT_GRAY","CYAN","PURPLE","BLUE","BROWN","GREEN","RED","BLACK")) {
-                Material shulker = Material.matchMaterial(color + "_SHULKER_BOX");
-                if (shulker != null) entries.putIfAbsent(shulker, new ShopEntry(shulker, null, 0));
-            }
             // Keep only the two most useful decorative colour families; avoid a filler catalogue.
             addColorVariants(entries, "WOOL");
             addColorVariants(entries, "CONCRETE");
@@ -162,7 +158,11 @@ final class ShopSellManager implements Listener {
         result.addAll(specialEntries);
         // A single authoritative category assignment prevents duplicates, and this blacklist
         // prevents future catalogue edits from bypassing survival progression.
-        result.removeIf(entry -> isProgressionRestricted(entry.material) || !cat.equals(categoryFor(entry)));
+        result.removeIf(entry -> isProgressionRestricted(entry.material)
+            || entry.material.name().endsWith("_SHULKER_BOX")
+            || !cat.equals(categoryFor(entry)));
+        // One canonical shulker entry only: the uncoloured standard SHULKER_BOX in Blocks.
+        if (cat.equals("blocks")) result.removeIf(entry -> entry.material != Material.SHULKER_BOX && entry.material.name().endsWith("SHULKER_BOX"));
         return result;
     }
 
