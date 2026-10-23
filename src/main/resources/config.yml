@@ -742,6 +742,8 @@ crates:
       description: "High variance — valuable rewards are not guaranteed"
       block: BARREL
       include-eligible-catalogue: true
+      # Add material names here to disable them from the generated Gambling catalogue.
+      disabled-items: []
       # Exact percentages override relative weights. 0.001 means 0.001% (1 in 100,000).
       exact-chances:
         DRAGON_EGG: 0.001
