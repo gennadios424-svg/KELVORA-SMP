@@ -255,14 +255,14 @@ final class ShopSellManager implements Listener {
             if (action == null || session == null) return;
             if (action.startsWith("qty:")) {
                 int qty = parsePage(action.substring(4));
-                if (qty <= session.prototype.getMaxStackSize() && validQuantity(qty, session.prototype.getMaxStackSize())) {
+                if (validQuantity(qty, session.prototype.getMaxStackSize())) {
                     session.quantity = qty;
-                    refreshQuantityView(p, e.getView().getTopInventory(), session);
+                    confirmPurchase(p, session);
                 }
             } else if (action.equals("confirm")) confirmPurchase(p, session);
             else if (action.equals("back")) {
                 quantitySessions.remove(p.getUniqueId());
-                openCategory(p, session.category, session.page);
+                refreshQuantityView(p, p.getOpenInventory().getTopInventory(), session);
             } else if (action.equals("cancel")) {
                 quantitySessions.remove(p.getUniqueId());
                 openCategory(p, session.category, session.page);
@@ -449,16 +449,16 @@ final class ShopSellManager implements Listener {
     }
 
     private boolean validQuantity(int quantity, int maxStack) {
-        return quantity == 1 || (quantity == 8 && maxStack >= 8) || (quantity == 16 && maxStack >= 16);
+        return quantity == 1 || quantity == 32 || quantity == 64;
     }
 
     private void openQuantity(Player p, QuantitySession session) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         refreshQuantityView(p, inv, session);
-        put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
-        if (session.prototype.getMaxStackSize() >= 8) put(inv, 21, Material.LIME_CONCRETE, "Buy 8", "qty:8", "Total: $" + MONEY.format(session.unitPrice * 8));
-        if (session.prototype.getMaxStackSize() >= 16) put(inv, 22, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
+        put(inv, 19, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
+        put(inv, 21, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
+        put(inv, 23, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
         put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
         put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
         put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
@@ -534,8 +534,7 @@ final class ShopSellManager implements Listener {
                     : "Inventory changed; leftover items were dropped safely. Contact staff to verify the refund.", NamedTextColor.RED));
                 return;
             }
-            quantitySessions.remove(p.getUniqueId(), session);
-            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.25f);
+            p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.45f, 1.4f);
             p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
                 + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
             openCategory(p, session.category, session.page);
