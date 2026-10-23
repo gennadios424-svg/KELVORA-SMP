@@ -278,18 +278,39 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             p.sendMessage(Component.text("No valid rewards configured; your key was not used.", NamedTextColor.RED));
             opening.remove(p.getUniqueId()); return;
         }
-        String[] bits = reward.split(":");
-        Material mat = Material.matchMaterial(bits[0]);
-        int amount;
-        try { amount = Integer.parseInt(bits[1]); } catch (Exception ex) { amount = 1; }
-        if (mat == null || mat.isAir() || !mat.isItem() || amount < 1 || amount > mat.getMaxStackSize()) {
+        String[] bits = reward.split(":", 4);
+        final String rewardKind = bits[0].toUpperCase(Locale.ROOT);
+        final double rewardValue;
+        final int rewardAmount;
+        final Material rewardMaterial;
+        final ItemStack rewardItem;
+        try {
+            if (rewardKind.equals("KELVORAS") || rewardKind.equals("MONEY")) {
+                rewardValue = Double.parseDouble(bits[1]);
+                if (!Double.isFinite(rewardValue) || rewardValue <= 0) throw new IllegalArgumentException();
+                rewardAmount = 1;
+                rewardMaterial = null;
+                rewardItem = null;
+            } else if (rewardKind.equals("COMMAND")) {
+                if (bits[1].isBlank()) throw new IllegalArgumentException();
+                rewardValue = 0;
+                rewardAmount = 1;
+                rewardMaterial = null;
+                rewardItem = null;
+            } else {
+                Material mat = Material.matchMaterial(bits[0]);
+                int amount = Integer.parseInt(bits[1]);
+                if (!isAllowedReward(mat) || amount < 1 || amount > mat.getMaxStackSize()) throw new IllegalArgumentException();
+                rewardValue = 0;
+                rewardAmount = amount;
+                rewardMaterial = mat;
+                rewardItem = new ItemStack(mat, amount);
+            }
+        } catch (Exception ex) {
             p.sendMessage(Component.text("Configured reward is invalid. Your key was not used.", NamedTextColor.RED));
             opening.remove(p.getUniqueId()); return;
         }
-        final int rewardAmount = amount;
-        final Material rewardMaterial = mat;
-        ItemStack rewardItem = new ItemStack(mat, amount);
-        if (!canFit(p, rewardItem)) {
+        if (rewardItem != null && !canFit(p, rewardItem)) {
             p.sendMessage(Component.text("Make room in your inventory before opening this crate. Your key was not used.", NamedTextColor.RED));
             opening.remove(p.getUniqueId()); return;
         }
@@ -334,18 +355,44 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                     return;
                 }
                 ItemStack[] inventoryBefore = current.getInventory().getStorageContents();
-                Map<Integer, ItemStack> overflow = current.getInventory().addItem(rewardItem.clone());
-                if (!overflow.isEmpty()) {
-                    current.getInventory().setStorageContents(inventoryBefore);
+                boolean delivered = true;
+                String rewardLabel;
+                try {
+                    if (rewardKind.equals("KELVORAS")) {
+                        KelvorasManager km = ((KelvoraSMP) plugin).passiveKelvorasManager();
+                        delivered = km != null && km.deposit(current, rewardValue);
+                        rewardLabel = KelvorasManager.format(rewardValue) + " Kelvoras";
+                    } else if (rewardKind.equals("MONEY")) {
+                        org.bukkit.plugin.RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> provider = Bukkit.getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+                        delivered = provider != null && provider.getProvider().depositPlayer(current, rewardValue).transactionSuccess();
+                        rewardLabel = "$" + rewardValue + " Money";
+                    } else if (rewardKind.equals("COMMAND")) {
+                        String commandText = bits[1].replace("{player}", current.getName()).replace("%player%", current.getName());
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), commandText.startsWith("/") ? commandText.substring(1) : commandText);
+                        rewardLabel = "Special reward";
+                    } else {
+                        Map<Integer, ItemStack> overflow = current.getInventory().addItem(rewardItem.clone());
+                        if (!overflow.isEmpty()) {
+                            current.getInventory().setStorageContents(inventoryBefore);
+                            delivered = false;
+                        }
+                        rewardLabel = rewardAmount + "x " + rewardMaterial.name().toLowerCase(Locale.ROOT).replace('_',' ');
+                    }
+                } catch (Exception deliveryError) {
+                    delivered = false;
+                    rewardLabel = "Reward";
+                    plugin.getLogger().warning("Crate reward delivery failed for " + current.getName() + ": " + deliveryError.getMessage());
+                }
+                if (!delivered) {
                     data.set(path, keys(current, type) + 1);
                     save();
                     current.sendMessage(Component.text("Reward delivery failed; your key was refunded.", NamedTextColor.RED));
                 } else {
                     String rarity = bits.length > 3 ? bits[3] : "Common";
-                    current.sendMessage(Component.text("Crate reward: " + rewardAmount + "x " + rewardMaterial.name().toLowerCase(Locale.ROOT).replace('_',' '), NamedTextColor.GOLD));
+                    current.sendMessage(Component.text("Crate reward: " + rewardLabel, NamedTextColor.GOLD));
                     current.playSound(current.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
                     if (plugin.getConfig().getBoolean("crates.broadcast-rare-rewards", true) && (rarity.equalsIgnoreCase("Legendary") || rarity.equalsIgnoreCase("Mythic")))
-                        Bukkit.broadcast(Component.text(current.getName() + " won " + rewardMaterial.name().toLowerCase(Locale.ROOT).replace('_',' ') + " from a " + titleCase(type) + " Crate!", NamedTextColor.GOLD));
+                        Bukkit.broadcast(Component.text(current.getName() + " won " + rewardLabel + " from a " + titleCase(type) + " Crate!", NamedTextColor.GOLD));
                 }
                 current.closeInventory();
                 opening.remove(id);
