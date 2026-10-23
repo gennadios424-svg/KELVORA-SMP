@@ -49,3 +49,17 @@ jobs:
           path: KelvoraSMP-2.2.0.jar
           if-no-files-found: error
           retention-days: 30
+      - name: Record build result for verification
+        if: always()
+        run: |
+          git pull --rebase origin main
+          printf 'commit=%s\nstatus=%s\n' "$GITHUB_SHA" "${{ job.status }}" > build-status.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build-status.txt
+          if git diff --cached --quiet; then
+            echo "Build status is unchanged."
+          else
+            git commit -m "Record KelvoraSMP build status"
+            git push
+          fi
