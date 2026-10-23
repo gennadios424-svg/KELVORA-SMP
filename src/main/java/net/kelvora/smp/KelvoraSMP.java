@@ -59,6 +59,7 @@ import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
+import org.bukkit.Statistic;
 
 public final class KelvoraSMP
 extends JavaPlugin
@@ -247,12 +248,12 @@ implements Listener {
             board = Bukkit.getScoreboardManager().getNewScoreboard();
             Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("KELVORA SMP", NamedTextColor.GREEN));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
-            for (int i = 0; i < 5; ++i) {
+            for (int i = 0; i < 7; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
                 org.bukkit.scoreboard.Score score = created.getScore(entry);
-                score.setScore(5 - i);
+                score.setScore(7 - i);
                 score.numberFormat(io.papermc.paper.scoreboard.numbers.NumberFormat.blank());
             }
             this.playerBoards.put(player.getUniqueId(), board);
@@ -264,13 +265,19 @@ implements Listener {
         } else {
             objective.displayName(Component.text("KELVORA SMP", NamedTextColor.GREEN));
         }
-        String moneyLine = Double.isFinite(balance) ? "$" + moneyCompact : "Not connected";
+        int kills = player.getStatistic(Statistic.PLAYER_KILLS);
+        int deaths = player.getStatistic(Statistic.DEATHS);
+        String kd = deaths == 0 ? (kills == 0 ? "0.00" : String.format(Locale.US, "%.2f", (double) kills)) : String.format(Locale.US, "%.2f", (double) kills / deaths);
+        long playMinutes = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200L;
+        String playtime = playMinutes >= 60 ? (playMinutes / 60) + "h " + (playMinutes % 60) + "m" : playMinutes + "m";
         String[] lines = new String[]{
             this.color("&fRank &r" + rankColor + rankLabel),
-            this.color("&fMoney &a" + moneyLine),
-            this.color("&fKelvoras &b" + kelvoras),
-            this.color("&fOnline &a" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7" + serverAddress)
+            this.color("&6Kills &f" + kills),
+            this.color("&cDeaths &f" + deaths),
+            this.color("&dK/D &f" + kd),
+            this.color("&bPlaytime &f" + playtime),
+            this.color("&3Online &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
+            this.color("&7IP &f" + serverAddress)
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
