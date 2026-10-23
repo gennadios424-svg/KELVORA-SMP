@@ -128,10 +128,12 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             String type=validType(args[1]); if(type==null){sender.sendMessage("Types: "+String.join(", ",TYPES));return true;}
             Block target=p.getTargetBlockExact(6);
             Location loc;
-            if(target!=null && target.getType().isAir()) loc=target.getLocation();
-            else loc=p.getLocation().getBlock().getLocation();
-            if(!loc.getBlock().getType().isAir() && !loc.getBlock().isPassable()){sender.sendMessage("Choose a clear block location.");return true;}
-            loc.getBlock().setType(Material.BARREL);
+            if(target!=null) loc=(target.getType().isAir()?target:target.getRelative(0,1,0)).getLocation();
+            else loc=p.getLocation().getBlock().getRelative(0,2,0).getLocation();
+            if(!loc.getBlock().isPassable()){sender.sendMessage("Choose a clear block location (look at the ground or an empty space).");return true;}
+            Material appearance=Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","BARREL"));
+            if(appearance==null||!appearance.isBlock()||appearance.isAir())appearance=Material.BARREL;
+            loc.getBlock().setType(appearance);
             String key=locKey(loc);
             crates.put(key,loc);
             data.set(key+".type",type); data.set(key+".location.world",loc.getWorld().getName());data.set(key+".location.x",loc.getBlockX());data.set(key+".location.y",loc.getBlockY());data.set(key+".location.z",loc.getBlockZ());
@@ -190,6 +192,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
     @EventHandler public void protectBreak(BlockBreakEvent e){if(crates.containsKey(locKey(e.getBlock().getLocation()))){e.setCancelled(true);e.getPlayer().sendMessage(Component.text("This crate is protected.",NamedTextColor.RED));}}
     @EventHandler public void protectPlace(BlockPlaceEvent e){if(crates.containsKey(locKey(e.getBlockPlaced().getLocation()))){e.setCancelled(true);}}
+    @EventHandler public void protectPiston(org.bukkit.event.block.BlockPistonExtendEvent e){for(Block b:e.getBlocks())if(crates.containsKey(locKey(b.getLocation()))){e.setCancelled(true);return;}}
+    @EventHandler public void protectPiston(org.bukkit.event.block.BlockPistonRetractEvent e){for(Block b:e.getBlocks())if(crates.containsKey(locKey(b.getLocation()))){e.setCancelled(true);return;}}
 
     @EventHandler public void click(InventoryClickEvent e) {
         if(!(e.getWhoClicked() instanceof Player p))return;
