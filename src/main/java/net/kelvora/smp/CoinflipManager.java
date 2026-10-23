@@ -369,9 +369,9 @@ final class CoinflipManager implements Listener {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD); SkullMeta meta = (SkullMeta)item.getItemMeta();
         if (id != null) meta.setOwningPlayer(Bukkit.getOfflinePlayer(id)); meta.displayName(Component.text(name, NamedTextColor.GREEN)); item.setItemMeta(meta); return item;
     }
-    private ItemStack item(Material material, String name, List<String> lore) {
+    private ItemStack item(Material material, String name, List<?> lore) {
         ItemStack item = new ItemStack(material); var meta=item.getItemMeta(); meta.displayName(Component.text(name, NamedTextColor.WHITE));
-        if (lore != null) meta.lore(lore.stream().map(s -> Component.text(s, NamedTextColor.GRAY)).toList());
+        if (lore != null) meta.lore(lore.stream().map(s -> s instanceof Component component ? component : Component.text(String.valueOf(s), NamedTextColor.GRAY)).toList());
         item.setItemMeta(meta); return item;
     }
     private String fmt(double n) { return String.format(Locale.US, "%,.2f", n).replaceAll("\\.00$",""); }
