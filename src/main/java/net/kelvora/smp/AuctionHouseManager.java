@@ -254,7 +254,7 @@ final class AuctionHouseManager implements Listener {
         put(inv, 51, Material.SPECTRAL_ARROW, "Next Page", "next", page + 1 < pages ? "Page " + (page + 2) : "Last page");
         put(inv, 53, Material.BARRIER, "Close", "close", " ");
         p.openInventory(inv);
-        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, .45f, 1.05f);
+
     }
 
     private List<Listing> visibleListings(Player p, boolean ownOnly) {
@@ -299,7 +299,7 @@ final class AuctionHouseManager implements Listener {
                 String id = session.ids.get(session.page * PAGE_SIZE + e.getRawSlot());
                 Listing l = listings.get(id);
                 if (l != null && l.expiresAt > System.currentTimeMillis()) {
-                    p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .45f, 1.15f);
+                    p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.15f);
                     openConfirm(p, l, session.ownOnly);
                 }
             }
@@ -319,9 +319,9 @@ final class AuctionHouseManager implements Listener {
         boolean own = title.equals(MY_LISTINGS);
         int page = session == null ? 0 : session.page;
         switch (action) {
-            case "previous" -> { p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, .45f, 1.1f); openBrowse(p, page - 1, own); }
+            case "previous" -> { p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.15f); openBrowse(p, page - 1, own); }
             case "next" -> { p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, .45f, 1.1f); openBrowse(p, page + 1, own); }
-            case "refresh" -> { expireListings(); openBrowse(p, page, own); p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .5f, 1.2f); }
+            case "refresh" -> { expireListings(); openBrowse(p, page, own); p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.2f); }
             case "close" -> p.closeInventory();
             default -> { }
         }
@@ -343,7 +343,7 @@ final class AuctionHouseManager implements Listener {
                 ownOnly && l.owner.equals(p.getUniqueId()) ? "cancel:" + l.id : "back:" + l.id,
                 "Expires in " + remaining(l.expiresAt));
         p.openInventory(inv);
-        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, .45f, 1.2f);
+
     }
 
     private void purchase(Player buyer, Listing listing) {
@@ -363,7 +363,7 @@ final class AuctionHouseManager implements Listener {
             double funds = balance(buyer);
             if (!Double.isFinite(funds) || funds < current.price) {
                 msg(buyer, NamedTextColor.RED, "Not enough Money. Price: $" + exact(current.price));
-                buyer.playSound(buyer.getLocation(), Sound.ENTITY_VILLAGER_NO, .7f, 1f);
+                buyer.playSound(buyer.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .18f, .8f);
                 return;
             }
             if (!canFit(buyer, current.item)) {
@@ -398,11 +398,11 @@ final class AuctionHouseManager implements Listener {
                 queueDelivery(buyer.getUniqueId(), new ArrayList<>(leftover.values()));
             }
             msg(buyer, NamedTextColor.GREEN, "Purchased " + itemName(current.item) + " for $" + exact(current.price) + ".");
-            buyer.playSound(buyer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, .65f, 1.2f);
+            buyer.playSound(buyer.getLocation(), Sound.UI_TOAST_IN, .25f, 1.15f);
             Player onlineSeller = Bukkit.getPlayer(current.owner);
             if (onlineSeller != null) {
                 msg(onlineSeller, NamedTextColor.GREEN, buyer.getName() + " bought " + itemName(current.item) + " for $" + exact(current.price) + ".");
-                onlineSeller.playSound(onlineSeller.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .65f, 1.15f);
+                onlineSeller.playSound(onlineSeller.getLocation(), Sound.UI_BUTTON_CLICK, .2f, 1.2f);
             }
             buyer.closeInventory();
         } finally {
@@ -431,7 +431,7 @@ final class AuctionHouseManager implements Listener {
             saveData();
             deliverPending(p);
             msg(p, NamedTextColor.GREEN, "Listing " + l.id + " cancelled; item returned.");
-            p.playSound(p.getLocation(), Sound.UI_TOAST_IN, .6f, 1.1f);
+            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .2f, 1.1f);
         } finally { reservedListings.remove(l.id); }
     }
 
