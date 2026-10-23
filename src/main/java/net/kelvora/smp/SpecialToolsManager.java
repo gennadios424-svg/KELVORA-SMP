@@ -114,18 +114,20 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
                     meta.getPersistentDataContainer().set(targetKey,PersistentDataType.INTEGER,random.nextInt(Math.max(1,plugin.getConfig().getInt("kelvora-tools.gainer.max-interval",168)))+1);
                 }
             }
-            tool.setItemMeta(meta);return;
+            tool.setItemMeta(meta);p.getInventory().setItemInMainHand(tool);return;
         }
-        if(type.equals("sellaxe")&&plugin.getConfig().getStringList("kelvora-tools.sellaxe.eligible-blocks").contains(event.getBlock().getType().name())){
+        if(type.equals("sellaxe")&&natural(event.getBlock())&&plugin.getConfig().getStringList("kelvora-tools.sellaxe.eligible-blocks").contains(event.getBlock().getType().name())){
             if(economy==null){RegisteredServiceProvider<Economy> rsp=Bukkit.getServicesManager().getRegistration(Economy.class);if(rsp!=null)economy=rsp.getProvider();}
             if(economy==null)return;
-            List<ItemStack> drops=new ArrayList<>(event.getBlock().getDrops(tool,p));
-            double total=0;for(ItemStack drop:drops)total+=worth.priceOf(drop.getType())*drop.getAmount();
-            if(total<=0||!Double.isFinite(total))return;
-            event.setDropItems(false);
-            var response=economy.depositPlayer(p,total);
-            if(response.transactionSuccess()){p.sendActionBar(Component.text("+$"+String.format(Locale.US,"%.2f",total),NamedTextColor.GREEN));}
-            else event.setDropItems(true);
+            String sellKey=blockKey(event.getBlock());
+            if(!processing.add(sellKey))return;
+            try {
+                List<ItemStack> drops=new ArrayList<>(event.getBlock().getDrops(tool,p));
+                double total=0;for(ItemStack drop:drops)total+=worth.priceOf(drop.getType())*drop.getAmount();
+                if(total<=0||!Double.isFinite(total))return;
+                var response=economy.depositPlayer(p,total);
+                if(response.transactionSuccess()){event.setDropItems(false);p.sendActionBar(Component.text("+$"+String.format(Locale.US,"%.2f",total),NamedTextColor.GREEN));}
+            } finally { processing.remove(sellKey); }
             return;
         }
         if(type.equals("drill")||type.equals("treetrooper")){
