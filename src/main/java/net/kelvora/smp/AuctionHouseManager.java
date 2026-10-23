@@ -228,7 +228,22 @@ final class AuctionHouseManager implements Listener {
                 m == Material.STRUCTURE_BLOCK || m == Material.JIGSAW || m.name().endsWith("_SPAWN_EGG")) return false;
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
+            var pdc = meta.getPersistentDataContainer();
+            NamespacedKey toolIdKey = new NamespacedKey(plugin, "kelvora-tool-id");
+            NamespacedKey expiryKey = new NamespacedKey(plugin, "kelvora-tool-expires");
+            String toolId = pdc.get(toolIdKey, PersistentDataType.STRING);
+            if (toolId != null) {
+                long expiresAt = pdc.getOrDefault(expiryKey, PersistentDataType.LONG, 0L);
+                if (expiresAt <= System.currentTimeMillis()) return false;
+                Set<String> allowedToolKeys = Set.of("kelvora-tool-id", "kelvora-tool-created", "kelvora-tool-expires",
+                    "kelvora-gainer-progress", "kelvora-gainer-target");
+                for (NamespacedKey key : pdc.getKeys()) {
+                    if (key.getNamespace().equalsIgnoreCase(plugin.getName().toLowerCase(Locale.ROOT))
+                            && !allowedToolKeys.contains(key.getKey())) return false;
+                }
+                return true;
+            }
+            for (NamespacedKey key : pdc.getKeys()) {
                 if (key.getNamespace().equalsIgnoreCase(plugin.getName().toLowerCase(Locale.ROOT))) return false;
             }
         }
