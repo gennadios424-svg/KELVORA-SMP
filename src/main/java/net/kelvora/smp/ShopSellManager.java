@@ -96,22 +96,25 @@ final class ShopSellManager implements Listener {
     private void openCategory(Player p, String cat, int page) {
         currentCategoryPages.put(p.getUniqueId(), page);
         List<ShopEntry> entries = categoryEntries(cat);
-        int pages = Math.max(1, (entries.size() + 44) / 45);
+        // Use the smallest chest that fits this category plus a protected navigation row.
+        int guiSize = entries.size() <= 18 ? 27 : entries.size() <= 27 ? 36 : entries.size() <= 36 ? 45 : 54;
+        int pageSize = guiSize - 9;
+        int pages = Math.max(1, (entries.size() + pageSize - 1) / pageSize);
         page = Math.max(0, Math.min(page, pages - 1));
-        Inventory inv = Bukkit.createInventory(null, 54, Component.text(CATEGORY + (cat.equals("pvp") ? "CRYSTAL PVP" : cat.toUpperCase(Locale.ROOT)), NamedTextColor.DARK_GREEN));
-        for (int i = 0; i < 45; i++) {
-            int index = page * 45 + i;
+        int controls = guiSize - 9;
+        Inventory inv = Bukkit.createInventory(null, guiSize, Component.text(CATEGORY + (cat.equals("pvp") ? "CRYSTAL PVP" : cat.toUpperCase(Locale.ROOT)), NamedTextColor.DARK_GREEN));
+        for (int i = 0; i < pageSize; i++) {
+            int index = page * pageSize + i;
             if (index >= entries.size()) break;
             inv.setItem(i, entries.get(index).createDisplay(actionKey, price(entries.get(index).material)));
         }
-        put(inv, 45, Material.ARROW, "Back", "back", "Return to categories");
-        if (page > 0) put(inv, 48, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
-        put(inv, 49, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
-        if (page + 1 < pages) put(inv, 50, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
-        put(inv, 51, Material.EMERALD, "Balance", "balance", "Current Money balance");
-        put(inv, 53, Material.BARRIER, "Close", "close", "Close the shop");
+        put(inv, controls, Material.ARROW, "Back", "back", "Return to categories");
+        if (page > 0) put(inv, controls + 2, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
+        put(inv, controls + 3, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
+        if (page + 1 < pages) put(inv, controls + 4, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
+        put(inv, controls + 5, Material.EMERALD, "Balance", "balance", "Current Money balance");
+        put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
-
     }
 
     private List<ShopEntry> categoryEntries(String cat) {
