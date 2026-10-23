@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.1.8
+version: 2.1.9
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP TAB list, compact sidebar, and item worth GUI
@@ -23,6 +23,10 @@ commands:
   bal:
     description: Show your Money and Kelvoras balances
     usage: /bal
+  bounty:
+    description: Place and browse Money bounties
+    usage: /bounty [set <player> <amount>|check <player>|top|list]
+    aliases: [bounties]
 permissions:
   kelvora.balance:
     description: View your own currency balances
@@ -38,4 +42,7 @@ permissions:
     default: true
   kelvora.ah:
     description: Use the Kelvora Auction House
+    default: true
+  kelvora.bounty:
+    description: Use the Kelvora bounty system
     default: true
