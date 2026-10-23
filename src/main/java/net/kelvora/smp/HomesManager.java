@@ -46,7 +46,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
 
     void register() {
         load();
-        try { luckPerms = LuckPermsProvider.get(); } catch (IllegalStateException ignored) { }
+        try { luckPerms = LuckPermsProvider.get(); } catch (IllegalStateException | LinkageError ignored) { luckPerms = null; }
         Bukkit.getPluginManager().registerEvents(this, plugin);
         bind("sethome", this);
         bind("home", this);
