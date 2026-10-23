@@ -26,6 +26,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 
 /**
  * Bounded, asynchronous-chunk-loading random teleport with conservative landing checks.
@@ -174,7 +175,8 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
                     cancel(); return;
                 }
                 Location now = player.getLocation();
-                if (!now.getWorld().equals(origin.getWorld()) || now.distanceSquared(origin) > 0.0001) {
+                double tolerance = Math.max(0.0, plugin.getConfig().getDouble("rtp.movement-tolerance", 0.05));
+                if (!now.getWorld().equals(origin.getWorld()) || now.distanceSquared(origin) > tolerance * tolerance) {
                     searching.remove(id); countdownOrigins.remove(id); countdowns.remove(id);
                     player.sendActionBar(Component.text("Teleport cancelled — don't move while teleporting!", NamedTextColor.RED));
                     cancel(); return;
@@ -314,13 +316,31 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
 
     @EventHandler(ignoreCancelled = true)
     public void onCountdownMove(PlayerMoveEvent event) {
+        // Camera rotation fires PlayerMoveEvent too; compare XYZ against the immutable start location.
+        // Teleports are handled by the separate world-change/death/disconnect guards.
+        if (event instanceof PlayerTeleportEvent) return;
         UUID id = event.getPlayer().getUniqueId();
-        if (!countdownOrigins.containsKey(id) || event.getTo() == null) return;
-        Location from = event.getFrom(), to = event.getTo();
-        if (!from.getWorld().equals(to.getWorld()) || from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
-            searching.remove(id); countdownOrigins.remove(id);
-            BukkitTask task = countdowns.remove(id); if (task != null) task.cancel();
-            event.getPlayer().sendActionBar(Component.text("Teleport cancelled — don't move while teleporting!", NamedTextColor.RED));
+        Location origin = countdownOrigins.get(id);
+        Location to = event.getTo();
+        if (origin == null || to == null) return;
+        double tolerance = Math.max(0.0, plugin.getConfig().getDouble("rtp.movement-tolerance", 0.05));
+        if (to.getWorld() != origin.getWorld() || to.distanceSquared(origin) > tolerance * tolerance) {
+            cancelCountdown(event.getPlayer(), "⚠ RTP cancelled — Don't move!");
+        }
+    }
+
+    private void cancelCountdown(Player player, String message) {
+        UUID id = player.getUniqueId();
+        countdownOrigins.remove(id);
+        searching.remove(id);
+        BukkitTask task = countdowns.remove(id);
+        if (task != null) task.cancel();
+        if (player.isOnline()) player.sendActionBar(Component.text(message, NamedTextColor.RED));
+    }
+
+    @EventHandler public void onWorldChange(PlayerChangedWorldEvent event) {
+        if (countdownOrigins.containsKey(event.getPlayer().getUniqueId())) {
+            cancelCountdown(event.getPlayer(), "⚠ RTP cancelled — world changed!");
         }
     }
     @EventHandler public void onQuit(PlayerQuitEvent event) {
