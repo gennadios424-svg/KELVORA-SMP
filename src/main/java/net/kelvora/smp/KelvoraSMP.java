@@ -101,7 +101,9 @@ implements Listener {
         new RankKitManager(this).register();
         this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
         this.shardShopManager.register();
-        new CrateManager(this).register();
+        CrateManager crateManager = new CrateManager(this);
+        crateManager.register();
+        new RankDailyKeysManager(this, crateManager).register();
         new GambleManager(this, this.kelvorasManager).register();
         new LeaderboardManager(this, this.kelvorasManager).register();
         new StatsManager(this, this.kelvorasManager).register(this);
