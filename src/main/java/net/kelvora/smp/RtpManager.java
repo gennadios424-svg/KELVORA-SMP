@@ -24,6 +24,8 @@ import org.bukkit.NamespacedKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.event.player.PlayerMoveEvent;
 
 /**
  * Bounded, asynchronous-chunk-loading random teleport with conservative landing checks.
@@ -39,6 +41,8 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     private final BountyCombatManager combat;
     private final NamespacedKey actionKey;
     private final Set<UUID> searching = new HashSet<>();
+    private final Map<UUID, BukkitTask> countdowns = new HashMap<>();
+    private final Map<UUID, Location> countdownOrigins = new HashMap<>();
     private final Map<String, World> dimensions = new HashMap<>();
     private final Random random = new Random();
 
@@ -154,11 +158,41 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
             player.sendMessage(ChatColor.YELLOW + "Your random teleport is already searching."); return;
         }
         Location origin = player.getLocation().clone();
-        player.sendMessage(ChatColor.GRAY + "Finding a location...");
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (searching.remove(player.getUniqueId()) && player.isOnline()) player.sendMessage(ChatColor.RED + "Random teleport timed out. Please try again.");
-        }, REQUEST_TIMEOUT_TICKS);
-        tryCandidate(player, target, origin, dimension, 0);
+        countdownOrigins.put(player.getUniqueId(), origin.clone());
+        final int[] seconds = {5};
+        player.sendActionBar(Component.text("RTP in 5s — Don't move!", NamedTextColor.YELLOW));
+        BukkitTask countdown = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+            @Override public void run() {
+                UUID id = player.getUniqueId();
+                if (!player.isOnline() || player.isDead() || !searching.contains(id)) {
+                    countdownOrigins.remove(id); countdowns.remove(id); cancel(); return;
+                }
+                if (combat != null && combat.isInCombat(player)) {
+                    searching.remove(id); countdownOrigins.remove(id); countdowns.remove(id);
+                    player.sendActionBar(Component.text("Teleport cancelled — you are in combat!", NamedTextColor.RED));
+                    cancel(); return;
+                }
+                Location now = player.getLocation();
+                if (!now.getWorld().equals(origin.getWorld()) || now.distanceSquared(origin) > 0.0001) {
+                    searching.remove(id); countdownOrigins.remove(id); countdowns.remove(id);
+                    player.sendActionBar(Component.text("Teleport cancelled — don't move while teleporting!", NamedTextColor.RED));
+                    cancel(); return;
+                }
+                if (seconds[0] <= 0) {
+                    countdownOrigins.remove(id); countdowns.remove(id); cancel();
+                    player.sendActionBar(Component.text("Finding a location...", NamedTextColor.AQUA));
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (searching.remove(id) && player.isOnline()) player.sendActionBar(Component.text("Random teleport timed out. Try again.", NamedTextColor.RED));
+                    }, REQUEST_TIMEOUT_TICKS);
+                    tryCandidate(player, target, origin, dimension, 0);
+                    return;
+                }
+                player.sendActionBar(Component.text("RTP in " + seconds[0] + "s — Don't move!", NamedTextColor.YELLOW));
+                seconds[0]--;
+            }
+            private void cancel() { BukkitTask task = countdowns.get(player.getUniqueId()); if (task != null) task.cancel(); }
+        }, 0L, 20L);
+        countdowns.put(player.getUniqueId(), countdown);
     }
 
     private void tryCandidate(Player player, World world, Location origin, String dimension, int attempt) {
@@ -277,6 +311,23 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
         return out;
     }
 
-    @EventHandler public void onQuit(PlayerQuitEvent event) { searching.remove(event.getPlayer().getUniqueId()); }
-    @EventHandler public void onRespawn(PlayerRespawnEvent event) { searching.remove(event.getPlayer().getUniqueId()); }
+    @EventHandler(ignoreCancelled = true)
+    public void onCountdownMove(PlayerMoveEvent event) {
+        UUID id = event.getPlayer().getUniqueId();
+        if (!countdownOrigins.containsKey(id) || event.getTo() == null) return;
+        Location from = event.getFrom(), to = event.getTo();
+        if (!from.getWorld().equals(to.getWorld()) || from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
+            searching.remove(id); countdownOrigins.remove(id);
+            BukkitTask task = countdowns.remove(id); if (task != null) task.cancel();
+            event.getPlayer().sendActionBar(Component.text("Teleport cancelled — don't move while teleporting!", NamedTextColor.RED));
+        }
+    }
+    @EventHandler public void onQuit(PlayerQuitEvent event) {
+        UUID id = event.getPlayer().getUniqueId(); searching.remove(id); countdownOrigins.remove(id);
+        BukkitTask task = countdowns.remove(id); if (task != null) task.cancel();
+    }
+    @EventHandler public void onRespawn(PlayerRespawnEvent event) {
+        UUID id = event.getPlayer().getUniqueId(); searching.remove(id); countdownOrigins.remove(id);
+        BukkitTask task = countdowns.remove(id); if (task != null) task.cancel();
+    }
 }
