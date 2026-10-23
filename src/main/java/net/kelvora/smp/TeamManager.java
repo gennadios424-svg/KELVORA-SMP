@@ -125,6 +125,8 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
                     Player online = Bukkit.getPlayer(member);
                     if (online != null) online.sendMessage(yellow("Staff removed you from team " + target.name + "."));
                     announce(target, Bukkit.getOfflinePlayer(member).getName() + " was removed by staff.");
+                    refreshPlayer(member);
+                    refreshTeam(target);
                     player.sendMessage(green("Removed that player from " + target.name + "."));
                 } else usage(player, "/team admin <disband <name>|kick <team> <player>");
             }
@@ -147,6 +149,7 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
         if (!save()) { teams.remove(key); player.sendMessage(red("Team could not be saved. Please try again.")); return; }
         announce(team, player.getName() + " created the team.");
         player.sendMessage(green("Created team " + team.name + "."));
+        refreshTeam(team);
     }
 
     private void invite(Player leader, String targetName) {
@@ -188,6 +191,7 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
         }
         announce(team, player.getName() + " joined the team.");
         player.sendMessage(green("You joined " + team.name + "."));
+        refreshTeam(team);
     }
 
     private void leave(Player player) {
@@ -206,6 +210,8 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
         if (!save()) { team.members.add(player.getUniqueId()); player.sendMessage(red("Could not save your team change.")); return; }
         announce(team, player.getName() + " left the team.");
         player.sendMessage(yellow("You left " + team.name + "."));
+        refreshPlayer(player.getUniqueId());
+        refreshTeam(team);
     }
 
     private void kick(Player leader, String targetName) {
@@ -222,6 +228,8 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
         String name = target != null ? target.getName() : Optional.ofNullable(Bukkit.getOfflinePlayer(targetId).getName()).orElse("Player");
         announce(team, name + " was removed from the team.");
         if (target != null) target.sendMessage(yellow("You were removed from team " + team.name + "."));
+        refreshPlayer(targetId);
+        refreshTeam(team);
     }
 
     private void promote(Player leader, String targetName) {
@@ -251,7 +259,7 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
         save();
         for (UUID member : team.members) {
             Player online = Bukkit.getPlayer(member);
-            if (online != null) online.sendMessage(yellow(message));
+            if (online != null) { online.sendMessage(yellow(message)); refreshPlayer(member); }
         }
     }
 
@@ -470,6 +478,15 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
             plugin.getLogger().severe("Could not save team data: " + ex.getMessage());
             return false;
         }
+    }
+
+    private void refreshPlayer(UUID uuid) {
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null && plugin instanceof KelvoraSMP kelvora) kelvora.refreshSidebar(online);
+    }
+
+    private void refreshTeam(Team team) {
+        for (UUID uuid : team.members) refreshPlayer(uuid);
     }
 
     private String trim(String name, int max) { return name.length() <= max ? name : name.substring(0, max); }
