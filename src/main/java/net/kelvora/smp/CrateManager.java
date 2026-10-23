@@ -110,7 +110,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             crates.put(key, crateLocation);
             String type = validType(data.getString(key + ".type", "common"));
             if (type == null) type = "common";
-            Material appearance = Material.matchMaterial(crateConfig(type).getString("block", defaultBlock(type)));
+            Material appearance = Material.matchMaterial(defaultBlock(type));
             if (appearance != null && appearance.name().endsWith("_SHULKER_BOX")
                     && crateLocation.getBlock().getType().name().endsWith("_SHULKER_BOX")
                     && crateLocation.getBlock().getType() != appearance) {
