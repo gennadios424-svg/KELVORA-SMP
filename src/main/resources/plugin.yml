@@ -39,7 +39,7 @@ commands:
     description: Open the Kelvora rank guide or administer progression ranks
     usage: /rank [set <player> <rank>]
   rankup:
-    description: Upgrade your survival progression rank using Money
+    description: View Discord rank purchase information
     usage: /rankup
   kit:
     description: Open and claim rank kits
@@ -79,6 +79,15 @@ permissions:
   kelvora.rankup:
     description: Upgrade progression rank
     default: true
+  kelvora.rank.admin:
+    description: Assign progression ranks without changing staff/media roles
+    default: op
+  kelvora.shardshop.use:
+    description: Use the Kelvora ShardShop
+    default: true
+  kelvora.shardshop.admin:
+    description: Reload and administer cosmetic configuration
+    default: op
   kelvora.kit.use:
     description: Open and claim eligible kits
     default: true
