@@ -381,6 +381,14 @@ final class AuctionHouseManager implements Listener {
                 openBrowse(buyer, 0, false);
                 return;
             }
+            if (!listable(current.item)) {
+                listings.remove(id);
+                queueDelivery(current.owner, List.of(current.item.clone()));
+                saveData();
+                msg(buyer, NamedTextColor.RED, "This special tool expired or became invalid while listed; it was returned to the seller.");
+                openBrowse(buyer, 0, false);
+                return;
+            }
             if (current.owner.equals(buyer.getUniqueId())) { msg(buyer, NamedTextColor.RED, "You cannot buy your own listing."); return; }
             if (economy == null) connectEconomy();
             if (economy == null) { msg(buyer, NamedTextColor.RED, "Money is unavailable right now."); return; }
