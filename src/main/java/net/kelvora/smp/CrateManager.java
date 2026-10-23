@@ -53,6 +53,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
 
     void register() {
         data = YamlConfiguration.loadConfiguration(dataFile);
+        migrateLegacyGamblingKeys();
         loadLocations();
         rebuildHolograms();
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -65,6 +66,30 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         generateCoverageReport();
     }
 
+    private void migrateLegacyGamblingKeys() {
+        ConfigurationSection players = data.getConfigurationSection("players");
+        if (players == null) return;
+        boolean migrate = plugin.getConfig().getBoolean("crates.migrate-gambling-keys-to-crimson", false);
+        int legacyPlayers = 0;
+        boolean changed = false;
+        for (String uuid : players.getKeys(false)) {
+            String oldPath = "players." + uuid + ".gambling";
+            int old = data.getInt(oldPath, 0);
+            if (old <= 0) continue;
+            legacyPlayers++;
+            if (migrate) {
+                String newPath = "players." + uuid + ".crimson";
+                long sum = (long) data.getInt(newPath, 0) + old;
+                data.set(newPath, (int) Math.min(Integer.MAX_VALUE, sum));
+                data.set(oldPath, null);
+                changed = true;
+            }
+        }
+        if (changed && !save()) plugin.getLogger().severe("Legacy Gambling key migration could not be saved; check the crate data file before restarting.");
+        if (legacyPlayers > 0 && !migrate) plugin.getLogger().warning("Found legacy Gambling keys for " + legacyPlayers + " player(s). They were preserved. Set crates.migrate-gambling-keys-to-crimson: true in config.yml and restart to migrate them to Crimson keys.");
+        if (migrate && legacyPlayers > 0) plugin.getLogger().info("Migrated legacy Gambling key balances to Crimson keys for " + legacyPlayers + " player(s).");
+    }
+
     private void loadLocations() {
         crates.clear();
         ConfigurationSectionLike:
@@ -73,13 +98,13 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if ("players".equalsIgnoreCase(key)) continue;
             if ("gambling".equalsIgnoreCase(data.getString(key + ".type", ""))) {
                 data.set(key + ".type", "crimson");
-                data.set(key + ".location.world", data.getString(path + ".world"));
             }
             String worldName = data.getString(path + ".world");
             World world = worldName == null ? null : Bukkit.getWorld(worldName);
             if (world == null) continue;
             crates.put(key, new Location(world, data.getInt(path + ".x"), data.getInt(path + ".y"), data.getInt(path + ".z")));
         }
+        save();
     }
 
     private void rebuildHolograms() {
@@ -144,6 +169,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if (!(sender instanceof Player p)) { sender.sendMessage("Use this command in-game."); return true; }
             sender.sendMessage(Component.text("Your digital crate keys", NamedTextColor.GOLD));
             for(String type:TYPES) sender.sendMessage(Component.text(titleCase(type)+": "+keys(p,type), NamedTextColor.AQUA));
+            int legacy = data.getInt("players." + p.getUniqueId() + ".gambling", 0);
+            if (legacy > 0) sender.sendMessage(Component.text("Legacy Gambling keys preserved: " + legacy + " (operator can enable migration in config.yml)", NamedTextColor.YELLOW));
             return true;
         }
         if (!admin(sender)) { sender.sendMessage("You do not have permission."); return true; }
