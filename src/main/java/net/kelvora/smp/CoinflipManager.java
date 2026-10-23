@@ -24,6 +24,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /** Money-only coinflip with persisted escrow, locked outcomes and server-side GUI validation. */
+// Build trigger: compile and publish the latest 2.6.0 source.
 final class CoinflipManager implements Listener {
     private static final String MAIN = "KELVORA / COINFLIP";
     private static final String CONFIRM = "KELVORA / JOIN COINFLIP";
