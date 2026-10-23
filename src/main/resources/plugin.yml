@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.1.9
+version: 2.2.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP TAB list, compact sidebar, and item worth GUI
@@ -23,6 +23,9 @@ commands:
   bal:
     description: Show your Money and Kelvoras balances
     usage: /bal
+  baltop:
+    description: Show the richest players by Money balance
+    usage: /baltop [page]
   bounty:
     description: Place and browse Money bounties
     usage: /bounty [set <player> <amount>|check <player>|top|list]
