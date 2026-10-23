@@ -120,7 +120,7 @@ final class ShardShopManager implements Listener {
                 boolean expired = data.getBoolean(player.getUniqueId() + ".expired." + category + "." + id, false);
                 List<String> lore = new ArrayList<>();
                 lore.add(desc);
-                lore.add(available ? "Price: ✦" + KelvorasManager.format(price) + " Shards" : "Coming Soon");
+                lore.add(available ? "Price: ✦" + KelvorasManager.format(price) + " Kelvoras" : "Coming Soon");
                 if (duration > 0) lore.add("Duration: " + durationLabel(duration));
                 if (owned && expires > 0) lore.add("Expires: " + new Date(expires).toString());
                 if (expired) lore.add("&cExpired — click to renew");
@@ -130,7 +130,7 @@ final class ShardShopManager implements Listener {
             }
         }
         add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
-        add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Shards"), "info");
+        add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
         add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
         player.openInventory(inv);
     }
@@ -164,7 +164,7 @@ final class ShardShopManager implements Listener {
             if (!entry.getBoolean("available", false) || price < 0 || !Double.isFinite(price)) { player.sendMessage(Component.text("Coming Soon — this cosmetic is not available yet. No Kelvoras were charged.", NamedTextColor.YELLOW)); openItems(player, category); return; }
             double balance = currency.balance(player);
             if (!Double.isFinite(balance) || balance + 0.000001 < price) {
-                player.sendMessage(Component.text("Not enough Shards! Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED)); return;
+                player.sendMessage(Component.text("Not enough Kelvoras! Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED)); return;
             }
             // Save ownership first; currency withdrawal is atomic and rolls back on persistence failure.
             long duration = Math.max(0, entry.getLong("duration-seconds", 0));
@@ -185,7 +185,7 @@ final class ShardShopManager implements Listener {
                 player.sendMessage(Component.text("Purchase failed; no charge was made.", NamedTextColor.RED)); return;
             }
             applyCosmetic(player, category, id, entry);
-            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Shards.", NamedTextColor.GREEN));
+            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
             openItems(player, category);
         } finally { processing.remove(uuid); }
     }
