@@ -484,11 +484,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 exactChanceMaterials.add(material.name());
             }
             if (totalExact >= 100) { plugin.getLogger().warning("Exact chances for crate " + type + " must total less than 100%."); return null; }
+            double chanceRoll = random.nextDouble() * 100.0;
+            double cumulativeChance = 0.0;
             for (String key : chanceSection.getKeys(false)) {
                 double percent = chanceSection.getDouble(key, -1);
                 Material material = Material.matchMaterial(key);
                 if (!isAllowedReward(material) || !Double.isFinite(percent) || percent < 0 || percent >= 100) continue;
-                if (random.nextDouble() < percent / 100.0) {
+                cumulativeChance += percent;
+                if (chanceRoll < cumulativeChance) {
                     for (String entry : entries) if (entry.split(":", 4)[0].equalsIgnoreCase(material.name())) return entry;
                     return material.name() + ":1:1:Mythic";
                 }
