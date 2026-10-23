@@ -195,9 +195,12 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
             if (safe == null || !insideBorderWithMargin(border, safe)) {
                 scheduleRetry(player, world, origin, dimension, attempt + ATTEMPTS_PER_REQUEST); return;
             }
-            searching.remove(player.getUniqueId());
-            if (!player.isOnline() || player.isDead() || !player.getWorld().equals(origin.getWorld())) return;
+            if (!player.isOnline() || player.isDead() || !player.getWorld().equals(origin.getWorld())) {
+                searching.remove(player.getUniqueId());
+                return;
+            }
             player.teleportAsync(safe).whenComplete((success, teleportError) -> Bukkit.getScheduler().runTask(plugin, () -> {
+                searching.remove(player.getUniqueId());
                 if (!player.isOnline()) return;
                 if (teleportError != null || !Boolean.TRUE.equals(success)) {
                     player.sendMessage(ChatColor.RED + "Teleport failed. You have been left where you were."); return;
@@ -275,6 +278,5 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void onQuit(PlayerQuitEvent event) { searching.remove(event.getPlayer().getUniqueId()); }
-    @EventHandler public void onWorldChange(PlayerChangedWorldEvent event) { searching.remove(event.getPlayer().getUniqueId()); }
     @EventHandler public void onRespawn(PlayerRespawnEvent event) { searching.remove(event.getPlayer().getUniqueId()); }
 }
