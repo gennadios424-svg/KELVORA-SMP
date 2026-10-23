@@ -247,3 +247,15 @@ rtp:
     overworld: ""
     nether: ""
     end: ""
+
+# Home slots use the LuckPerms primary group or matching limit permission.
+# Defaults are examples and can be changed to fit the server's actual ranks.
+homes:
+  default-limit: 3
+  rank-limits:
+    member: 3
+    vip: 5
+    kelvora: 8
+    mod: 10
+    admin: 20
+    owner: 20
