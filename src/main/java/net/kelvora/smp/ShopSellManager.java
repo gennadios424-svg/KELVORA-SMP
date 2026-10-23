@@ -91,7 +91,7 @@ final class ShopSellManager implements Listener {
         put(inv, 33, Material.END_STONE, "End Shop", "cat:end:0", "End building materials");
         put(inv, 49, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
-        playUiSound(p, Sound.BLOCK_CHEST_OPEN);
+
     }
 
     private void openCategory(Player p, String cat, int page) {
@@ -112,7 +112,7 @@ final class ShopSellManager implements Listener {
         put(inv, 51, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, 53, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
-        playUiSound(p, Sound.BLOCK_CHEST_OPEN);
+
     }
 
     private List<ShopEntry> categoryEntries(String cat) {
@@ -205,7 +205,7 @@ final class ShopSellManager implements Listener {
         put(inv, 53, Material.LIME_DYE, "CONFIRM SALE", "confirm", "Sell priced items for Money");
         updateSellButton(inv);
         p.openInventory(inv);
-        playUiSound(p, Sound.BLOCK_CHEST_OPEN);
+
     }
 
     @EventHandler
@@ -216,7 +216,7 @@ final class ShopSellManager implements Listener {
             if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
             String action = action(e.getCurrentItem());
             if (action == null) return;
-            playUiSound(p, action.startsWith("page:") ? Sound.ITEM_BOOK_PAGE_TURN : Sound.UI_BUTTON_CLICK);
+            playUiSound(p, Sound.UI_BUTTON_CLICK);
             if (action.startsWith("cat:")) {
                 String[] bits = action.split(":");
                 if (bits.length >= 3) openCategory(p, bits[1], parsePage(bits[2]));
@@ -514,7 +514,7 @@ final class ShopSellManager implements Listener {
                 return;
             }
             quantitySessions.remove(p.getUniqueId(), session);
-            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
+            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.25f);
             p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
                 + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
             openCategory(p, session.category, session.page);
@@ -558,7 +558,7 @@ final class ShopSellManager implements Listener {
             for (int slot : sellSlots) inv.setItem(slot, null);
             p.sendMessage(Component.text("Sold " + soldCount + " items for $" + MONEY.format(total)
                 + " Money. New balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
-            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, 1.0f);
+            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.2f);
             p.closeInventory();
         } finally { transactions.remove(p.getUniqueId()); }
     }
@@ -630,7 +630,7 @@ final class ShopSellManager implements Listener {
     }
 
     private void playUiSound(Player player, Sound sound) {
-        player.playSound(player.getLocation(), sound, 0.55f, 1.15f);
+        player.playSound(player.getLocation(), sound, 0.18f, 1.15f);
     }
 
     private void put(Inventory inv, int slot, Material m, String label, String action, String lore) {
