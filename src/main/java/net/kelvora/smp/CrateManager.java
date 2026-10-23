@@ -34,6 +34,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private final JavaPlugin plugin;
     private final NamespacedKey holoKey;
     private final File dataFile;
+    private final File crateConfigDirectory;
     private YamlConfiguration data;
     private final Map<String, Location> crates = new LinkedHashMap<>();
     private final Map<UUID, String> openCrate = new HashMap<>();
@@ -49,6 +50,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         this.plugin = plugin;
         this.holoKey = new NamespacedKey(plugin, "crate-hologram");
         this.dataFile = new File(plugin.getDataFolder(), "crates-data.yml");
+        this.crateConfigDirectory = new File(plugin.getDataFolder(), "crates");
     }
 
     void register() {
@@ -174,6 +176,12 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             return true;
         }
         if (!admin(sender)) { sender.sendMessage("You do not have permission."); return true; }
+        if (sub.equals("reload")) {
+            plugin.reloadConfig();
+            validateConfiguredRewards();
+            sender.sendMessage(Component.text("Crate configs reloaded/validated. Edit plugins/KelvoraSMP/crates/*.yml; invalid reward lines are logged.", NamedTextColor.GREEN));
+            return true;
+        }
         if (sub.equals("spawn")) {
             if (!(sender instanceof Player p) || args.length!=2) { sender.sendMessage("Usage: /crate spawn <type> (in-game)"); return true; }
             String type=validType(args[1]); if(type==null){sender.sendMessage("Types: "+String.join(", ",TYPES));return true;}
@@ -463,8 +471,25 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             "REINFORCED_DEEPSLATE","COMMAND_BLOCK_MINECART").contains(name);
     }
 
+    private YamlConfiguration crateConfig(String type) {
+        if (!crateConfigDirectory.exists()) crateConfigDirectory.mkdirs();
+        File file = new File(crateConfigDirectory, type.toLowerCase(Locale.ROOT) + ".yml");
+        if (!file.exists()) {
+            YamlConfiguration created = new YamlConfiguration();
+            String base = "crates.types." + type;
+            created.set("name", plugin.getConfig().getString(base + ".name", titleCase(type) + " Crate"));
+            created.set("description", plugin.getConfig().getString(base + ".description", "Special rewards"));
+            created.set("block", plugin.getConfig().getString(base + ".block", "SHULKER_BOX"));
+            created.set("rewards", plugin.getConfig().getStringList(base + ".rewards"));
+            ConfigurationSection exact = plugin.getConfig().getConfigurationSection(base + ".exact-chances");
+            if (exact != null) created.set("exact-chances", exact.getValues(false));
+            try { created.save(file); } catch (IOException ex) { plugin.getLogger().warning("Could not create " + file.getPath() + ": " + ex.getMessage()); }
+        }
+        return YamlConfiguration.loadConfiguration(file);
+    }
+
     private List<String> configuredRewards(String type) {
-        return new ArrayList<>(plugin.getConfig().getStringList("crates.types." + type + ".rewards"));
+        return new ArrayList<>(crateConfig(type).getStringList("rewards"));
     }
     private void validateConfiguredRewards() {
         for (String type : TYPES) {
@@ -492,7 +517,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 }
                 if (!valid) plugin.getLogger().warning("Invalid or disallowed reward in crates.types." + type + ": " + entry);
             }
-            ConfigurationSection chances = plugin.getConfig().getConfigurationSection("crates.types." + type + ".exact-chances");
+            ConfigurationSection chances = crateConfig(type).getConfigurationSection("exact-chances");
             if (chances != null) {
                 double totalChance = 0.0;
                 for (String key : chances.getKeys(false)) {
@@ -510,7 +535,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
 
     private String chooseReward(String type) {
         List<String> entries = configuredRewards(type);
-        ConfigurationSection chanceSection = plugin.getConfig().getConfigurationSection("crates.types." + type + ".exact-chances");
+        ConfigurationSection chanceSection = crateConfig(type).getConfigurationSection("exact-chances");
         Set<String> exactChanceMaterials = new HashSet<>();
         if (chanceSection != null) {
             double totalExact = 0;
@@ -574,7 +599,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
     @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){
         if(a.equalsIgnoreCase("keyall")) return args.length==1 ? TYPES : List.of();
-        if(args.length==1) return List.of("spawn","remove","list","keys","givekey");
+        if(args.length==1) return List.of("spawn","remove","list","keys","givekey","reload");
         if(args.length==2&&args[0].equalsIgnoreCase("spawn")) return TYPES;
         if(args.length==2&&args[0].equalsIgnoreCase("givekey")) return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
         if(args.length==3&&args[0].equalsIgnoreCase("givekey")) return TYPES;
