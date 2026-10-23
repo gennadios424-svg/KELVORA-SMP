@@ -109,8 +109,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if (args.length != 2) { sender.sendMessage("Usage: /keyall <type> <amount>"); return true; }
             String type=validType(args[0]); int amount=parseAmount(args[1]);
             if (type==null || amount<1) { sender.sendMessage("Invalid crate type or amount."); return true; }
-            for (Player p:Bukkit.getOnlinePlayers()) addKeys(p,type,amount);
-            sender.sendMessage("Granted "+amount+" digital "+titleCase(type)+" key(s) to "+Bukkit.getOnlinePlayers().size()+" online players.");
+            List<Player> recipients = new ArrayList<>(Bukkit.getOnlinePlayers());
+            for (Player p : recipients) {
+                addKeys(p, type, amount);
+                p.sendMessage(Component.text("You received " + amount + " digital " + titleCase(type) + " key(s) from the server.", NamedTextColor.GOLD));
+                startKeyallAnimation(p, type, amount);
+            }
+            Bukkit.broadcast(Component.text("🎁 " + titleCase(type) + " keys for everyone! Each online player received " + amount + " digital key(s).", NamedTextColor.LIGHT_PURPLE));
+            sender.sendMessage("Granted "+amount+" digital "+titleCase(type)+" key(s) to "+recipients.size()+" online players.");
             return true;
         }
         if (args.length==0) {
@@ -201,39 +207,148 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     @EventHandler public void protectPiston(org.bukkit.event.block.BlockPistonExtendEvent e){for(Block b:e.getBlocks())if(crates.containsKey(locKey(b.getLocation()))){e.setCancelled(true);return;}}
     @EventHandler public void protectPiston(org.bukkit.event.block.BlockPistonRetractEvent e){for(Block b:e.getBlocks())if(crates.containsKey(locKey(b.getLocation()))){e.setCancelled(true);return;}}
 
-    @EventHandler public void click(InventoryClickEvent e) {
-        if(!(e.getWhoClicked() instanceof Player p))return;
-        String title=e.getView().getTitle();
-        if(!title.startsWith(GUI)&&!title.equals(ADMIN))return;
-        e.setCancelled(true);if(e.getClickedInventory()==null||e.getClickedInventory()!=e.getView().getTopInventory())return;
-        if(title.equals(ADMIN)){int slot=e.getRawSlot()-10;if(slot>=0&&slot<TYPES.size()){String type=TYPES.get(slot);p.closeInventory();p.performCommand("crate spawn "+type);}return;}
-        String type=openCrate.get(p.getUniqueId());if(type==null)return;
-        if(e.getRawSlot()==26){p.closeInventory();return;}
-        if(e.getRawSlot()!=22)return;
-        if(!opening.add(p.getUniqueId()))return;
-        try {
-            if(keys(p,type)<=0){p.sendMessage(Component.text("You need a "+titleCase(type)+" key.",NamedTextColor.RED));return;}
-            String reward=chooseReward(type);if(reward==null){p.sendMessage(Component.text("This crate has no valid rewards configured. Your key was not used.",NamedTextColor.RED));return;}
-            String[] bits=reward.split(":");Material mat=Material.matchMaterial(bits[0]);int amount;
-            try{amount=Integer.parseInt(bits[1]);}catch(Exception ex){amount=1;}
-            if(mat==null||mat.isAir()||!mat.isItem()||amount<1||amount>mat.getMaxStackSize()){p.sendMessage(Component.text("Configured reward is invalid. Your key was not used.",NamedTextColor.RED));return;}
-            ItemStack item=new ItemStack(mat,amount);
-            if(p.getInventory().firstEmpty()==-1){p.sendMessage(Component.text("Make room in your inventory before opening this crate. Your key was not used.",NamedTextColor.RED));return;}
-            String path=playerPath(p,type);data.set(path,keys(p,type)-1);
-            if(!save()){data.set(path,keys(p,type)+1);p.sendMessage(Component.text("Could not save key balance; opening cancelled.",NamedTextColor.RED));return;}
-            Map<Integer,ItemStack> overflow=p.getInventory().addItem(item);
-            if(!overflow.isEmpty()){data.set(path,keys(p,type)+1);save();p.sendMessage(Component.text("Reward delivery failed; key refunded.",NamedTextColor.RED));return;}
-            p.playSound(p.getLocation(),Sound.ENTITY_PLAYER_LEVELUP,0.6f,1.2f);
-            p.sendMessage(Component.text("Crate reward: "+amount+"x "+mat.name().toLowerCase(Locale.ROOT).replace('_',' '),NamedTextColor.GOLD));
-            String rarity=bits.length>3?bits[3]:"Common";
-            if(plugin.getConfig().getBoolean("crates.broadcast-rare-rewards",true) && (rarity.equalsIgnoreCase("Legendary")||rarity.equalsIgnoreCase("Mythic"))) {
-                Bukkit.broadcast(Component.text(p.getName()+" won "+mat.name().toLowerCase(Locale.ROOT).replace('_',' ')+" from a "+titleCase(type)+" Crate!",NamedTextColor.GOLD));
+    private void startKeyallAnimation(Player player, String type, int amount) {
+        final String animationTitle = "KELVORA | KEY DELIVERY";
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text(animationTitle, NamedTextColor.DARK_PURPLE));
+        inv.setItem(4, button(Material.CHEST, "&d&l" + titleCase(type) + " Keys", List.of("&7Digital keys already credited", "&f+" + amount + " key(s)", "&8Presentation only; no reward roll")));
+        player.openInventory(inv);
+        final int[] task = new int[1];
+        task[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+            int step = 0;
+            public void run() {
+                if (!player.isOnline() || !player.getOpenInventory().getTitle().equals(animationTitle)) { Bukkit.getScheduler().cancelTask(task[0]); return; }
+                if (step < 8) {
+                    Material[] cycle = {Material.CHEST, Material.ENDER_CHEST, Material.TRIPWIRE_HOOK, Material.AMETHYST_SHARD, Material.GOLD_INGOT};
+                    inv.setItem(13, button(cycle[step % cycle.length], "&d&lRolling delivery...", List.of("&7Your keys are safe")));
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.4f, 0.8f + step * 0.1f);
+                    step++;
+                } else {
+                    inv.setItem(13, button(Material.LIME_DYE, "&a&lKEYS DELIVERED", List.of("&f+" + amount + " " + titleCase(type) + " key(s)", "&7Use a physical crate to open them")));
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
+                    Bukkit.getScheduler().cancelTask(task[0]);
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> { if (player.isOnline() && player.getOpenInventory().getTitle().equals(animationTitle)) player.closeInventory(); }, 30L);
+                }
             }
-            p.closeInventory();
-        } finally {opening.remove(p.getUniqueId());}
+        }, 1L, 3L);
     }
+
+    @EventHandler public void click(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player p)) return;
+        String title = e.getView().getTitle();
+        if (title.equals("KELVORA | KEY DELIVERY")) { e.setCancelled(true); return; }
+        if (!title.startsWith(GUI) && !title.equals(ADMIN)) return;
+        e.setCancelled(true);
+        if (e.getClickedInventory() == null || e.getClickedInventory() != e.getView().getTopInventory()) return;
+        if (title.equals(ADMIN)) {
+            int slot = e.getRawSlot() - 10;
+            if (slot >= 0 && slot < TYPES.size()) {
+                String type = TYPES.get(slot);
+                p.closeInventory();
+                p.performCommand("crate spawn " + type);
+            }
+            return;
+        }
+        String type = openCrate.get(p.getUniqueId());
+        if (type == null) return;
+        if (e.getRawSlot() == 26) { p.closeInventory(); return; }
+        if (e.getRawSlot() != 22 || !opening.add(p.getUniqueId())) return;
+        if (keys(p, type) <= 0) {
+            p.sendMessage(Component.text("You need a " + titleCase(type) + " key.", NamedTextColor.RED));
+            opening.remove(p.getUniqueId()); return;
+        }
+        String reward = chooseReward(type);
+        if (reward == null) {
+            p.sendMessage(Component.text("No valid rewards configured; your key was not used.", NamedTextColor.RED));
+            opening.remove(p.getUniqueId()); return;
+        }
+        String[] bits = reward.split(":");
+        Material mat = Material.matchMaterial(bits[0]);
+        int amount;
+        try { amount = Integer.parseInt(bits[1]); } catch (Exception ex) { amount = 1; }
+        if (mat == null || mat.isAir() || !mat.isItem() || amount < 1 || amount > mat.getMaxStackSize()) {
+            p.sendMessage(Component.text("Configured reward is invalid. Your key was not used.", NamedTextColor.RED));
+            opening.remove(p.getUniqueId()); return;
+        }
+        ItemStack rewardItem = new ItemStack(mat, amount);
+        if (!canFit(p, rewardItem)) {
+            p.sendMessage(Component.text("Make room in your inventory before opening this crate. Your key was not used.", NamedTextColor.RED));
+            opening.remove(p.getUniqueId()); return;
+        }
+        String path = playerPath(p, type);
+        int oldBalance = keys(p, type);
+        data.set(path, oldBalance - 1);
+        if (!save()) {
+            data.set(path, oldBalance);
+            p.sendMessage(Component.text("Could not save key balance; opening cancelled.", NamedTextColor.RED));
+            opening.remove(p.getUniqueId()); return;
+        }
+        Inventory inv = e.getView().getTopInventory();
+        inv.setItem(13, button(Material.CLOCK, "&e&lRolling...", List.of("&7The server selected the reward securely")));
+        inv.setItem(22, button(Material.YELLOW_STAINED_GLASS_PANE, "&ePlease wait...", List.of("&7One key consumed")));
+        final UUID id = p.getUniqueId();
+        final int[] task = new int[1];
+        task[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+            int step = 0;
+            public void run() {
+                Player current = Bukkit.getPlayer(id);
+                if (step < 8 && current != null && current.isOnline()) {
+                    List<String> entries = plugin.getConfig().getStringList("crates.types." + type + ".rewards");
+                    List<String> valid = entries.stream().filter(x -> {
+                        String[] q = x.split(":");
+                        Material m = q.length > 0 ? Material.matchMaterial(q[0]) : null;
+                        return q.length >= 4 && m != null && m.isItem() && !m.isAir();
+                    }).toList();
+                    if (!valid.isEmpty()) {
+                        String preview = valid.get(random.nextInt(valid.size()));
+                        Material previewMat = Material.matchMaterial(preview.split(":")[0]);
+                        if (previewMat != null && previewMat.isItem() && !previewMat.isAir())
+                            inv.setItem(13, button(previewMat, "&e&lRolling: " + titleCase(previewMat.name().toLowerCase(Locale.ROOT).replace('_',' ')), List.of("&7Preview only")));
+                    }
+                    current.playSound(current.getLocation(), Sound.UI_BUTTON_CLICK, 0.4f, 0.8f + step * 0.1f);
+                    step++; return;
+                }
+                Bukkit.getScheduler().cancelTask(task[0]);
+                if (current == null || !current.isOnline()) {
+                    data.set(path, keysByUuid(id, type) + 1);
+                    save();
+                    opening.remove(id);
+                    return;
+                }
+                Map<Integer, ItemStack> overflow = current.getInventory().addItem(rewardItem.clone());
+                if (!overflow.isEmpty()) {
+                    data.set(path, keys(current, type) + 1);
+                    save();
+                    current.sendMessage(Component.text("Reward delivery failed; your key was refunded.", NamedTextColor.RED));
+                } else {
+                    String rarity = bits.length > 3 ? bits[3] : "Common";
+                    current.sendMessage(Component.text("Crate reward: " + amount + "x " + mat.name().toLowerCase(Locale.ROOT).replace('_',' '), NamedTextColor.GOLD));
+                    current.playSound(current.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
+                    if (plugin.getConfig().getBoolean("crates.broadcast-rare-rewards", true) && (rarity.equalsIgnoreCase("Legendary") || rarity.equalsIgnoreCase("Mythic")))
+                        Bukkit.broadcast(Component.text(current.getName() + " won " + mat.name().toLowerCase(Locale.ROOT).replace('_',' ') + " from a " + titleCase(type) + " Crate!", NamedTextColor.GOLD));
+                }
+                current.closeInventory();
+                opening.remove(id);
+            }
+        }, 1L, 3L);
+    }
+
+    private int keysByUuid(UUID id, String type) { return data.getInt("players." + id + "." + type, 0); }
+
+    private boolean canFit(Player player, ItemStack item) {
+        int remaining = item.getAmount();
+        for (ItemStack stack : player.getInventory().getStorageContents()) {
+            if (stack == null || stack.getType().isAir()) continue;
+            if (stack.isSimilar(item)) remaining -= Math.max(0, stack.getMaxStackSize() - stack.getAmount());
+            if (remaining <= 0) return true;
+        }
+        return remaining <= 0 || player.getInventory().firstEmpty() != -1;
+    }
+
     @EventHandler public void drag(InventoryDragEvent e){String t=e.getView().getTitle();if(t.startsWith(GUI)||t.equals(ADMIN))e.setCancelled(true);}
-    @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e){openCrate.remove(e.getPlayer().getUniqueId());opening.remove(e.getPlayer().getUniqueId());}
+    @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
+        openCrate.remove(e.getPlayer().getUniqueId());
+        // A consumed key is refunded by the pending completion if the player disconnects.
+    }
     private String chooseReward(String type) {
         List<String> entries=plugin.getConfig().getStringList("crates.types."+type+".rewards");
         List<String> valid=new ArrayList<>();double total=0;
@@ -256,5 +371,12 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         lines.add(0,"Summary: eligible="+eligible+", configured="+configured+", excluded="+excluded);
         try{java.nio.file.Files.write(report.toPath(),lines);}catch(IOException e){plugin.getLogger().warning("Could not write crate coverage report: "+e.getMessage());}
     }
-    @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){if(a.equalsIgnoreCase("keyall"))return args.length==1?TYPES:List.of();if(args.length==1)return List.of("spawn","remove","list","keys","givekey");if(args.length==2&&args[0].equalsIgnoreCase("spawn"))return TYPES;return List.of();}
+    @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){
+        if(a.equalsIgnoreCase("keyall")) return args.length==1 ? TYPES : List.of();
+        if(args.length==1) return List.of("spawn","remove","list","keys","givekey");
+        if(args.length==2&&args[0].equalsIgnoreCase("spawn")) return TYPES;
+        if(args.length==2&&args[0].equalsIgnoreCase("givekey")) return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
+        if(args.length==3&&args[0].equalsIgnoreCase("givekey")) return TYPES;
+        return List.of();
+    }
 }

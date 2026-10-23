@@ -122,6 +122,7 @@ implements Listener {
         for (Player player : Bukkit.getOnlinePlayers()) {
             this.updatePlayer(player);
         }
+        new PassiveKelvorasManager(this).register();
         this.getLogger().info("Kelvora SMP presentation enabled.");
     }
 
@@ -232,45 +233,40 @@ implements Listener {
         String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
         String cosmeticPrefix = cosmeticTitle == null ? "" : this.color("&6{" + cosmeticTitle + "} ");
         String cosmeticSuffix = cosmeticTag == null ? "" : this.color(" &b[" + cosmeticTag + "]");
-        player.setPlayerListName(cosmeticPrefix + this.color(prefix) + this.color("&f" + player.getName()) + cosmeticSuffix + this.color(" &8| &b" + player.getPing() + "ms"));
+        // Vanilla player names only; no custom prefixes or ping text in the player list.
+        player.setPlayerListName(player.getName());
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
         String kelvoras = this.getKelvoras(player);
-        Component header = Component.text("KELVORA SMP", NamedTextColor.GREEN)
+        Component footer = Component.text("💬 Discord: discord.gg/gUt2uGcwe", NamedTextColor.AQUA)
             .append(Component.newline())
-            .append(Component.text("Survival ", NamedTextColor.GREEN)
-            .append(Component.text("• PvP ", NamedTextColor.RED))
-            .append(Component.text("• Economy", NamedTextColor.GOLD)));
-        Component footer = Component.text("Online: ", NamedTextColor.WHITE)
-            .append(Component.text(Bukkit.getOnlinePlayers().size(), NamedTextColor.GREEN))
-            .append(Component.text("/", NamedTextColor.GRAY))
-            .append(Component.text(Bukkit.getMaxPlayers(), NamedTextColor.GOLD))
+            .append(Component.text("🛒 Store: Coming Soon", NamedTextColor.GOLD))
             .append(Component.newline())
-            .append(Component.text(serverAddress, NamedTextColor.AQUA));
-        player.sendPlayerListHeaderAndFooter(header, footer);
+            .append(Component.text("🌐 IP: kelvorasmp.mcsh.gg", NamedTextColor.GRAY));
+        player.sendPlayerListHeaderAndFooter(Component.empty(), footer);
 
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
             board = Bukkit.getScoreboardManager().getNewScoreboard();
-            Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("KELVORA SMP", NamedTextColor.GREEN));
+            Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
-            for (int i = 0; i < 10; ++i) {
+            for (int i = 0; i < 9; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
                 org.bukkit.scoreboard.Score score = created.getScore(entry);
-                score.setScore(7 - i);
+                score.setScore(9 - i);
                 score.numberFormat(io.papermc.paper.scoreboard.numbers.NumberFormat.blank());
             }
             this.playerBoards.put(player.getUniqueId(), board);
         }
         Objective objective = board.getObjective("kelvora");
         if (objective == null) {
-            objective = board.registerNewObjective("kelvora", "dummy", Component.text("KELVORA SMP", NamedTextColor.GREEN));
+            objective = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN));
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         } else {
-            objective.displayName(Component.text("KELVORA SMP", NamedTextColor.GREEN));
+            objective.displayName(Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN));
         }
         int kills = player.getStatistic(Statistic.PLAYER_KILLS);
         int deaths = player.getStatistic(Statistic.DEATHS);
@@ -278,17 +274,17 @@ implements Listener {
         String playtime = playMinutes >= 60 ? (playMinutes / 60) + "h " + (playMinutes % 60) + "m" : playMinutes + "m";
         String teamName = this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
         // Keep the two authoritative currencies immediately under the server title.
+        String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
-            this.color("&2&l✦ &a&lKELVORA &3&lSMP"),
-            this.color("&6💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
-            this.color("&d💎 Shards: &f" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
-            this.color("&bRank: &f" + rankColor + rankLabel),
-            this.color("&3Team: &f" + teamName),
-            this.color("&c⚔ Kills: &f" + kills),
-            this.color("&4☠ Deaths: &f" + deaths),
-            this.color("&b⏱ Playtime: &f" + playtime),
-            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7🌐 &f" + serverAddress)
+            this.color("&6&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
+            this.color("&d&l💎 Kelvoras: &f" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
+            this.color("&b&l⭐ RANK: &b&l" + rankDisplay),
+            this.color("&3🛡 Team: &f" + teamName),
+            this.color("&6⚔ Kills: &f" + kills),
+            this.color("&c☠ Deaths: &f" + deaths),
+            this.color("&9⏱ Playtime: &f" + playtime),
+            this.color("&f👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
+            this.color("&7🌐 IP: &b" + serverAddress)
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
@@ -331,6 +327,7 @@ implements Listener {
         return group.equals("default") ? "sprout" : (group.equals("i_sprout") ? "sprout" : group);
     }
 
+    KelvorasManager passiveKelvorasManager() { return this.kelvorasManager; }
     ShardShopManager getShardShopManager() { return this.shardShopManager; }
     TeamManager getTeamManager() { return this.teamManager; }
     void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }

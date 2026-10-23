@@ -134,24 +134,40 @@ final class RankKitManager implements Listener {
                 sender.sendMessage(Component.text("Usage: /rank set <player> <sprout|verdant|emerald|sovereign|ascendant>", NamedTextColor.RED));
                 return true;
             }
-            Player target = Bukkit.getPlayerExact(args[1]);
-            if (target == null) {
-                sender.sendMessage(Component.text("That player must be online.", NamedTextColor.RED));
-                return true;
-            }
             String targetRank = normalize(args[2]);
             if (!PROGRESSION.contains(targetRank)) {
                 sender.sendMessage(Component.text("Invalid progression rank. Staff/media roles are managed separately.", NamedTextColor.RED));
                 return true;
             }
-            String previous = progressionRank(target.getUniqueId());
-            if (!setProgressionRank(target, targetRank)) {
-                sender.sendMessage(Component.text("Rank change failed. Check LuckPerms and server logs.", NamedTextColor.RED));
+            if (luckPerms == null) {
+                sender.sendMessage(Component.text("LuckPerms is required for rank assignment.", NamedTextColor.RED));
                 return true;
             }
-            sender.sendMessage(Component.text("Set " + target.getName() + "'s progression rank to " + LABELS.get(targetRank) + ".", NamedTextColor.GREEN));
-            target.sendMessage(Component.text("Your progression rank is now " + LABELS.get(targetRank) + ".", NamedTextColor.GREEN));
-            plugin.getLogger().info(sender.getName() + " changed " + target.getName() + "'s progression rank from " + previous + " to " + targetRank + ".");
+            Player online = Bukkit.getPlayerExact(args[1]);
+            org.bukkit.OfflinePlayer offline = online == null ? Bukkit.getOfflinePlayer(args[1]) : online;
+            java.util.UUID targetId = offline.getUniqueId();
+            String targetName = online != null ? online.getName() : (offline.getName() == null ? args[1] : offline.getName());
+            try {
+                User user = luckPerms.getUserManager().getUser(targetId);
+                if (user == null) user = luckPerms.getUserManager().loadUser(targetId).join();
+                String previous = progressionRank(targetId);
+                for (String key : PROGRESSION) user.data().remove(InheritanceNode.builder(key).build());
+                user.data().remove(InheritanceNode.builder("i_sprout").build());
+                user.data().add(InheritanceNode.builder(targetRank).build());
+                String primary = user.getPrimaryGroup() == null ? "" : user.getPrimaryGroup().toLowerCase(Locale.ROOT);
+                if (PROGRESSION.contains(primary) || primary.equals("i_sprout") || primary.equals("default") || primary.equals("member")) user.setPrimaryGroup(targetRank);
+                luckPerms.getUserManager().saveUser(user).join();
+                cacheRank(targetId, targetRank);
+                sender.sendMessage(Component.text("Set " + targetName + "'s progression rank to " + LABELS.get(targetRank) + ".", NamedTextColor.GREEN));
+                if (online != null) {
+                    online.sendMessage(Component.text("Your progression rank is now " + LABELS.get(targetRank) + ".", NamedTextColor.GREEN));
+                    plugin.refreshSidebar(online);
+                }
+                plugin.getLogger().info(sender.getName() + " changed " + targetName + "'s progression rank from " + previous + " to " + targetRank + ".");
+            } catch (Exception ex) {
+                sender.sendMessage(Component.text("Rank change failed. Check LuckPerms and server logs.", NamedTextColor.RED));
+                plugin.getLogger().warning("Could not set rank for " + targetName + ": " + ex.getMessage());
+            }
             return true;
         }
         if (!(sender instanceof Player player)) { sender.sendMessage("Use /rank set <player> <rank> from console, or use /rank in-game."); return true; }

@@ -3,6 +3,14 @@ refresh-ticks: 60
 currency-format: compact
 
 server-address: "kelvorasmp.mcsh.gg"
+
+# Passive income uses continuous online seconds; offline time is not paid.
+# AFK eligibility is configurable; without an AFK integration the plugin cannot detect AFK state.
+passive-kelvoras:
+  enabled: true
+  interval-seconds: 300
+  amount: 1.0
+  afk-eligible: true
 scoreboard:
   title: "&a&lKELVORA SMP"
 ranks:
