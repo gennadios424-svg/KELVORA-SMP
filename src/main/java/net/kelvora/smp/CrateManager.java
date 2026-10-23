@@ -57,6 +57,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             plugin.getCommand("crate").setTabCompleter(this);
         }
         if (plugin.getCommand("keyall") != null) plugin.getCommand("keyall").setExecutor(this);
+        validateConfiguredRewards();
         generateCoverageReport();
     }
 
@@ -349,15 +350,43 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         return remaining <= 0 || player.getInventory().firstEmpty() != -1;
     }
 
-    @EventHandler public void drag(InventoryDragEvent e){String t=e.getView().getTitle();if(t.startsWith(GUI)||t.equals(ADMIN))e.setCancelled(true);}
+    @EventHandler public void drag(InventoryDragEvent e){String t=e.getView().getTitle();if(t.startsWith(GUI)||t.equals(ADMIN)||t.equals("KELVORA | KEY DELIVERY"))e.setCancelled(true);}
     @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
         openCrate.remove(e.getPlayer().getUniqueId());
         // A consumed key is refunded by the pending completion if the player disconnects.
     }
+    private boolean isAllowedReward(Material material) {
+        if (material == null || !material.isItem() || material.isAir()) return false;
+        String name = material.name();
+        if (name.endsWith("_SPAWN_EGG")) return false;
+        return !Set.of("BEDROCK","BARRIER","COMMAND_BLOCK","CHAIN_COMMAND_BLOCK","REPEATING_COMMAND_BLOCK",
+            "STRUCTURE_BLOCK","STRUCTURE_VOID","JIGSAW","DEBUG_STICK","KNOWLEDGE_BOOK","END_PORTAL_FRAME",
+            "END_PORTAL","END_GATEWAY","SPAWNER","TRIAL_SPAWNER","VAULT","BUDDING_AMETHYST",
+            "REINFORCED_DEEPSLATE","COMMAND_BLOCK_MINECART").contains(name);
+    }
+
+    private void validateConfiguredRewards() {
+        for (String type : TYPES) {
+            List<String> entries = plugin.getConfig().getStringList("crates.types." + type + ".rewards");
+            if (entries.isEmpty()) plugin.getLogger().warning("Crate '" + type + "' has no configured rewards.");
+            for (String entry : entries) {
+                String[] b = entry.split(":");
+                Material material = b.length > 0 ? Material.matchMaterial(b[0]) : null;
+                boolean valid = b.length >= 4 && isAllowedReward(material);
+                try {
+                    int amount = Integer.parseInt(b[1]);
+                    double weight = Double.parseDouble(b[2]);
+                    valid &= amount > 0 && material != null && amount <= material.getMaxStackSize() && Double.isFinite(weight) && weight > 0;
+                } catch (Exception ex) { valid = false; }
+                if (!valid) plugin.getLogger().warning("Invalid or disallowed reward in crates.types." + type + ": " + entry);
+            }
+        }
+    }
+
     private String chooseReward(String type) {
         List<String> entries=plugin.getConfig().getStringList("crates.types."+type+".rewards");
         List<String> valid=new ArrayList<>();double total=0;
-        for(String entry:entries){String[] b=entry.split(":");if(b.length<3)continue;Material m=Material.matchMaterial(b[0]);double w;try{w=Double.parseDouble(b[2]);}catch(Exception ex){continue;}int a;try{a=Integer.parseInt(b[1]);}catch(Exception ex){continue;}if(m==null||!m.isItem()||m.isAir()||a<1||a>m.getMaxStackSize()||!Double.isFinite(w)||w<=0)continue;total+=w;valid.add(entry);}
+        for(String entry:entries){String[] b=entry.split(":");if(b.length<3)continue;Material m=Material.matchMaterial(b[0]);double w;try{w=Double.parseDouble(b[2]);}catch(Exception ex){continue;}int a;try{a=Integer.parseInt(b[1]);}catch(Exception ex){continue;}if(!isAllowedReward(m)||a<1||a>m.getMaxStackSize()||!Double.isFinite(w)||w<=0)continue;total+=w;valid.add(entry);}
         if(total<=0)return null;double pick=random.nextDouble()*total;for(String e:valid){pick-=Double.parseDouble(e.split(":")[2]);if(pick<=0)return e;}return valid.get(valid.size()-1);
     }
     private boolean save(){try{data.save(dataFile);return true;}catch(IOException e){plugin.getLogger().severe("Could not save crate data: "+e.getMessage());return false;}}
