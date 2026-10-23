@@ -43,6 +43,7 @@ final class BountyCombatManager implements Listener {
     private final JavaPlugin plugin;
     private final File file;
     private final Map<UUID, Bounty> bounties = new LinkedHashMap<>();
+    private final Map<UUID, PendingClaim> pendingClaims = new HashMap<>();
     private final Map<UUID, Combat> combat = new HashMap<>();
     private final Map<UUID, Long> recentCrystalUse = new HashMap<>();
     private final Map<String, TimedOwner> explosiveBlocks = new HashMap<>();
@@ -83,17 +84,23 @@ final class BountyCombatManager implements Listener {
                         p.sendMessage(Component.text(target.getName() + "'s bounty: $" + money(b == null ? 0 : b.total), NamedTextColor.GREEN));
                     }
                     case "top", "list" -> showList(p, args[0].equalsIgnoreCase("top"));
+                    case "recover" -> {
+                        if (!p.hasPermission("kelvora.bounty.admin")) { fail(p, "You do not have permission."); return true; }
+                        if (args.length != 3 || !(args[2].equalsIgnoreCase("paid") || args[2].equalsIgnoreCase("retry"))) { fail(p, "Usage: /bounty recover <player> <paid|retry>"); return true; }
+                        recoverClaim(p, args[1], args[2].equalsIgnoreCase("paid"));
+                    }
                     default -> fail(p, "Usage: /bounty [set <player> <amount>|check <player>|top|list]");
                 }
                 return true;
             });
             plugin.getCommand("bounty").setTabCompleter((sender, command, alias, args) -> {
-                if (args.length == 1) return prefix(List.of("set", "check", "top", "list"), args[0]);
-                if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("check"))) {
+                if (args.length == 1) return prefix(List.of("set", "check", "top", "list", "recover"), args[0]);
+                if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("check") || args[0].equalsIgnoreCase("recover"))) {
                     List<String> names = new ArrayList<>();
                     for (Player online : Bukkit.getOnlinePlayers()) names.add(online.getName());
                     return prefix(names, args[1]);
                 }
+                if (args.length == 3 && args[0].equalsIgnoreCase("recover")) return prefix(List.of("paid", "retry"), args[2]);
                 return Collections.emptyList();
             });
         }
@@ -145,6 +152,7 @@ final class BountyCombatManager implements Listener {
         OfflinePlayer target = knownTarget(targetName);
         if (target == null || target.getUniqueId() == null) { fail(issuer, "Target must be online or have joined before."); return; }
         if (target.getUniqueId().equals(issuer.getUniqueId())) { fail(issuer, "You cannot place a bounty on yourself."); return; }
+        if (pendingClaims.containsKey(target.getUniqueId())) { fail(issuer, "This bounty is awaiting transaction recovery."); return; }
         double amount;
         try { amount = Double.parseDouble(amountText); } catch (NumberFormatException ex) { fail(issuer, "Enter a valid positive amount."); return; }
         if (!Double.isFinite(amount) || amount <= 0 || amount > 1.0E12) { fail(issuer, "Enter a valid positive amount."); return; }
@@ -180,6 +188,8 @@ final class BountyCombatManager implements Listener {
 
     private void showList(Player p, boolean top) {
         List<Map.Entry<UUID, Bounty>> entries = new ArrayList<>(bounties.entrySet());
+        entries.removeIf(e -> pendingClaims.containsKey(e.getKey()));
+        entries.removeIf(e -> pendingClaims.containsKey(e.getKey()));
         entries.sort((a,b) -> Double.compare(b.getValue().total, a.getValue().total));
         if (entries.isEmpty()) { p.sendMessage(Component.text("No active bounties.", NamedTextColor.GRAY)); return; }
         p.sendMessage(Component.text(top ? "Top Bounties" : "Active Bounties", NamedTextColor.GREEN));
@@ -359,7 +369,10 @@ final class BountyCombatManager implements Listener {
         UUID victimId = victim.getUniqueId();
         Combat tag = combat.get(victimId);
         combat.remove(victimId);
-        if (tag != null) combat.remove(tag.opponent, tag);
+        if (tag != null) {
+            Combat other = combat.get(tag.opponent);
+            if (other != null && other.opponent.equals(victimId)) combat.remove(tag.opponent);
+        }
         if (!handledDeaths.add(victimId)) return;
         if (combatLogouts.remove(victimId)) return;
         Player killer = victim.getKiller();
@@ -370,16 +383,31 @@ final class BountyCombatManager implements Listener {
         lastAttackers.remove(victimId);
         if (killer == null || killer.equals(victim) || !killer.isOnline()) return;
         Bounty bounty = bounties.get(victimId);
-        if (bounty == null || bounty.total <= 0 || !paying.add(victimId)) return;
+        if (bounty == null || bounty.total <= 0 || pendingClaims.containsKey(victimId) || !paying.add(victimId)) return;
         double reward = bounty.total;
-        // Persist the claim before paying; this deliberately favors no duplicate payout after a crash.
-        bounties.remove(victimId);
-        if (!save()) { bounties.put(victimId, bounty); paying.remove(victimId); return; }
+        PendingClaim pending = new PendingClaim(killer.getUniqueId(), killer.getName(), victim.getName(), reward);
+        pendingClaims.put(victimId, pending);
+        if (!save()) {
+            pendingClaims.remove(victimId);
+            paying.remove(victimId);
+            plugin.getLogger().severe("Could not persist pending bounty payout for " + victim.getName() + "; bounty remains active.");
+            return;
+        }
         if (!deposit(killer, reward)) {
-            bounties.put(victimId, bounty);
+            pendingClaims.remove(victimId);
             save();
             paying.remove(victimId);
-            plugin.getLogger().severe("Bounty payout failed; bounty restored for " + victim.getName());
+            plugin.getLogger().severe("Bounty payout failed; bounty remains active for " + victim.getName());
+            return;
+        }
+        // Keep the pending claim durable until the completed state is safely written.
+        bounties.remove(victimId);
+        pendingClaims.remove(victimId);
+        if (!save()) {
+            bounties.put(victimId, bounty);
+            pendingClaims.put(victimId, pending);
+            plugin.getLogger().severe("Bounty was paid but final persistence failed. Target is locked pending /bounty recover " + victim.getName() + " paid|retry. Do not retry automatically.");
+            paying.remove(victimId);
             return;
         }
         killer.sendMessage(Component.text("Bounty claimed: +$" + money(reward) + " for eliminating " + victim.getName() + ".", NamedTextColor.GREEN));
@@ -424,6 +452,14 @@ final class BountyCombatManager implements Listener {
             return;
         }
         store = YamlConfiguration.loadConfiguration(file);
+        ConfigurationSection claims = store.getConfigurationSection("pending-claims");
+        if (claims != null) for (String raw : claims.getKeys(false)) {
+            try {
+                UUID target = UUID.fromString(raw);
+                ConfigurationSection pc = claims.getConfigurationSection(raw);
+                if (pc != null) pendingClaims.put(target, new PendingClaim(UUID.fromString(pc.getString("killer-uuid")), pc.getString("killer-name", "Unknown"), pc.getString("victim-name", "Unknown"), pc.getDouble("reward", 0)));
+            } catch (IllegalArgumentException ignored) { }
+        }
         ConfigurationSection section = store.getConfigurationSection("bounties");
         if (section == null) return;
         for (String raw : section.getKeys(false)) {
@@ -448,6 +484,13 @@ final class BountyCombatManager implements Listener {
                 next.set(path + ".total", entry.getValue().total);
                 next.set(path + ".contributors", entry.getValue().contributors);
             }
+            for (Map.Entry<UUID, PendingClaim> entry : pendingClaims.entrySet()) {
+                String path = "pending-claims." + entry.getKey();
+                next.set(path + ".killer-uuid", entry.getValue().killer.toString());
+                next.set(path + ".killer-name", entry.getValue().killerName);
+                next.set(path + ".victim-name", entry.getValue().victimName);
+                next.set(path + ".reward", entry.getValue().reward);
+            }
             next.save(file);
             store = next;
             return true;
@@ -455,6 +498,23 @@ final class BountyCombatManager implements Listener {
             plugin.getLogger().severe("Could not persist bounties: " + ex.getMessage());
             return false;
         }
+    }
+
+    private void recoverClaim(Player admin, String targetName, boolean alreadyPaid) {
+        OfflinePlayer target = knownTarget(targetName);
+        if (target == null) { fail(admin, "That player is not known to this server."); return; }
+        UUID id = target.getUniqueId();
+        PendingClaim pending = pendingClaims.get(id);
+        if (pending == null) { fail(admin, "No pending bounty transaction for that player."); return; }
+        Bounty existing = bounties.get(id);
+        pendingClaims.remove(id);
+        if (alreadyPaid) bounties.remove(id);
+        if (!save()) {
+            pendingClaims.put(id, pending);
+            if (alreadyPaid && existing != null) bounties.put(id, existing);
+            fail(admin, "Could not save recovery; no state change was committed."); return;
+        }
+        admin.sendMessage(Component.text(alreadyPaid ? "Marked pending payout as paid; bounty cleared." : "Pending payout released; bounty remains active. Verify Money before choosing retry.", NamedTextColor.GREEN));
     }
 
     private void fail(Player p, String text) {
@@ -469,6 +529,10 @@ final class BountyCombatManager implements Listener {
     }
     private static String key(Location l) { return l.getWorld().getName() + ":" + l.getBlockX() + ":" + l.getBlockY() + ":" + l.getBlockZ(); }
 
+    private static final class PendingClaim {
+        final UUID killer; final String killerName; final String victimName; final double reward;
+        PendingClaim(UUID killer, String killerName, String victimName, double reward) { this.killer = killer; this.killerName = killerName; this.victimName = victimName; this.reward = reward; }
+    }
     private static final class Bounty {
         String name; double total; final List<String> contributors = new ArrayList<>();
         Bounty(String name) { this.name = name; }
