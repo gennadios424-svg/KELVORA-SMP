@@ -71,7 +71,7 @@ final class ShardShopManager implements Listener {
         }
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
         if (label.equalsIgnoreCase("shards")) {
-            player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
+            player.sendMessage(Component.text("Your Shards: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
             return true;
         }
         if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
@@ -82,11 +82,11 @@ final class ShardShopManager implements Listener {
     private void openCategories(Player player) {
         openCategory.put(player.getUniqueId(), "categories");
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
-        add(inv, 10, Material.NAME_TAG, "&aTags", List.of("Decorative labels beside your name", "Click to browse"), "category:tags");
+        add(inv, 10, Material.NAME_TAG, "&aTags", List.of("Decorative labels beside your name", "Coming Soon"), "category:tags");
         add(inv, 11, Material.CLOCK, "&eTemporary Ranks", List.of("Cosmetic titles only", "No permissions or gameplay benefits"), "category:titles");
-        add(inv, 13, Material.GLOW_INK_SAC, "&bGlows", List.of("Cosmetic player glow effects", "Click to browse"), "category:glows");
+        add(inv, 13, Material.GLOW_INK_SAC, "&bGlows", List.of("Cosmetic player glow effects", "Coming Soon"), "category:glows");
         add(inv, 15, Material.WRITABLE_BOOK, "&dChat Colours", List.of("Colour your message text", "Click to browse"), "category:chat");
-        add(inv, 22, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
+        add(inv, 22, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Shards"), "info");
         add(inv, 26, Material.BARRIER, "&cClose", List.of(), "close");
         player.openInventory(inv);
     }
@@ -105,18 +105,18 @@ final class ShardShopManager implements Listener {
                 String desc = entry.getString("description", "Cosmetic");
                 double price = entry.getDouble("price", -1);
                 long duration = entry.getLong("duration-seconds", 0);
-                boolean available = price >= 0 && Double.isFinite(price);
+                boolean available = entry.getBoolean("available", false) && price >= 0 && Double.isFinite(price);
                 boolean owned = owns(player.getUniqueId(), category, id);
                 boolean equipped = id.equals(data.getString(player.getUniqueId() + ".equipped." + category, ""));
                 long expires = data.getLong(player.getUniqueId() + ".owned." + category + "." + id, 0);
                 boolean expired = data.getBoolean(player.getUniqueId() + ".expired." + category + "." + id, false);
                 List<String> lore = new ArrayList<>();
                 lore.add(desc);
-                lore.add(available ? "Price: ✦" + KelvorasManager.format(price) + " Kelvoras" : "Unavailable");
+                lore.add(available ? "Price: ✦" + KelvorasManager.format(price) + " Shards" : "Coming Soon");
                 if (duration > 0) lore.add("Duration: " + durationLabel(duration));
                 if (owned && expires > 0) lore.add("Expires: " + new Date(expires).toString());
                 if (expired) lore.add("&cExpired — click to renew");
-                lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : expired ? "&eClick to renew" : available ? "&aClick to purchase" : "&cUnavailable");
+                lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : expired ? "&eClick to renew" : available ? "&aClick to purchase" : "&cComing Soon");
                 Material icon = material(entry.getString("icon", "NAME_TAG"));
                 add(inv, slot++, icon, (equipped ? "&a" : "&f") + name, lore, "item:" + category + ":" + id);
             }
@@ -152,10 +152,10 @@ final class ShardShopManager implements Listener {
                 return;
             }
             double price = entry.getDouble("price", -1);
-            if (price < 0 || !Double.isFinite(price)) { player.sendMessage(Component.text("This cosmetic is unavailable.", NamedTextColor.RED)); return; }
+            if (!entry.getBoolean("available", false) || price < 0 || !Double.isFinite(price)) { player.sendMessage(Component.text("Coming Soon — this cosmetic is not available yet. No Shards were charged.", NamedTextColor.YELLOW)); openItems(player, category); return; }
             double balance = currency.balance(player);
             if (!Double.isFinite(balance) || balance + 0.000001 < price) {
-                player.sendMessage(Component.text("Not enough Kelvoras. Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED)); return;
+                player.sendMessage(Component.text("Not enough Shards! Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED)); return;
             }
             // Save ownership first; currency withdrawal is atomic and rolls back on persistence failure.
             long duration = Math.max(0, entry.getLong("duration-seconds", 0));
@@ -176,7 +176,7 @@ final class ShardShopManager implements Listener {
                 player.sendMessage(Component.text("Purchase failed; no charge was made.", NamedTextColor.RED)); return;
             }
             applyCosmetic(player, category, id, entry);
-            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
+            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Shards.", NamedTextColor.GREEN));
             openItems(player, category);
         } finally { processing.remove(uuid); }
     }
