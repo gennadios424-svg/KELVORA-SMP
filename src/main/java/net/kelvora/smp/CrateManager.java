@@ -267,9 +267,13 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private boolean addKeys(Player p,String type,int amount){String path=playerPath(p,type);int old=data.getInt(path,0);data.set(path,Math.min(2_000_000_000L,(long)old+amount));if(!save()){data.set(path,old);return false;}return true;}
 
     private void openRewardEditor(Player player, String type) {
-        List<String> rewards = configuredRewards(type);
-        editingCrate.put(player.getUniqueId(), type);
-        editingRewards.put(player.getUniqueId(), new ArrayList<>(rewards));
+        UUID editorId = player.getUniqueId();
+        List<String> rewards = editingRewards.get(editorId);
+        if (rewards == null || !type.equalsIgnoreCase(editingCrate.get(editorId))) {
+            rewards = new ArrayList<>(configuredRewards(type));
+            editingRewards.put(editorId, rewards);
+            editingCrate.put(editorId, type);
+        }
         Inventory inv = Bukkit.createInventory(null, 54, Component.text("KELVORA | EDIT " + type.toUpperCase(Locale.ROOT), NamedTextColor.GREEN));
         protectedInventories.add(inv);
         for (int i = 0; i < 45; i++) {
