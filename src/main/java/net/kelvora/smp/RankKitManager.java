@@ -365,7 +365,7 @@ final class RankKitManager implements Listener {
         List<Component> lines=new ArrayList<>(); for(String line:lore) lines.add(Component.text(line,NamedTextColor.GRAY));
         meta.lore(lines); meta.getPersistentDataContainer().set(actionKey,PersistentDataType.STRING,action); item.setItemMeta(meta); inv.setItem(slot,item);
     }
-    private String normalize(String s) { return s.toLowerCase(Locale.ROOT).replace(" ","_").replace("i.sprout","i_sprout").replace("sprout","i_sprout"); }
+    private String normalize(String s) { String key = s.toLowerCase(Locale.ROOT).trim().replace(" ","_"); if (key.equals("sprout") || key.equals("i.sprout") || key.equals("i_sprout")) return "i_sprout"; return key; }
     private String duration(long millis) {
         long seconds=Math.max(0,millis/1000); long h=seconds/3600, m=(seconds%3600)/60;
         return h>0 ? h+"h "+m+"m" : m+"m "+(seconds%60)+"s";
