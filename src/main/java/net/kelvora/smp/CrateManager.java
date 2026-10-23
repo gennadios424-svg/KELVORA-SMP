@@ -469,10 +469,47 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     private String chooseReward(String type) {
-        List<String> entries=plugin.getConfig().getStringList("crates.types."+type+".rewards");
-        List<String> valid=new ArrayList<>();double total=0;
-        for(String entry:entries){String[] b=entry.split(":",4);if(b.length<4)continue;double w;try{w=Double.parseDouble(b[2]);}catch(Exception ex){continue;}if(!Double.isFinite(w)||w<=0)continue;String kind=b[0].toUpperCase(Locale.ROOT);boolean ok=false;try{if(kind.equals("KELVORAS")||kind.equals("MONEY")){double amount=Double.parseDouble(b[1]);ok=Double.isFinite(amount)&&amount>0;}else if(kind.equals("COMMAND")){ok=!b[1].isBlank();}else{Material m=Material.matchMaterial(b[0]);int a=Integer.parseInt(b[1]);ok=isAllowedReward(m)&&a>0&&a<=m.getMaxStackSize();}}catch(Exception ignored){}if(!ok)continue;total+=w;valid.add(entry);}
-        if(total<=0)return null;double pick=random.nextDouble()*total;for(String e:valid){pick-=Double.parseDouble(e.split(":")[2]);if(pick<=0)return e;}return valid.get(valid.size()-1);
+        List<String> entries = configuredRewards(type);
+        ConfigurationSection chanceSection = plugin.getConfig().getConfigurationSection("crates.types." + type + ".exact-chances");
+        Set<String> exactChanceMaterials = new HashSet<>();
+        if (chanceSection != null) {
+            double totalExact = 0;
+            for (String key : chanceSection.getKeys(false)) {
+                double percent = chanceSection.getDouble(key, -1);
+                if (!Double.isFinite(percent) || percent < 0 || percent >= 100) { plugin.getLogger().warning("Invalid exact crate chance " + type + "." + key + "=" + percent); continue; }
+                Material material = Material.matchMaterial(key);
+                if (!isAllowedReward(material)) { plugin.getLogger().warning("Invalid exact-chance reward material " + type + "." + key); continue; }
+                totalExact += percent;
+                exactChanceMaterials.add(material.name());
+            }
+            if (totalExact >= 100) { plugin.getLogger().warning("Exact chances for crate " + type + " must total less than 100%."); return null; }
+            for (String key : chanceSection.getKeys(false)) {
+                double percent = chanceSection.getDouble(key, -1);
+                Material material = Material.matchMaterial(key);
+                if (!isAllowedReward(material) || !Double.isFinite(percent) || percent < 0 || percent >= 100) continue;
+                if (random.nextDouble() < percent / 100.0) {
+                    for (String entry : entries) if (entry.split(":", 4)[0].equalsIgnoreCase(material.name())) return entry;
+                    return material.name() + ":1:1:Mythic";
+                }
+            }
+        }
+        List<String> valid = new ArrayList<>(); double total = 0;
+        for (String entry : entries) {
+            String[] b = entry.split(":", 4); if (b.length < 4 || exactChanceMaterials.contains(b[0].toUpperCase(Locale.ROOT))) continue;
+            double w; try { w = Double.parseDouble(b[2]); } catch (Exception ex) { continue; }
+            if (!Double.isFinite(w) || w <= 0) continue;
+            String kind = b[0].toUpperCase(Locale.ROOT); boolean ok = false;
+            try {
+                if (kind.equals("KELVORAS") || kind.equals("MONEY")) { double amount = Double.parseDouble(b[1]); ok = Double.isFinite(amount) && amount > 0; }
+                else if (kind.equals("COMMAND")) ok = !b[1].isBlank();
+                else { Material m = Material.matchMaterial(b[0]); int a = Integer.parseInt(b[1]); ok = isAllowedReward(m) && a > 0 && a <= m.getMaxStackSize(); }
+            } catch (Exception ignored) { }
+            if (!ok) continue; total += w; valid.add(entry);
+        }
+        if (total <= 0) return null;
+        double pick = random.nextDouble() * total;
+        for (String entry : valid) { pick -= Double.parseDouble(entry.split(":", 4)[2]); if (pick <= 0) return entry; }
+        return valid.get(valid.size() - 1);
     }
     private boolean save(){try{data.save(dataFile);return true;}catch(IOException e){plugin.getLogger().severe("Could not save crate data: "+e.getMessage());return false;}}
     private void generateCoverageReport(){
