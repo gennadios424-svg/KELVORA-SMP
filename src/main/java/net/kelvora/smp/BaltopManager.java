@@ -27,7 +27,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.plugin.RegisteredServiceProvider;\nimport org.bukkit.configuration.file.YamlConfiguration;\nimport net.luckperms.api.LuckPermsProvider;\nimport net.luckperms.api.model.user.User;\nimport java.io.File;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -156,7 +156,7 @@ final class BaltopManager implements Listener, TabCompleter {
             net.kyori.adventure.text.format.TextColor color = rank == 1 ? NamedTextColor.GOLD
                 : rank == 2 ? NamedTextColor.GRAY
                 : rank == 3 ? net.kyori.adventure.text.format.TextColor.color(205, 127, 50) : NamedTextColor.GREEN;
-            meta.displayName(Component.text("#" + rank + " " + entry.name(), color));
+            meta.displayName(Component.text("#" + rank + " [" + rankLabel(entry.id()) + "] " + entry.name(), color));
             meta.lore(List.of(
                 Component.text("Money: " + compact(entry.balance()), NamedTextColor.WHITE),
                 Component.text("Exact: $" + MONEY.format(entry.balance()), NamedTextColor.GRAY),
@@ -230,6 +230,50 @@ final class BaltopManager implements Listener, TabCompleter {
         if (abs >= 1_000_000) return String.format(Locale.US, "$%.2fM", amount / 1_000_000);
         if (abs >= 1_000) return String.format(Locale.US, "$%.2fK", amount / 1_000);
         return "$" + MONEY.format(amount);
+    }
+
+
+    private String rankLabel(UUID id) {
+        try {
+            File cacheFile = new File(plugin.getDataFolder(), "rank-cache.yml");
+            YamlConfiguration cache = YamlConfiguration.loadConfiguration(cacheFile);
+            String cachedRank = cache.getString(id.toString());
+            if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
+                User user = LuckPermsProvider.get().getUserManager().getUser(id);
+                if (user != null && user.getPrimaryGroup() != null) {
+                    String group = user.getPrimaryGroup().toLowerCase(Locale.ROOT);
+                    if (group.equals("default") || group.equals("member")) group = "i_sprout";
+                    if (group.equals("mod")) group = "moderator";
+                    if (group.equals("vip")) group = "verdant";
+                    if (group.equals("i_sprout")) return "I. Sprout";
+                    if (group.equals("verdant")) return "Verdant";
+                    if (group.equals("emerald")) return "Emerald";
+                    if (group.equals("sovereign")) return "Sovereign";
+                    if (group.equals("ascendant")) return "Ascendant";
+                    if (group.equals("helper")) return "Helper";
+                    if (group.equals("moderator")) return "Moderator";
+                    if (group.equals("admin")) return "Admin";
+                    if (group.equals("owner")) return "Owner";
+                    if (group.equals("creator")) return "Creator";
+                }
+            }
+            if (cachedRank != null) {
+                return switch (cachedRank.toLowerCase(Locale.ROOT)) {
+                    case "i_sprout", "member", "default" -> "I. Sprout";
+                    case "verdant", "vip" -> "Verdant";
+                    case "emerald" -> "Emerald";
+                    case "sovereign" -> "Sovereign";
+                    case "ascendant" -> "Ascendant";
+                    case "helper" -> "Helper";
+                    case "moderator", "mod" -> "Moderator";
+                    case "admin" -> "Admin";
+                    case "owner" -> "Owner";
+                    case "creator" -> "Creator";
+                    default -> cachedRank;
+                };
+            }
+        } catch (Exception ignored) { }
+        return "Unknown";
     }
 
     private record Entry(UUID id, String name, double balance) { }
