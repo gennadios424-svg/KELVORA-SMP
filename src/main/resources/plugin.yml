@@ -23,6 +23,10 @@ commands:
   bal:
     description: Show your Money and Kelvoras balances
     usage: /bal
+  kelvoras:
+    description: View or transfer your separate Kelvoras currency
+    usage: /kelvoras [pay <player> <amount>]
+    aliases: [shards]
   baltop:
     description: Show the richest players by Money balance
     usage: /baltop [page]
@@ -32,7 +36,7 @@ commands:
     aliases: [bounties]
 permissions:
   kelvora.balance:
-    description: View your own currency balances
+    description: View your own currency balances and transfer Kelvoras
     default: true
   kelvora.shop:
     description: Use the Kelvora shop
