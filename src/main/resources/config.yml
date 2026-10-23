@@ -633,42 +633,42 @@ rank-up:
 shardshop:
   catalogue:
     tags:
-      pvp: { name: "PvP", description: "Show your PvP style", icon: IRON_SWORD, price: 2500, duration-seconds: 0, available: false }
-      warrior: { name: "Warrior", description: "A battle-ready tag", icon: DIAMOND_SWORD, price: 4000, duration-seconds: 0, available: false }
-      miner: { name: "Miner", description: "For dedicated miners", icon: IRON_PICKAXE, price: 2000, duration-seconds: 0, available: false }
-      elite: { name: "Elite", description: "A premium cosmetic tag", icon: NETHER_STAR, price: 8000, duration-seconds: 0, available: false }
-      legend: { name: "Legend", description: "A legendary cosmetic tag", icon: DRAGON_HEAD, price: 15000, duration-seconds: 0, available: false }
-      og: { name: "OG", description: "Classic community tag", icon: GOLD_INGOT, price: 10000, duration-seconds: 0, available: false }
+      pvp: { name: "PvP", description: "Show your PvP style", icon: IRON_SWORD, price: 2500, duration-seconds: 0, available: true }
+      warrior: { name: "Warrior", description: "A battle-ready tag", icon: DIAMOND_SWORD, price: 4000, duration-seconds: 0, available: true }
+      miner: { name: "Miner", description: "For dedicated miners", icon: IRON_PICKAXE, price: 2000, duration-seconds: 0, available: true }
+      elite: { name: "Elite", description: "A premium cosmetic tag", icon: NETHER_STAR, price: 8000, duration-seconds: 0, available: true }
+      legend: { name: "Legend", description: "A legendary cosmetic tag", icon: DRAGON_HEAD, price: 15000, duration-seconds: 0, available: true }
+      og: { name: "OG", description: "Classic community tag", icon: GOLD_INGOT, price: 10000, duration-seconds: 0, available: true }
     titles:
       title_1d: { name: "Supporter", description: "Temporary cosmetic title only", icon: NAME_TAG, price: 500, duration-seconds: 86400, available: true }
       title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: DIAMOND_HELMET, price: 2500, duration-seconds: 604800, available: true }
       title_30d: { name: "Mythic", description: "Temporary cosmetic title only", icon: NETHER_STAR, price: 8000, duration-seconds: 2592000, available: true }
     ranks:
-      verdant_1d: { name: "Verdant - 1 day", description: "Temporary Verdant rank overlay", icon: EMERALD, rank: verdant, price: 8000, duration-seconds: 86400, available: true }
-      verdant_3d: { name: "Verdant - 3 days", description: "Temporary Verdant rank overlay", icon: EMERALD, rank: verdant, price: 13000, duration-seconds: 259200, available: true }
-      verdant_7d: { name: "Verdant - 7 days", description: "Temporary Verdant rank overlay", icon: EMERALD, rank: verdant, price: 21000, duration-seconds: 604800, available: true }
-      emerald_1d: { name: "Emerald - 1 day", description: "Temporary Emerald rank overlay", icon: EMERALD, rank: emerald, price: 12000, duration-seconds: 86400, available: true }
-      emerald_3d: { name: "Emerald - 3 days", description: "Temporary Emerald rank overlay", icon: EMERALD, rank: emerald, price: 17000, duration-seconds: 259200, available: true }
-      emerald_7d: { name: "Emerald - 7 days", description: "Temporary Emerald rank overlay", icon: EMERALD, rank: emerald, price: 25000, duration-seconds: 604800, available: true }
-      sovereign_1d: { name: "Sovereign - 1 day", description: "Temporary Sovereign rank overlay", icon: NETHER_STAR, rank: sovereign, price: 17000, duration-seconds: 86400, available: true }
-      sovereign_3d: { name: "Sovereign - 3 days", description: "Temporary Sovereign rank overlay", icon: NETHER_STAR, rank: sovereign, price: 28000, duration-seconds: 259200, available: true }
-      sovereign_7d: { name: "Sovereign - 7 days", description: "Temporary Sovereign rank overlay", icon: NETHER_STAR, rank: sovereign, price: 36000, duration-seconds: 604800, available: true }
+      verdant_1d: { name: "Verdant Style 1d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 8000, duration-seconds: 86400, available: true }
+      verdant_3d: { name: "Verdant Style 3d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 13000, duration-seconds: 259200, available: true }
+      verdant_7d: { name: "Verdant Style 7d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 21000, duration-seconds: 604800, available: true }
+      emerald_1d: { name: "Emerald Style 1d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 12000, duration-seconds: 86400, available: true }
+      emerald_3d: { name: "Emerald Style 3d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 17000, duration-seconds: 259200, available: true }
+      emerald_7d: { name: "Emerald Style 7d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 25000, duration-seconds: 604800, available: true }
+      sovereign_1d: { name: "Sovereign Style 1d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 17000, duration-seconds: 86400, available: true }
+      sovereign_3d: { name: "Sovereign Style 3d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 28000, duration-seconds: 259200, available: true }
+      sovereign_7d: { name: "Sovereign Style 7d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 36000, duration-seconds: 604800, available: true }
     glows:
-      green: { name: "Green Glow", description: "Emerald glow effect", icon: LIME_DYE, color: GREEN, price: 5000, duration-seconds: 0, available: false }
-      cyan: { name: "Cyan Glow", description: "Cool cyan glow effect", icon: CYAN_DYE, color: AQUA, price: 5000, duration-seconds: 0, available: false }
-      blue: { name: "Blue Glow", description: "Blue glow effect", icon: BLUE_DYE, color: BLUE, price: 5000, duration-seconds: 0, available: false }
-      purple: { name: "Purple Glow", description: "Purple glow effect", icon: PURPLE_DYE, color: DARK_PURPLE, price: 5000, duration-seconds: 0, available: false }
-      red: { name: "Red Glow", description: "Red glow effect", icon: RED_DYE, color: RED, price: 5000, duration-seconds: 0, available: false }
-      gold: { name: "Gold Glow", description: "Gold glow effect", icon: GOLD_INGOT, color: GOLD, price: 5000, duration-seconds: 0, available: false }
+      green: { name: "Green Glow", description: "Emerald glow effect", icon: LIME_DYE, color: GREEN, price: 5000, duration-seconds: 0, available: true }
+      cyan: { name: "Cyan Glow", description: "Cool cyan glow effect", icon: CYAN_DYE, color: AQUA, price: 5000, duration-seconds: 0, available: true }
+      blue: { name: "Blue Glow", description: "Blue glow effect", icon: BLUE_DYE, color: BLUE, price: 5000, duration-seconds: 0, available: true }
+      purple: { name: "Purple Glow", description: "Purple glow effect", icon: PURPLE_DYE, color: DARK_PURPLE, price: 5000, duration-seconds: 0, available: true }
+      red: { name: "Red Glow", description: "Red glow effect", icon: RED_DYE, color: RED, price: 5000, duration-seconds: 0, available: true }
+      gold: { name: "Gold Glow", description: "Gold glow effect", icon: GOLD_INGOT, color: GOLD, price: 5000, duration-seconds: 0, available: true }
     chat:
-      white: { name: "White Chat", description: "White message text", icon: WHITE_DYE, legacy-color: "&f", price: 1500, duration-seconds: 0, available: false }
-      green: { name: "Green Chat", description: "Green message text", icon: LIME_DYE, legacy-color: "&a", price: 2500, duration-seconds: 0, available: false }
-      aqua: { name: "Aqua Chat", description: "Aqua message text", icon: LIGHT_BLUE_DYE, legacy-color: "&b", price: 2500, duration-seconds: 0, available: false }
-      blue: { name: "Blue Chat", description: "Blue message text", icon: BLUE_DYE, legacy-color: "&9", price: 2500, duration-seconds: 0, available: false }
-      purple: { name: "Purple Chat", description: "Purple message text", icon: PURPLE_DYE, legacy-color: "&5", price: 3000, duration-seconds: 0, available: false }
-      gold: { name: "Gold Chat", description: "Gold message text", icon: GOLD_INGOT, legacy-color: "&6", price: 4000, duration-seconds: 0, available: false }
-      pink: { name: "Pink Chat", description: "Pink message text", icon: PINK_DYE, legacy-color: "&d", price: 3500, duration-seconds: 0, available: false }
-      red: { name: "Red Chat", description: "Red message text", icon: RED_DYE, legacy-color: "&c", price: 3000, duration-seconds: 0, available: false }
+      white: { name: "White Chat", description: "White message text", icon: WHITE_DYE, legacy-color: "&f", price: 1500, duration-seconds: 0, available: true }
+      green: { name: "Green Chat", description: "Green message text", icon: LIME_DYE, legacy-color: "&a", price: 2500, duration-seconds: 0, available: true }
+      aqua: { name: "Aqua Chat", description: "Aqua message text", icon: LIGHT_BLUE_DYE, legacy-color: "&b", price: 2500, duration-seconds: 0, available: true }
+      blue: { name: "Blue Chat", description: "Blue message text", icon: BLUE_DYE, legacy-color: "&9", price: 2500, duration-seconds: 0, available: true }
+      purple: { name: "Purple Chat", description: "Purple message text", icon: PURPLE_DYE, legacy-color: "&5", price: 3000, duration-seconds: 0, available: true }
+      gold: { name: "Gold Chat", description: "Gold message text", icon: GOLD_INGOT, legacy-color: "&6", price: 4000, duration-seconds: 0, available: true }
+      pink: { name: "Pink Chat", description: "Pink message text", icon: PINK_DYE, legacy-color: "&d", price: 3500, duration-seconds: 0, available: true }
+      red: { name: "Red Chat", description: "Red message text", icon: RED_DYE, legacy-color: "&c", price: 3000, duration-seconds: 0, available: true }
 
 
 # Team system. Teams are independent of progression and staff ranks.
