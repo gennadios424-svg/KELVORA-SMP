@@ -741,6 +741,10 @@ crates:
       name: "&cGambling Crate"
       description: "High variance — valuable rewards are not guaranteed"
       block: BARREL
+      include-eligible-catalogue: true
+      # Exact percentages override relative weights. 0.001 means 0.001% (1 in 100,000).
+      exact-chances:
+        DRAGON_EGG: 0.001
       rewards:
         - "DIRT:16:40:Common"
         - "COAL:16:25:Common"
