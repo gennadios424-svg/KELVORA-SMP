@@ -146,19 +146,9 @@ final class ShopSellManager implements Listener {
                 }
             }
         }
-        if (cat.equals("pvp") || cat.equals("nether")) {
-            List<String> potions = cat.equals("pvp")
-                ? List.of("FIRE_RESISTANCE","LONG_FIRE_RESISTANCE","STRENGTH","LONG_STRENGTH","SWIFTNESS","LONG_SWIFTNESS","HEALING","STRONG_HEALING","REGENERATION","LONG_REGENERATION","SLOW_FALLING","LONG_SLOW_FALLING")
-                : List.of("FIRE_RESISTANCE","LONG_FIRE_RESISTANCE","STRENGTH","LONG_STRENGTH","REGENERATION","LONG_REGENERATION");
-            for (String type : potions) {
-                try {
-                    PotionType potion = PotionType.valueOf(type);
-                    specialEntries.add(new ShopEntry(Material.POTION, type, potionCost(type)));
-                } catch (IllegalArgumentException ignored) { }
-            }
-        }
         List<ShopEntry> result = new ArrayList<>(entries.values());
         result.addAll(specialEntries);
+        result.removeIf(entry -> entry.material == Material.POTION || entry.material == Material.SPLASH_POTION || entry.material == Material.LINGERING_POTION);
         // A single authoritative category assignment prevents duplicates, and this blacklist
         // prevents future catalogue edits from bypassing survival progression.
         result.removeIf(entry -> isProgressionRestricted(entry.material)
@@ -182,7 +172,7 @@ final class ShopSellManager implements Listener {
     }
 
     private String categoryFor(ShopEntry entry) {
-        if (entry.potionType != null) return "pvp";
+        if (entry.potionType != null || entry.material == Material.POTION || entry.material == Material.SPLASH_POTION || entry.material == Material.LINGERING_POTION) return "pvp";
         String name = entry.material.name();
         if (Set.of("OBSIDIAN","END_CRYSTAL","RESPAWN_ANCHOR","GLOWSTONE","EXPERIENCE_BOTTLE","GOLDEN_APPLE","ENDER_PEARL","ARROW","SPECTRAL_ARROW","POTION","TOTEM_OF_UNDYING").contains(name)) return "pvp";
         if (name.startsWith("NETHER") || Set.of("BLACKSTONE","POLISHED_BLACKSTONE","POLISHED_BLACKSTONE_BRICKS","BASALT","POLISHED_BASALT","SMOOTH_BASALT","SOUL_SAND","SOUL_SOIL","MAGMA_BLOCK","QUARTZ","QUARTZ_BLOCK","QUARTZ_BRICKS","CHISELED_QUARTZ_BLOCK","SMOOTH_QUARTZ").contains(name)) return "nether";
