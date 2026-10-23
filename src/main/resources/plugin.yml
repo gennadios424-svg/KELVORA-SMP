@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.7.0
+version: 2.8.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -26,9 +26,18 @@ commands:
   kelvoras:
     description: View or transfer your separate Kelvoras currency
     usage: /kelvoras [pay <player> <amount>]
+  shardshop:
+    description: Open the Kelvora cosmetics shop
+    usage: /shardshop
+  shards:
+    description: Show your Kelvoras balance
+    usage: /shards
+  shardshopreload:
+    description: Reload cosmetic configuration without resetting ownership
+    usage: /shardshopreload
   rank:
-    description: Open the Kelvora rank guide
-    usage: /rank
+    description: Open the Kelvora rank guide or administer progression ranks
+    usage: /rank [set <player> <rank>]
   rankup:
     description: Upgrade your survival progression rank using Money
     usage: /rankup
