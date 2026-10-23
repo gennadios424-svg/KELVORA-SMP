@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.1.7
+version: 2.1.8
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP TAB list, compact sidebar, and item worth GUI
