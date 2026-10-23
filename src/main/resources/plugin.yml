@@ -2,7 +2,7 @@ name: KelvoraSMP
 version: 2.2.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
-description: Kelvora SMP TAB list, compact sidebar, and item worth GUI
+description: Kelvora SMP economy GUIs, Money leaderboard, bounty, and combat tags
 softdepend: [LuckPerms, Vault, PlaceholderAPI]
 author: Kelvora SMP
 commands:
