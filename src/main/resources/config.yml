@@ -650,3 +650,9 @@ shardshop:
       gold: { name: "Gold Chat", description: "Gold message text", icon: GOLD_INGOT, legacy-color: "&6", price: 4000, duration-seconds: 0, available: true }
       pink: { name: "Pink Chat", description: "Pink message text", icon: PINK_DYE, legacy-color: "&d", price: 3500, duration-seconds: 0, available: true }
       red: { name: "Red Chat", description: "Red message text", icon: RED_DYE, legacy-color: "&c", price: 3000, duration-seconds: 0, available: true }
+
+
+# Team system. Teams are independent of progression and staff ranks.
+teams:
+  max-size: 8
+  invite-duration-seconds: 86400
