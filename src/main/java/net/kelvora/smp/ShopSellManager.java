@@ -449,8 +449,7 @@ final class ShopSellManager implements Listener {
     }
 
     private boolean validQuantity(int quantity, int maxStack) {
-        return quantity == 1 || (quantity == 16 && maxStack >= 16)
-            || (quantity == 32 && maxStack >= 32) || (quantity == 64 && maxStack >= 64);
+        return quantity == 1 || (quantity == 8 && maxStack >= 8) || (quantity == 16 && maxStack >= 16);
     }
 
     private void openQuantity(Player p, QuantitySession session) {
@@ -458,9 +457,8 @@ final class ShopSellManager implements Listener {
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         refreshQuantityView(p, inv, session);
         put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
-        if (session.prototype.getMaxStackSize() >= 16) put(inv, 21, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
-        if (session.prototype.getMaxStackSize() >= 32) put(inv, 22, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
-        if (session.prototype.getMaxStackSize() >= 64) put(inv, 23, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
+        if (session.prototype.getMaxStackSize() >= 8) put(inv, 21, Material.LIME_CONCRETE, "Buy 8", "qty:8", "Total: $" + MONEY.format(session.unitPrice * 8));
+        if (session.prototype.getMaxStackSize() >= 16) put(inv, 22, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
         put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
         put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
         put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
