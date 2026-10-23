@@ -254,6 +254,7 @@ final class AuctionHouseManager implements Listener {
         put(inv, 51, Material.SPECTRAL_ARROW, "Next Page", "next", page + 1 < pages ? "Page " + (page + 2) : "Last page");
         put(inv, 53, Material.BARRIER, "Close", "close", " ");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, .45f, 1.05f);
     }
 
     private List<Listing> visibleListings(Player p, boolean ownOnly) {
@@ -297,7 +298,10 @@ final class AuctionHouseManager implements Listener {
                 if (session == null || e.getRawSlot() >= session.ids.size()) return;
                 String id = session.ids.get(session.page * PAGE_SIZE + e.getRawSlot());
                 Listing l = listings.get(id);
-                if (l != null && l.expiresAt > System.currentTimeMillis()) openConfirm(p, l, session.ownOnly);
+                if (l != null && l.expiresAt > System.currentTimeMillis()) {
+                    p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .45f, 1.15f);
+                    openConfirm(p, l, session.ownOnly);
+                }
             }
             return;
         }
@@ -315,8 +319,8 @@ final class AuctionHouseManager implements Listener {
         boolean own = title.equals(MY_LISTINGS);
         int page = session == null ? 0 : session.page;
         switch (action) {
-            case "previous" -> openBrowse(p, page - 1, own);
-            case "next" -> openBrowse(p, page + 1, own);
+            case "previous" -> { p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, .45f, 1.1f); openBrowse(p, page - 1, own); }
+            case "next" -> { p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, .45f, 1.1f); openBrowse(p, page + 1, own); }
             case "refresh" -> { expireListings(); openBrowse(p, page, own); p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .5f, 1.2f); }
             case "close" -> p.closeInventory();
             default -> { }
@@ -339,6 +343,7 @@ final class AuctionHouseManager implements Listener {
                 ownOnly && l.owner.equals(p.getUniqueId()) ? "cancel:" + l.id : "back:" + l.id,
                 "Expires in " + remaining(l.expiresAt));
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, .45f, 1.2f);
     }
 
     private void purchase(Player buyer, Listing listing) {
