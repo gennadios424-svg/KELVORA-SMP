@@ -26,6 +26,16 @@ commands:
   kelvoras:
     description: View or transfer your separate Kelvoras currency
     usage: /kelvoras [pay <player> <amount>]
+  rank:
+    description: Open the Kelvora rank guide
+    usage: /rank
+  rankup:
+    description: Upgrade your survival progression rank using Money
+    usage: /rankup
+  kit:
+    description: Open and claim rank kits
+    usage: /kit [name|preview <name>]
+    aliases: [kits]
   baltop:
     description: Show the richest players by Money balance
     usage: /baltop [page]
@@ -54,6 +64,18 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 permissions:
+  kelvora.rank.view:
+    description: View the rank guide
+    default: true
+  kelvora.rankup:
+    description: Upgrade progression rank
+    default: true
+  kelvora.kit.use:
+    description: Open and claim eligible kits
+    default: true
+  kelvora.kit.admin:
+    description: Administer kits and ranks
+    default: op
   kelvora.balance:
     description: View your own currency balances and transfer Kelvoras
     default: true
