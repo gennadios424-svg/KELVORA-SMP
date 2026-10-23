@@ -6,6 +6,21 @@ description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and 
 softdepend: [LuckPerms, Vault, PlaceholderAPI]
 author: Kelvora SMP
 commands:
+  sprout:
+    description: Claim daily Sprout rank keys
+    usage: /sprout
+  verdant:
+    description: Claim daily Verdant rank keys
+    usage: /verdant
+  emerald:
+    description: Claim daily Emerald rank keys
+    usage: /emerald
+  sovereign:
+    description: Claim daily Sovereign rank keys
+    usage: /sovereign
+  ascendant:
+    description: Claim daily Ascendant rank keys
+    usage: /ascendant
   kelvora:
     description: Operator-only Kelvoras administration
     usage: /kelvora give <player> <amount>
