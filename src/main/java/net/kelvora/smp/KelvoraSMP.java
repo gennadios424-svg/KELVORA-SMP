@@ -219,7 +219,12 @@ implements Listener {
             if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
         }
         if (prefix == null || prefix.isBlank()) prefix = rankColor + "[" + rankLabel + "] ";
-        player.setPlayerListName(this.color(prefix) + this.color("&f" + player.getName()) + this.color(" &8| &b" + player.getPing() + "ms"));
+        ShardShopManager cosmetics = this.shardShopManager;
+        String cosmeticTitle = cosmetics == null ? null : cosmetics.equippedTitle(player);
+        String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
+        String cosmeticPrefix = cosmeticTitle == null ? "" : this.color("&6{" + cosmeticTitle + "} ");
+        String cosmeticSuffix = cosmeticTag == null ? "" : this.color(" &b[" + cosmeticTag + "]");
+        player.setPlayerListName(cosmeticPrefix + this.color(prefix) + this.color("&f" + player.getName()) + cosmeticSuffix + this.color(" &8| &b" + player.getPing() + "ms"));
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
@@ -280,7 +285,7 @@ implements Listener {
 
     private String rankKey(Player player) {
         if (this.luckPerms == null) {
-            return "member";
+            return "sprout";
         }
         User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) {
@@ -292,10 +297,10 @@ implements Listener {
         }
         group = group.toLowerCase(Locale.ROOT);
         if (group.equals("default") || group.equals("member")) {
-            for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "i_sprout"}) {
+            for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout"}) {
                 if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(progression))) return progression;
             }
-            return "i_sprout";
+            return "sprout";
         }
         if (group.equals("mod")) return "moderator";
         if (group.equals("vip")) return "verdant";
@@ -303,7 +308,7 @@ implements Listener {
         if (ranks != null && ranks.contains(group)) {
             return group;
         }
-        return group.equals("default") ? "member" : group;
+        return group.equals("default") ? "sprout" : (group.equals("i_sprout") ? "sprout" : group);
     }
 
     ShardShopManager getShardShopManager() { return this.shardShopManager; }
