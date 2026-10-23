@@ -113,7 +113,18 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     public void onBreak(BlockBreakEvent event){
         Player p=event.getPlayer();if(processing.contains(blockKey(event.getBlock())))return;ItemStack tool=p.getInventory().getItemInMainHand();String type=id(tool);if(type==null)return;
-        if(type.equals("drill")&&expired(tool)){event.setCancelled(true);if(plugin.getConfig().getString("kelvora-tools.drill.expired-policy","convert-to-diamond-pickaxe").equalsIgnoreCase("remove")){p.getInventory().setItemInMainHand(null);p.sendMessage(Component.text("Your Kelvora Drill has expired and was removed.",NamedTextColor.RED));}else downgrade(p,tool);return;}
+        if(expired(tool)){
+            event.setCancelled(true);
+            ItemMeta expiredMeta=tool.getItemMeta();
+            expiredMeta.getPersistentDataContainer().remove(idKey);
+            expiredMeta.getPersistentDataContainer().remove(createdKey);
+            expiredMeta.getPersistentDataContainer().remove(expiresKey);
+            expiredMeta.getPersistentDataContainer().remove(progressKey);
+            expiredMeta.getPersistentDataContainer().remove(targetKey);
+            tool.setItemMeta(expiredMeta);
+            p.sendMessage(Component.text("This Kelvora tool has expired; its special ability is disabled.",NamedTextColor.RED));
+            return;
+        }
         if(type.equals("drill"))updateDrillLore(p,tool);
         if(type.equals("drill")&&restricted(event.getBlock())){event.setCancelled(true);return;}
         if(!p.getGameMode().equals(GameMode.SURVIVAL)&&!p.getGameMode().equals(GameMode.ADVENTURE))return;
@@ -134,20 +145,6 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             }
             tool.setItemMeta(meta);p.getInventory().setItemInMainHand(tool);return;
         }
-        if(type.equals("sellaxe")&&natural(event.getBlock())&&plugin.getConfig().getStringList("kelvora-tools.sellaxe.eligible-blocks").contains(event.getBlock().getType().name())){
-            if(economy==null){RegisteredServiceProvider<Economy> rsp=Bukkit.getServicesManager().getRegistration(Economy.class);if(rsp!=null)economy=rsp.getProvider();}
-            if(economy==null)return;
-            String sellKey=blockKey(event.getBlock());
-            if(!processing.add(sellKey))return;
-            try {
-                List<ItemStack> drops=new ArrayList<>(event.getBlock().getDrops(tool,p));
-                double total=0;for(ItemStack drop:drops)total+=worth.priceOf(drop.getType())*drop.getAmount();
-                if(total<=0||!Double.isFinite(total))return;
-                var response=economy.depositPlayer(p,total);
-                if(response.transactionSuccess()){event.setDropItems(false);p.sendActionBar(Component.text("+$"+String.format(Locale.US,"%.2f",total),NamedTextColor.GREEN));}
-            } finally { processing.remove(sellKey); }
-            return;
-        }
         if(type.equals("drill")||type.equals("treetrooper")){
             if(!eligible(event.getBlock()))return;
             List<Block> blocks=type.equals("drill")?drillPlane(event.getBlock(),p):treeBlocks(event.getBlock());
@@ -160,6 +157,60 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             }finally{processing.remove(token);}
         }
     }
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
+    public void sellaxeChest(PlayerInteractEvent event) {
+        if (event.getAction()!=Action.RIGHT_CLICK_BLOCK || event.getClickedBlock()==null || event.getHand()!=org.bukkit.inventory.EquipmentSlot.HAND) return;
+        Player player=event.getPlayer();
+        ItemStack held=player.getInventory().getItemInMainHand();
+        if (!"sellaxe".equals(id(held))) return;
+        if (expired(held)) {
+            ItemMeta meta=held.getItemMeta();
+            meta.getPersistentDataContainer().remove(idKey);
+            meta.getPersistentDataContainer().remove(createdKey);
+            meta.getPersistentDataContainer().remove(expiresKey);
+            held.setItemMeta(meta);
+            player.sendMessage(Component.text("Your Kelvora Sellaxe has expired; its special ability is disabled.",NamedTextColor.RED));
+            return;
+        }
+        Block clicked=event.getClickedBlock();
+        if (!(clicked.getState() instanceof org.bukkit.block.Chest) && !(clicked.getState() instanceof org.bukkit.block.Barrel)) return;
+        if (event.isCancelled()) return;
+        org.bukkit.block.Container container=(org.bukkit.block.Container)clicked.getState();
+        Inventory inventory=container.getInventory();
+        String token="sellaxe-inventory:"+System.identityHashCode(inventory);
+        if(!processing.add(token)) return;
+        try {
+            if(economy==null){RegisteredServiceProvider<Economy> rsp=Bukkit.getServicesManager().getRegistration(Economy.class);if(rsp!=null)economy=rsp.getProvider();}
+            if(economy==null){player.sendMessage(Component.text("Money economy is unavailable; nothing was sold.",NamedTextColor.RED));return;}
+            ItemStack[] before=inventory.getContents().clone();
+            ItemStack[] after=inventory.getContents().clone();
+            double total=0;
+            int sold=0;
+            for(int i=0;i<after.length;i++){
+                ItemStack stack=after[i];
+                if(stack==null||stack.getType().isAir()||id(stack)!=null)continue;
+                double price=worth.priceOf(stack.getType());
+                if(!Double.isFinite(price)||price<=0)continue;
+                total+=price*stack.getAmount();
+                sold+=stack.getAmount();
+                after[i]=null;
+            }
+            if(sold==0||!Double.isFinite(total)||total<=0){player.sendMessage(Component.text("No sellable items were found. The chest was left unchanged.",NamedTextColor.YELLOW));return;}
+            inventory.setContents(after);
+            var response=economy.depositPlayer(player,total);
+            if(response==null||!response.transactionSuccess()){
+                inventory.setContents(before);
+                player.sendMessage(Component.text("Money payment failed; all chest contents were restored.",NamedTextColor.RED));
+                return;
+            }
+            player.sendActionBar(Component.text("Sold "+sold+" items from chest for $"+String.format(Locale.US,"%.2f",total),NamedTextColor.GREEN));
+            player.playSound(player.getLocation(),Sound.ENTITY_EXPERIENCE_ORB_PICKUP,0.7f,1.2f);
+        } catch(Exception ex) {
+            plugin.getLogger().warning("Sellaxe chest transaction failed: "+ex.getMessage());
+            player.sendMessage(Component.text("Chest sale failed. Please check the chest before trying again.",NamedTextColor.RED));
+        } finally { processing.remove(token); }
+    }
+
     private int maxBlocks(String type){return type.equals("drill")?9:Math.max(1,plugin.getConfig().getInt("kelvora-tools.treetrooper.max-logs",64));}
     @EventHandler(priority=EventPriority.LOWEST)
     public void rememberMiningFace(PlayerInteractEvent event) {
