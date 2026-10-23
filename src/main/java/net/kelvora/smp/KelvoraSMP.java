@@ -238,7 +238,7 @@ implements Listener {
         String cosmeticPrefix = cosmeticTitle == null ? "" : this.color("&6{" + cosmeticTitle + "} ");
         String cosmeticSuffix = cosmeticTag == null ? "" : this.color(" &b[" + cosmeticTag + "]");
         // Use the existing LuckPerms prefix where available; fallback to the resolved rank label.
-        player.setPlayerListName(this.color(prefix) + player.getName());
+        player.setPlayerListName(this.color(prefix) + cosmeticPrefix + player.getName() + cosmeticSuffix);
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
@@ -285,14 +285,14 @@ implements Listener {
         String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
             this.color("&6&l⭐ RANK: &e&l" + rankDisplay),
-            this.color("&6&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
+            this.color("&a&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
             this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
-            this.color("&3🛡 Team: &f" + teamName),
-            this.color("&6⚔ Kills: &f" + kills),
-            this.color("&c☠ Deaths: &f" + deaths),
-            this.color("&9⏱ Playtime: &f" + playtime),
-            this.color("&f👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7🌐 IP: &b" + serverAddress)
+            this.color("&3🛡 Team: &b" + teamName),
+            this.color("&c⚔ Kills: &f" + kills),
+            this.color("&4☠ Deaths: &c" + deaths),
+            this.color("&9⏱ Playtime: &b" + playtime),
+            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
+            this.color("&7🌐 IP: &f" + serverAddress)
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
