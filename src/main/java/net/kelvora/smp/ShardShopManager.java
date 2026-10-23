@@ -192,7 +192,7 @@ final class ShardShopManager implements Listener {
                     String teamName = "ksglow_" + player.getUniqueId().toString().substring(0, 8);
                     Team old = board.getTeam(teamName);
                     Team team = old == null ? board.registerNewTeam(teamName) : old;
-                    team.setColor(switch (color) {
+                    team.color(switch (color) {
                         case GREEN -> net.kyori.adventure.text.format.NamedTextColor.GREEN;
                         case AQUA -> net.kyori.adventure.text.format.NamedTextColor.AQUA;
                         case BLUE -> net.kyori.adventure.text.format.NamedTextColor.BLUE;
