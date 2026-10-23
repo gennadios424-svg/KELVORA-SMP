@@ -160,9 +160,21 @@ final class ShopSellManager implements Listener {
         }
         List<ShopEntry> result = new ArrayList<>(entries.values());
         result.addAll(specialEntries);
-        // A single authoritative category assignment prevents the same product appearing in two menus.
-        result.removeIf(entry -> !cat.equals(categoryFor(entry)));
+        // A single authoritative category assignment prevents duplicates, and this blacklist
+        // prevents future catalogue edits from bypassing survival progression.
+        result.removeIf(entry -> isProgressionRestricted(entry.material) || !cat.equals(categoryFor(entry)));
         return result;
+    }
+
+    private boolean isProgressionRestricted(Material material) {
+        return Set.of(
+            "DIAMOND", "DIAMOND_BLOCK", "DIAMOND_ORE", "DEEPSLATE_DIAMOND_ORE",
+            "IRON_INGOT", "IRON_BLOCK", "RAW_IRON", "IRON_ORE", "DEEPSLATE_IRON_ORE",
+            "GOLD_BLOCK", "RAW_GOLD", "GOLD_ORE", "DEEPSLATE_GOLD_ORE",
+            "EMERALD", "EMERALD_BLOCK", "EMERALD_ORE", "DEEPSLATE_EMERALD_ORE",
+            "GILDED_BLACKSTONE", "ANCIENT_DEBRIS", "NETHERITE_SCRAP", "NETHERITE_INGOT", "NETHERITE_BLOCK",
+            "ELYTRA", "TOTEM_OF_UNDYING", "SHULKER_SHELL", "HEART_OF_THE_SEA", "ENCHANTED_GOLDEN_APPLE"
+        ).contains(material.name());
     }
 
     private String categoryFor(ShopEntry entry) {
