@@ -29,6 +29,7 @@ final class CoinflipManager implements Listener {
     private static final String CONFIRM = "KELVORA / JOIN COINFLIP";
     private static final String ANIMATION = "KELVORA / COINFLIP RESULT";
     private final JavaPlugin plugin;
+    private final BountyCombatManager combatManager;
     private final File file;
     private YamlConfiguration data;
     private Object economy;
@@ -37,8 +38,9 @@ final class CoinflipManager implements Listener {
     private final Map<UUID, Long> chatCreate = new HashMap<>();
     private final List<String> history = new ArrayList<>();
 
-    CoinflipManager(JavaPlugin plugin) {
+    CoinflipManager(JavaPlugin plugin, BountyCombatManager combatManager) {
         this.plugin = plugin;
+        this.combatManager = combatManager;
         this.file = new File(plugin.getDataFolder(), "coinflip.yml");
     }
 
@@ -114,6 +116,7 @@ final class CoinflipManager implements Listener {
     }
 
     private void create(Player p, double amount) {
+        if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot create a coinflip during combat.", NamedTextColor.RED)); return; }
         if (economy == null) connectEconomy();
         if (economy == null) { p.sendMessage(Component.text("Money is unavailable right now. Try again later.", NamedTextColor.RED)); return; }
         if (!Double.isFinite(amount) || amount < 1 || amount > 1_000_000_000_000d || Math.abs(amount * 100 - Math.rint(amount * 100)) > 0.000001) {
@@ -133,6 +136,7 @@ final class CoinflipManager implements Listener {
     }
 
     private void cancel(Player p) {
+        if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot cancel a coinflip during combat.", NamedTextColor.RED)); return; }
         Challenge found = challenges.values().stream().filter(c -> c.creator.equals(p.getUniqueId()) && c.status.equals("OPEN")).findFirst().orElse(null);
         if (found == null) { p.sendMessage(Component.text("You have no unjoined coinflip to cancel.", NamedTextColor.RED)); return; }
         challenges.remove(found.id);
@@ -187,6 +191,7 @@ final class CoinflipManager implements Listener {
     }
 
     private void join(Player p, UUID id) {
+        if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot join a coinflip during combat.", NamedTextColor.RED)); return; }
         Challenge c = challenges.get(id);
         if (c == null || !c.status.equals("OPEN")) { p.sendMessage(Component.text("That coinflip is no longer available.", NamedTextColor.RED)); openMain(p); return; }
         if (c.creator.equals(p.getUniqueId())) { p.sendMessage(Component.text("You cannot join your own coinflip.", NamedTextColor.RED)); return; }
