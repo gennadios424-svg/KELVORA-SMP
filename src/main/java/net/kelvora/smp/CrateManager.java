@@ -623,7 +623,22 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
-    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){protectedInventories.remove(e.getInventory()); if(e.getPlayer() instanceof Player p && e.getView().getTitle().startsWith("KELVORA | EDIT ") && !e.getView().getTitle().equals("KELVORA | EDIT ")) { /* edits remain in memory until save/cancel; reconnecting cannot persist them */ }}
+    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e) {
+        protectedInventories.remove(e.getInventory());
+        if (!(e.getPlayer() instanceof Player player)) return;
+        String closedTitle = e.getView().getTitle();
+        if (!closedTitle.startsWith("KELVORA | EDIT ")) return;
+        UUID id = player.getUniqueId();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            String currentTitle = player.getOpenInventory().getTitle();
+            // Rebuilding the editor after an add/remove action opens another editor immediately.
+            // Only discard the working copy when the operator actually leaves the editor.
+            if (!currentTitle.startsWith("KELVORA | EDIT ")) {
+                editingCrate.remove(id);
+                editingRewards.remove(id);
+            }
+        });
+    }
     @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
         openCrate.remove(e.getPlayer().getUniqueId());
         // A consumed key is refunded by the pending completion if the player disconnects.
