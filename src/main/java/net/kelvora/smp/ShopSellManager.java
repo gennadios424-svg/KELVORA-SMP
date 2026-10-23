@@ -25,7 +25,7 @@ import org.bukkit.potion.PotionType;
 
 final class ShopSellManager implements Listener {
     private static final String MAIN = "KELVORA  /  SHOP";
-    private static final String SELL = "KELVORA  /  SELL";
+    private static final String SELL = "KELVORA  /  SELL VAULT";
     private static final String QUANTITY = "KELVORA  /  QUANTITY";
     private static final String CATEGORY = "KELVORA  /  ";
     private static final int SELL_SLOTS = 45;
@@ -174,9 +174,13 @@ final class ShopSellManager implements Listener {
 
     private void openSell(Player p) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL, NamedTextColor.DARK_GREEN));
-        put(inv, 45, Material.BARRIER, "Cancel / Return Items", "cancel", "Close and return all deposited items");
-        put(inv, 49, Material.GOLD_INGOT, "Total: $0", "total", "Items in slots 1-45 are sellable");
-        put(inv, 53, Material.LIME_CONCRETE, "Sell Deposited Items", "confirm", "Sell eligible items for Money");
+        // New Sell Vault layout: all 45 storage slots are usable; only the final row is controls.
+        for (int i = 45; i < 54; i++) {
+            inv.setItem(i, createSellFrame());
+        }
+        put(inv, 45, Material.BARRIER, "Cancel & Return", "cancel", "Close safely and return every unsold item");
+        put(inv, 49, Material.GOLD_INGOT, "Sell Value: $0", "total", "Click to calculate the current sell value");
+        put(inv, 53, Material.LIME_DYE, "Confirm Sale", "confirm", "Sell priced items for Money");
         p.openInventory(inv);
     }
 
@@ -247,7 +251,10 @@ final class ShopSellManager implements Listener {
             if (!(e.getWhoClicked() instanceof Player p)) return;
             String action = action(e.getCurrentItem());
             if (action != null) playUiSound(p, "confirm".equals(action) ? Sound.ENTITY_EXPERIENCE_ORB_PICKUP : Sound.UI_BUTTON_CLICK);
-            if ("cancel".equals(action)) p.closeInventory();
+            if ("cancel".equals(action)) {
+                // The close handler safely returns every item still in the deposit area.
+                p.closeInventory();
+            }
             else if ("total".equals(action)) tellSellTotal(p, top);
             else if ("confirm".equals(action)) confirmSell(p, top);
             return;
@@ -634,7 +641,7 @@ final class ShopSellManager implements Listener {
         }
         ItemStack button = new ItemStack(Material.GOLD_INGOT);
         ItemMeta meta = button.getItemMeta();
-        meta.displayName(Component.text(invalidShulker ? "Total: Cannot price shulker" : "Total: $" + MONEY.format(total), invalidShulker ? NamedTextColor.RED : NamedTextColor.GOLD));
+        meta.displayName(Component.text(invalidShulker ? "Sell Value: Unpriced shulker" : "Sell Value: $" + MONEY.format(total), invalidShulker ? NamedTextColor.RED : NamedTextColor.GOLD));
         meta.lore(List.of(Component.text("Click to calculate full value", NamedTextColor.GRAY)));
         meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, "total");
         button.setItemMeta(meta);
@@ -664,6 +671,14 @@ final class ShopSellManager implements Listener {
         meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, action);
         item.setItemMeta(meta);
         inv.setItem(slot, item);
+    }
+
+    private ItemStack createSellFrame() {
+        ItemStack item = new ItemStack(Material.GREEN_STAINED_GLASS_PANE);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(" ", NamedTextColor.DARK_GREEN));
+        item.setItemMeta(meta);
+        return item;
     }
 
     private void fill(Inventory inv, Material material, String name) {
