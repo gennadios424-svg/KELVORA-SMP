@@ -65,6 +65,7 @@ implements Listener {
     private Object economy;
     private LuckPerms luckPerms;
     private boolean placeholderApi;
+    private KelvorasManager kelvorasManager;
     private int refreshTask;
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<UUID, Scoreboard>();
 
@@ -73,6 +74,8 @@ implements Listener {
         this.getConfig().options().copyDefaults(true);
         this.saveConfig();
         this.setupIntegrations();
+        this.kelvorasManager = new KelvorasManager(this);
+        this.kelvorasManager.register();
         new WorthManager(this).register();
         new ShopSellManager(this).register();
         new AuctionHouseManager(this).register();
@@ -106,6 +109,7 @@ implements Listener {
     }
 
     public void onDisable() {
+        if (this.kelvorasManager != null) this.kelvorasManager.save();
         if (this.refreshTask != 0) {
             Bukkit.getScheduler().cancelTask(this.refreshTask);
         }
@@ -161,7 +165,7 @@ implements Listener {
             this.getLogger().warning("LuckPerms unavailable. Sidebar/name formatting will use MEMBER fallback.");
         }
         if (!this.placeholderApi) {
-            this.getLogger().info("PlaceholderAPI not found. Kelvoras integration will show Not connected until configured.");
+            this.getLogger().info("PlaceholderAPI not found; legacy Kelvoras migration will be skipped, and the persistent local balance system will still work.");
         }
     }
 
@@ -286,19 +290,8 @@ implements Listener {
     }
 
     private String getKelvoras(Player player) {
-        String placeholder = this.getConfig().getString("kelvoras.placeholder", "%kelvoras_balance%");
-        if (!this.placeholderApi) return "Not connected";
-        try {
-            Plugin papiPlugin = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");
-            if (papiPlugin == null) return "Not connected";
-            Class<?> papi = Class.forName("me.clip.placeholderapi.PlaceholderAPI", true, papiPlugin.getClass().getClassLoader());
-            String value = (String) papi.getMethod("setPlaceholders", Player.class, String.class).invoke(null, player, placeholder);
-            if (value == null || value.isBlank() || value.equals(placeholder) || value.startsWith("%") && value.endsWith("%")) return "Not connected";
-            String plain = ChatColor.stripColor(value);
-            return plain == null || plain.isBlank() ? "Not connected" : plain;
-        } catch (ReflectiveOperationException | LinkageError ex) {
-            return "Not connected";
-        }
+        if (this.kelvorasManager == null) return "✦0";
+        return "✦" + KelvorasManager.format(this.kelvorasManager.balance(player));
     }
 
     private String formatExactMoney(double amount) {
