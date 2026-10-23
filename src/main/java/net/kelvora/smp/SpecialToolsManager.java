@@ -96,7 +96,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     public void onBreak(BlockBreakEvent event){
-        Player p=event.getPlayer();ItemStack tool=p.getInventory().getItemInMainHand();String type=id(tool);if(type==null)return;
+        Player p=event.getPlayer();if(processing.contains(blockKey(event.getBlock())))return;ItemStack tool=p.getInventory().getItemInMainHand();String type=id(tool);if(type==null)return;
         if(type.equals("drill")&&expired(tool)){event.setCancelled(true);downgrade(p,tool);return;}
         if(!p.getGameMode().equals(GameMode.SURVIVAL)&&!p.getGameMode().equals(GameMode.ADVENTURE))return;
         if(type.equals("gainer")){
@@ -133,7 +133,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             List<Block> blocks=type.equals("drill")?drillPlane(event.getBlock(),p):treeBlocks(event.getBlock());
             if(blocks.size()<=1)return;
             event.setCancelled(true);
-            String token=blockKey(event.getBlock());
+            String token="ability:"+blockKey(event.getBlock());
             if(!processing.add(token))return;
             try{int broken=0;for(Block b:blocks){if(broken>=maxBlocks(type))break;if(b.getType().isAir()||!eligible(b))continue;if(breakProtectedAware(p,b,tool,type)){broken++;if(tool.getType().getMaxDurability()>0)damage(tool,p);}}
                 p.sendActionBar(Component.text((type.equals("drill")?"Drill mined ":"Tree Trooper chopped ")+broken+" blocks",NamedTextColor.GREEN));
