@@ -212,9 +212,6 @@ implements Listener {
     }
 
     private void updatePlayer(Player player) {
-        // Restore the normal Java debug screen so F3 coordinates remain visible.
-        // Reassert periodically because some server configurations/plugins change this flag.
-        player.setReducedDebugInfo(false);
         if (this.economy == null) this.economy = this.resolveEconomyProvider();
         String serverAddress = this.getConfig().getString("server-address", "kelvorasmp.mcsh.gg");
         String rank = this.rankKey(player);
