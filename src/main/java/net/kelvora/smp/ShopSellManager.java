@@ -118,7 +118,7 @@ final class ShopSellManager implements Listener {
         LinkedHashMap<Material, ShopEntry> entries = new LinkedHashMap<>();
         List<ShopEntry> specialEntries = new ArrayList<>();
         String csv = switch (cat) {
-            case "blocks" -> "STONE,COBBLESTONE,STONE_BRICKS,CRACKED_STONE_BRICKS,MOSSY_STONE_BRICKS,CHISELED_STONE_BRICKS,ANDESITE,DIORITE,GRANITE,DEEPSLATE,COBBLED_DEEPSLATE,DEEPSLATE_BRICKS,DEEPSLATE_TILES,DIRT,COARSE_DIRT,ROOTED_DIRT,GRASS_BLOCK,SAND,RED_SAND,GRAVEL,CLAY,BRICKS,BRICK,GLASS,GLASS_PANE,TERRACOTTA,SANDSTONE,CUT_SANDSTONE,SMOOTH_SANDSTONE,RED_SANDSTONE,QUARTZ_BLOCK,QUARTZ_BRICKS,CHISELED_QUARTZ_BLOCK,SMOOTH_QUARTZ,PRISMARINE,PRISMARINE_BRICKS,DARK_PRISMARINE,SEA_LANTERN,BOOKSHELF,CRAFTING_TABLE,CHEST,BARREL,IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK,SHULKER_BOX,WHITE_SHULKER_BOX,ORANGE_SHULKER_BOX,MAGENTA_SHULKER_BOX,LIGHT_BLUE_SHULKER_BOX,YELLOW_SHULKER_BOX,LIME_SHULKER_BOX,PINK_SHULKER_BOX,GRAY_SHULKER_BOX,LIGHT_GRAY_SHULKER_BOX,CYAN_SHULKER_BOX,PURPLE_SHULKER_BOX,BLUE_SHULKER_BOX,BROWN_SHULKER_BOX,GREEN_SHULKER_BOX,RED_SHULKER_BOX,BLACK_SHULKER_BOX";
+            case "blocks" -> "STONE,COBBLESTONE,STONE_BRICKS,CRACKED_STONE_BRICKS,MOSSY_STONE_BRICKS,CHISELED_STONE_BRICKS,ANDESITE,DIORITE,GRANITE,DEEPSLATE,COBBLED_DEEPSLATE,DEEPSLATE_BRICKS,DEEPSLATE_TILES,DIRT,COARSE_DIRT,ROOTED_DIRT,GRASS_BLOCK,SAND,RED_SAND,GRAVEL,CLAY,BRICKS,BRICK,GLASS,GLASS_PANE,TERRACOTTA,SANDSTONE,CUT_SANDSTONE,SMOOTH_SANDSTONE,RED_SANDSTONE,QUARTZ_BLOCK,QUARTZ_BRICKS,CHISELED_QUARTZ_BLOCK,SMOOTH_QUARTZ,PRISMARINE,PRISMARINE_BRICKS,DARK_PRISMARINE,SEA_LANTERN,BOOKSHELF,CRAFTING_TABLE,CHEST,BARREL,IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK";
             case "food" -> "BREAD,COOKED_BEEF,COOKED_PORKCHOP,COOKED_CHICKEN,COOKED_MUTTON,COOKED_RABBIT,COOKED_COD,COOKED_SALMON,BAKED_POTATO,GOLDEN_CARROT,APPLE,PUMPKIN_PIE,COOKIE,MELON_SLICE,SWEET_BERRIES,GLOW_BERRIES,DRIED_KELP";
             case "pvp" -> "OBSIDIAN,END_CRYSTAL,TOTEM_OF_UNDYING,RESPAWN_ANCHOR,GLOWSTONE,EXPERIENCE_BOTTLE,GOLDEN_APPLE,ENDER_PEARL,ENDER_CHEST,ENDER_EYE,ARROW,SPECTRAL_ARROW";
             case "redstone" -> "REDSTONE,REDSTONE_TORCH,REPEATER,COMPARATOR,OBSERVER,PISTON,STICKY_PISTON,HOPPER,DROPPER,DISPENSER,REDSTONE_LAMP,LEVER,STONE_BUTTON,STONE_PRESSURE_PLATE,TRIPWIRE_HOOK,TARGET,DAYLIGHT_DETECTOR,NOTE_BLOCK,RAIL,POWERED_RAIL,DETECTOR_RAIL,ACTIVATOR_RAIL,MINECART,HOPPER_MINECART,SLIME_BLOCK,HONEY_BLOCK,TRAPPED_CHEST";
@@ -162,7 +162,21 @@ final class ShopSellManager implements Listener {
         }
         List<ShopEntry> result = new ArrayList<>(entries.values());
         result.addAll(specialEntries);
+        // A single authoritative category assignment prevents the same product appearing in two menus.
+        result.removeIf(entry -> !cat.equals(categoryFor(entry)));
         return result;
+    }
+
+    private String categoryFor(ShopEntry entry) {
+        if (entry.potionType != null) return "pvp";
+        String name = entry.material.name();
+        if (Set.of("OBSIDIAN","END_CRYSTAL","TOTEM_OF_UNDYING","RESPAWN_ANCHOR","GLOWSTONE","EXPERIENCE_BOTTLE","GOLDEN_APPLE","ENDER_PEARL","ENDER_CHEST","ENDER_EYE","ARROW","SPECTRAL_ARROW","POTION").contains(name)) return "pvp";
+        if (name.startsWith("NETHER") || Set.of("BLACKSTONE","GILDED_BLACKSTONE","POLISHED_BLACKSTONE","POLISHED_BLACKSTONE_BRICKS","BASALT","POLISHED_BASALT","SMOOTH_BASALT","SOUL_SAND","SOUL_SOIL","MAGMA_BLOCK","BLAZE_ROD","BLAZE_POWDER","CRYING_OBSIDIAN","GHAST_TEAR","MAGMA_CREAM","QUARTZ").contains(name)) return "nether";
+        if (name.startsWith("END_") || name.startsWith("PURPUR_") || name.startsWith("CHORUS_") || name.equals("POPPED_CHORUS_FRUIT")) return "end";
+        if (Set.of("WHEAT_SEEDS","CARROT","POTATO","BEETROOT_SEEDS","PUMPKIN_SEEDS","MELON_SEEDS","WHEAT","SUGAR_CANE","PUMPKIN","MELON","CACTUS","BAMBOO","COCOA_BEANS","BONE_MEAL","COMPOSTER","FLOWER_POT","WATER_BUCKET","LAVA_BUCKET","SHEARS","LEAD").contains(name)) return "farm";
+        if (Set.of("BREAD","COOKED_BEEF","COOKED_PORKCHOP","COOKED_CHICKEN","COOKED_MUTTON","COOKED_RABBIT","COOKED_COD","COOKED_SALMON","BAKED_POTATO","GOLDEN_CARROT","APPLE","PUMPKIN_PIE","COOKIE","MELON_SLICE","SWEET_BERRIES","GLOW_BERRIES","DRIED_KELP","CHORUS_FRUIT").contains(name)) return "food";
+        if (Set.of("REDSTONE","REDSTONE_TORCH","REPEATER","COMPARATOR","OBSERVER","PISTON","STICKY_PISTON","HOPPER","DROPPER","DISPENSER","REDSTONE_LAMP","LEVER","STONE_BUTTON","STONE_PRESSURE_PLATE","TRIPWIRE_HOOK","TARGET","DAYLIGHT_DETECTOR","NOTE_BLOCK","RAIL","POWERED_RAIL","DETECTOR_RAIL","ACTIVATOR_RAIL","MINECART","HOPPER_MINECART","SLIME_BLOCK","HONEY_BLOCK","TRAPPED_CHEST").contains(name)) return "redstone";
+        return "blocks";
     }
 
     private void addColorVariants(Map<Material, ShopEntry> entries, String suffix) {
@@ -394,13 +408,13 @@ final class ShopSellManager implements Listener {
         if (material == null || material.isAir()) return;
         String category = categoryFromTitle(title);
         int page = 0;
-        double worth = price(material);
-        if (worth <= 0) {
-            p.sendMessage(Component.text("This item has no configured /worth price and cannot be bought.", NamedTextColor.RED));
+        double unitPrice = shopPrice(material);
+        if (!Double.isFinite(unitPrice) || unitPrice <= 0) {
+            p.sendMessage(Component.text("This item has no valid shop price and cannot be bought.", NamedTextColor.RED));
             return;
         }
         ItemStack prototype = new ItemStack(material);
-        quantitySessions.put(p.getUniqueId(), new QuantitySession(prototype, Math.max(worth * 1.5, worth + 0.01), pretty(material), category, currentCategoryPages.getOrDefault(p.getUniqueId(), 0)));
+        quantitySessions.put(p.getUniqueId(), new QuantitySession(prototype, unitPrice, pretty(material), category, currentCategoryPages.getOrDefault(p.getUniqueId(), 0)));
         openQuantity(p, quantitySessions.get(p.getUniqueId()));
     }
 
@@ -423,6 +437,7 @@ final class ShopSellManager implements Listener {
         String category = title.substring(CATEGORY.length()).toLowerCase(Locale.ROOT);
         return switch (category) {
             case "blocks", "food", "pvp", "redstone", "farm", "nether", "end" -> category;
+            case "crystal pvp" -> "pvp";
             default -> "blocks";
         };
     }
@@ -475,12 +490,11 @@ final class ShopSellManager implements Listener {
                 // Rebuild the price from the actual base potion type immediately before charging.
                 unit = Math.max(session.unitPrice, price(Material.POTION) + 0.01);
             } else {
-                double worth = price(type);
-                if (worth <= 0) {
-                    p.sendMessage(Component.text("This item no longer has a valid /worth price. No charge was made.", NamedTextColor.RED));
+                unit = shopPrice(type);
+                if (!Double.isFinite(unit) || unit <= 0) {
+                    p.sendMessage(Component.text("This item no longer has a valid shop price. No charge was made.", NamedTextColor.RED));
                     return;
                 }
-                unit = Math.max(worth * 1.5, worth + 0.01);
             }
             int qty = session.quantity;
             if (!validQuantity(qty, session.prototype.getMaxStackSize())) {
@@ -627,6 +641,16 @@ final class ShopSellManager implements Listener {
         return value > 0 && Double.isFinite(value) ? value : 0;
     }
 
+    private double shopPrice(Material material) {
+        if (material == null || material.isAir()) return 0;
+        double worth = price(material);
+        double configured = plugin.getConfig().getDouble("shop-prices." + material.name(), 0);
+        if (worth > 0) return Math.max(Math.max(worth * 1.5, worth + 0.01), configured);
+        if (configured > 0 && Double.isFinite(configured)) return configured;
+        // Items absent from /worth can still be bought; they cannot be sold for profit because /sell has no valuation.
+        return 25.0;
+    }
+
     private void tellBalance(Player p) {
         if (economy == null) p.sendMessage(Component.text("Money unavailable: Vault economy provider not found.", NamedTextColor.RED));
         else p.sendMessage(Component.text("Balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
@@ -724,7 +748,8 @@ final class ShopSellManager implements Listener {
             ItemMeta meta = item.getItemMeta();
             String label = potionType == null ? prettyStatic(material) : prettyPotionStatic(potionType);
             meta.displayName(Component.text(label, NamedTextColor.WHITE));
-            double buy = customPrice > 0 ? Math.max(customPrice, worth + 0.01) : Math.max(worth * 1.5, worth + 0.01);
+            double configured = customPrice > 0 ? customPrice : 0;
+            double buy = worth > 0 ? Math.max(Math.max(worth * 1.5, worth + 0.01), configured) : (configured > 0 ? configured : 25.0);
             meta.lore(List.of(Component.text("Price: $" + MONEY.format(buy), NamedTextColor.GREEN)));
             meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING,
                 potionType == null ? "buy:" + material.name() : "buyPotion:" + potionType);
