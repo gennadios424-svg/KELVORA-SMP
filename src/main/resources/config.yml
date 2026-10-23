@@ -660,6 +660,7 @@ teams:
 
 # Phase 27 — physical crates. Reward entries are MATERIAL:AMOUNT:RELATIVE_WEIGHT:RARITY.
 # Weights are relative to other entries in that crate; they are not exact percentages.
+  broadcast-rare-rewards: true
 # The server selects the reward independently of any GUI animation.
 crates:
   types:
