@@ -262,7 +262,7 @@ final class ShopSellManager implements Listener {
             } else if (action.equals("confirm")) confirmPurchase(p, session);
             else if (action.equals("back")) {
                 quantitySessions.remove(p.getUniqueId());
-                refreshQuantityView(p, p.getOpenInventory().getTopInventory(), session);
+                openCategory(p, session.category, session.page);
             } else if (action.equals("cancel")) {
                 quantitySessions.remove(p.getUniqueId());
                 openCategory(p, session.category, session.page);
@@ -537,7 +537,7 @@ final class ShopSellManager implements Listener {
             p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.45f, 1.4f);
             p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
                 + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
-            openCategory(p, session.category, session.page);
+            refreshQuantityView(p, p.getOpenInventory().getTopInventory(), session);
         } finally {
             transactions.remove(p.getUniqueId());
         }
