@@ -212,11 +212,11 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(animationTitle, NamedTextColor.DARK_PURPLE));
         inv.setItem(4, button(Material.CHEST, "&d&l" + titleCase(type) + " Keys", List.of("&7Digital keys already credited", "&f+" + amount + " key(s)", "&8Presentation only; no reward roll")));
         player.openInventory(inv);
-        final int[] task = new int[1];
+        final org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
         task[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             int step = 0;
             public void run() {
-                if (!player.isOnline() || !player.getOpenInventory().getTitle().equals(animationTitle)) { Bukkit.getScheduler().cancelTask(task[0]); return; }
+                if (!player.isOnline() || !player.getOpenInventory().getTitle().equals(animationTitle)) { Bukkit.getScheduler().cancelTask(task[0].getTaskId()); return; }
                 if (step < 8) {
                     Material[] cycle = {Material.CHEST, Material.ENDER_CHEST, Material.TRIPWIRE_HOOK, Material.AMETHYST_SHARD, Material.GOLD_INGOT};
                     inv.setItem(13, button(cycle[step % cycle.length], "&d&lRolling delivery...", List.of("&7Your keys are safe")));
