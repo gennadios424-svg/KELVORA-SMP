@@ -299,8 +299,9 @@ final class RankKitManager implements Listener {
                 String primary=user.getPrimaryGroup().toLowerCase(Locale.ROOT);
                 if(PROGRESSION.contains(primary)) { cacheRank(id,primary); return primary; }
                 for(int i=PROGRESSION.size()-1;i>=0;i--) {
-                    if(user.getNodes().stream().anyMatch(n -> n instanceof InheritanceNode in && in.getGroupName().equalsIgnoreCase(PROGRESSION.get(i)))) {
-                        cacheRank(id,PROGRESSION.get(i)); return PROGRESSION.get(i);
+                    String candidate = PROGRESSION.get(i);
+                    if(user.getNodes().stream().anyMatch(n -> n instanceof InheritanceNode in && in.getGroupName().equalsIgnoreCase(candidate))) {
+                        cacheRank(id,candidate); return candidate;
                     }
                 }
             }
