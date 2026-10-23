@@ -67,6 +67,7 @@ implements Listener {
     private LuckPerms luckPerms;
     private boolean placeholderApi;
     private KelvorasManager kelvorasManager;
+    private ShardShopManager shardShopManager;
     private int refreshTask;
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<UUID, Scoreboard>();
 
@@ -87,6 +88,8 @@ implements Listener {
         new RtpManager(this, combatManager).register();
         new HomesManager(this, combatManager).register();
         new RankKitManager(this).register();
+        this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
+        this.shardShopManager.register();
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
@@ -302,6 +305,8 @@ implements Listener {
         }
         return group.equals("default") ? "member" : group;
     }
+
+    ShardShopManager getShardShopManager() { return this.shardShopManager; }
 
     private String getKelvoras(Player player) {
         if (this.kelvorasManager == null) return "✦0";
