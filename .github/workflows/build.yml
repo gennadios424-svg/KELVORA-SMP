@@ -22,8 +22,10 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Compile and package for Paper 1.21.11
+        id: compile
         run: mvn --batch-mode --no-transfer-progress clean package
       - name: Verify compiled plugin JAR
+        id: verify
         run: |
           test -s target/KelvoraSMP-2.2.0.jar
           jar tf target/KelvoraSMP-2.2.0.jar | grep -q 'plugin.yml'
@@ -31,6 +33,7 @@ jobs:
           unzip -p target/KelvoraSMP-2.2.0.jar plugin.yml | grep -q 'baltop:'
           echo "Compiled JAR and /baltop registration verified."
       - name: Publish compiled JAR to repository
+        id: publish
         run: |
           cp target/KelvoraSMP-2.2.0.jar KelvoraSMP-2.2.0.jar
           git config user.name "github-actions[bot]"
@@ -53,7 +56,7 @@ jobs:
         if: always()
         run: |
           git pull --rebase origin main
-          printf 'commit=%s\nstatus=%s\n' "$GITHUB_SHA" "${{ job.status }}" > build-status.txt
+          printf 'commit=%s\nstatus=%s\ncompile=%s\nverify=%s\npublish=%s\n' "$GITHUB_SHA" "${{ job.status }}" "${{ steps.compile.outcome }}" "${{ steps.verify.outcome }}" "${{ steps.publish.outcome }}" > build-status.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add build-status.txt
