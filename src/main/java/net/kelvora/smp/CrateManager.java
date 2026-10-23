@@ -457,7 +457,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 if (cursorItem == null || cursorItem.getType().isAir() || !isAllowedReward(cursorItem.getType())) return;
                 if (cursorItem.getAmount() > cursorItem.getType().getMaxStackSize()) return;
                 if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
-                if (e.isShiftClick() || e.isRightClick() || e.getClick() != ClickType.LEFT) return;
+                if (e.isShiftClick() || e.isRightClick() || e.getClick() != org.bukkit.event.inventory.ClickType.LEFT) return;
                 rewards.add(cursorItem.getType().name() + ":" + cursorItem.getAmount() + ":1:Common");
                 p.playSound(p.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.45f, 1.3f);
                 p.sendMessage(Component.text("Added " + cursorItem.getType().name() + " x" + cursorItem.getAmount() + " as a reward template. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
