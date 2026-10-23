@@ -27,7 +27,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.RegisteredServiceProvider;\nimport org.bukkit.configuration.file.YamlConfiguration;\nimport net.luckperms.api.LuckPermsProvider;\nimport net.luckperms.api.model.user.User;\nimport java.io.File;
+import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.configuration.file.YamlConfiguration;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.User;
+import java.io.File;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
