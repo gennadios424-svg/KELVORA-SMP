@@ -406,6 +406,12 @@ final class RankKitManager implements Listener {
         }
         if (prefix == null || prefix.isBlank()) prefix = "&7[Sprout] ";
         final Component rankPrefix = LegacyComponentSerializer.legacySection().deserialize(ChatColor.translateAlternateColorCodes('&', prefix));
+        String progression = progressionRank(event.getPlayer().getUniqueId());
+        String progressionLabel = LABELS.getOrDefault(progression, "Sprout");
+        String plainPrefix = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', prefix));
+        final Component visibleProgression = plainPrefix != null && plainPrefix.toLowerCase(Locale.ROOT).contains(progressionLabel.toLowerCase(Locale.ROOT))
+            ? Component.empty()
+            : LegacyComponentSerializer.legacyAmpersand().deserialize(plugin.getConfig().getString("ranks." + progression + ".color", "&7") + "[" + progressionLabel + "] ");
         final ShardShopManager cosmetics = plugin.getShardShopManager();
         String tag = cosmetics == null ? null : cosmetics.equippedTag(event.getPlayer());
         String title = cosmetics == null ? null : cosmetics.equippedTitle(event.getPlayer());
@@ -419,7 +425,7 @@ final class RankKitManager implements Listener {
                 String serialized = LegacyComponentSerializer.legacySection().serialize(message);
                 renderedMessage = LegacyComponentSerializer.legacySection().deserialize(safeColour + serialized);
             }
-            return rankPrefix.append(cosmeticTitle).append(displayName).append(cosmeticTag).append(Component.text(": ")).append(renderedMessage);
+            return rankPrefix.append(visibleProgression).append(cosmeticTitle).append(displayName).append(cosmeticTag).append(Component.text(": ")).append(renderedMessage);
         });
     }
 
