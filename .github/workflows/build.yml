@@ -1,5 +1,5 @@
 name: Build and verify KelvoraSMP
-# Build the current main branch source, including the latest leaderboard UI.
+# Build the current main branch source and publish the compiled plugin JAR.
 
 on:
   push:
@@ -35,34 +35,43 @@ jobs:
           result=$?
           tail -n 100 build.log
           exit "$result"
+      - name: Determine plugin version
+        id: version
+        run: echo "version=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')" >> "$GITHUB_OUTPUT"
       - name: Verify compiled plugin JAR
         id: verify
         run: |
-          test -s target/KelvoraSMP-2.3.0.jar
-          jar tf target/KelvoraSMP-2.3.0.jar | grep -q 'plugin.yml'
-          jar tf target/KelvoraSMP-2.3.0.jar | grep -q 'net/kelvora/smp/BaltopManager.class'
-          jar tf target/KelvoraSMP-2.3.0.jar | grep -q 'net/kelvora/smp/KelvorasManager.class'
-          jar tf target/KelvoraSMP-2.3.0.jar | grep -q 'net/kelvora/smp/ShopSellManager.class'
-          unzip -p target/KelvoraSMP-2.3.0.jar plugin.yml | grep -q 'baltop:'
-          unzip -p target/KelvoraSMP-2.3.0.jar plugin.yml | grep -q 'kelvoras:'
-          echo "Compiled JAR, shop manager, Money leaderboard, and Kelvoras command verified."
+          VERSION="${{ steps.version.outputs.version }}"
+          JAR="target/KelvoraSMP-${VERSION}.jar"
+          test -s "$JAR"
+          jar tf "$JAR" | grep -q 'plugin.yml'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/BaltopManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/KelvorasManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/CoinflipManager.class'
+          unzip -p "$JAR" plugin.yml | grep -q 'baltop:'
+          unzip -p "$JAR" plugin.yml | grep -q 'kelvoras:'
+          unzip -p "$JAR" plugin.yml | grep -q 'coinflip:'
+          echo "Compiled JAR, coinflip, shop manager, Money leaderboard, and Kelvoras command verified."
       - name: Publish compiled JAR to repository
         id: publish
         run: |
-          cp target/KelvoraSMP-2.3.0.jar KelvoraSMP-2.3.0.jar
+          VERSION="${{ steps.version.outputs.version }}"
+          JAR="KelvoraSMP-${VERSION}.jar"
+          cp "target/${JAR}" "$JAR"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f KelvoraSMP-2.3.0.jar
+          git add -f "$JAR"
           if git diff --cached --quiet; then
             echo "Compiled JAR is already up to date."
           else
-            git commit -m "Publish compiled KelvoraSMP 2.3.0 plugin JAR"
+            git commit -m "Publish compiled KelvoraSMP ${VERSION} plugin JAR"
             git push
           fi
       - name: Upload JAR build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: KelvoraSMP-2.3.0
-          path: KelvoraSMP-2.3.0.jar
+          name: KelvoraSMP-${{ steps.version.outputs.version }}
+          path: KelvoraSMP-${{ steps.version.outputs.version }}.jar
           if-no-files-found: error
           retention-days: 30
