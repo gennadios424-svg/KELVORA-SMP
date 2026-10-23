@@ -84,6 +84,7 @@ implements Listener {
         this.setupIntegrations();
         this.kelvorasManager = new KelvorasManager(this);
         this.kelvorasManager.register();
+        new Phase32Commands(this, this.kelvorasManager).register();
         this.worthManager = new WorthManager(this);
         this.worthManager.register();
         new ShopSellManager(this).register();
