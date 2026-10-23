@@ -687,7 +687,7 @@ crates:
     common:
       name: "&aCommon Crate"
       description: "Useful survival supplies"
-      block: WHITE_SHULKER_BOX
+      block: LIGHT_GRAY_SHULKER_BOX
       rewards:
         - "BREAD:8:30:Common"
         - "TORCH:16:25:Common"
@@ -700,7 +700,7 @@ crates:
     kelvora:
       name: "&3Kelvora Crate"
       description: "Valuable resources and equipment"
-      block: CYAN_SHULKER_BOX
+      block: GREEN_SHULKER_BOX
       rewards:
         - "IRON_INGOT:16:25:Common"
         - "GOLD_INGOT:8:20:Uncommon"
