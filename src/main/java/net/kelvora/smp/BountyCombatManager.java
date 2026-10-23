@@ -278,6 +278,8 @@ final class BountyCombatManager implements Listener {
 
     private boolean active(UUID id, long now) { Combat c = combat.get(id); return c != null && c.until > now; }
 
+    boolean isInCombat(Player player) { return active(player.getUniqueId(), System.currentTimeMillis()); }
+
     private void tickCombat() {
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<UUID, Combat>> it = combat.entrySet().iterator();
@@ -308,7 +310,7 @@ final class BountyCombatManager implements Listener {
         if (message == null || !message.startsWith("/")) return;
         String label = message.substring(1).trim().split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
         int colon = label.lastIndexOf(':'); if (colon >= 0) label = label.substring(colon + 1);
-        if (Set.of("ah", "auctionhouse", "auctions", "sell", "worth", "itemworth").contains(label)) {
+        if (Set.of("ah", "auctionhouse", "auctions", "sell", "worth", "itemworth", "coinflip", "cf").contains(label)) {
             e.setCancelled(true);
             fail(p, "You cannot use /" + label + " during combat.");
         }
