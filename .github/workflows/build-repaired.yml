@@ -73,16 +73,8 @@ jobs:
           kill "$SERVER_PID" 2>/dev/null || true
           wait "$SERVER_PID" 2>/dev/null || true
           echo 'Paper 1.21.11 startup smoke test passed.'
-      - name: Publish compiled JAR to repository
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        run: |
-          VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')
-          cp "target/KelvoraSMP-${VERSION}.jar" "KelvoraSMP-${VERSION}.jar"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add "KelvoraSMP-${VERSION}.jar"
-          git commit -m "Publish compiled KelvoraSMP ${VERSION} JAR" || echo 'JAR unchanged'
-          git push
+      - name: Note canonical publisher
+        run: echo 'JAR publishing is handled by build.yml after the smoke test workflow validates startup.'
       - name: Upload compiled JAR
         uses: actions/upload-artifact@v4
         with:
