@@ -30,7 +30,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.ConfigurationSection;
 
 final class CrateManager implements Listener, CommandExecutor, TabCompleter {
-    private static final List<String> TYPES = List.of("common", "kelvora", "gold", "spawner", "gambling");
+    private static final List<String> TYPES = List.of("common", "kelvora", "gold", "spawner", "crimson");
     private final JavaPlugin plugin;
     private final NamespacedKey holoKey;
     private final File dataFile;
@@ -70,6 +70,11 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         ConfigurationSectionLike:
         for (String key : data.getKeys(false)) {
             String path = key + ".location";
+            if ("players".equalsIgnoreCase(key)) continue;
+            if ("gambling".equalsIgnoreCase(data.getString(key + ".type", ""))) {
+                data.set(key + ".type", "crimson");
+                data.set(key + ".location.world", data.getString(path + ".world"));
+            }
             String worldName = data.getString(path + ".world");
             World world = worldName == null ? null : Bukkit.getWorld(worldName);
             if (world == null) continue;
@@ -150,8 +155,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if(target!=null) loc=(target.getType().isAir()?target:target.getRelative(0,1,0)).getLocation();
             else loc=p.getLocation().getBlock().getRelative(0,2,0).getLocation();
             if(!loc.getBlock().isPassable()){sender.sendMessage("Choose a clear block location (look at the ground or an empty space).");return true;}
-            Material appearance=Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","BARREL"));
-            if(appearance==null||!appearance.isBlock()||appearance.isAir())appearance=Material.BARREL;
+            Material appearance=Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","SHULKER_BOX"));
+            if(appearance==null||!appearance.isBlock()||appearance.isAir()||!appearance.name().endsWith("SHULKER_BOX")) appearance=Material.SHULKER_BOX;
             loc.getBlock().setType(appearance);
             String key=locKey(loc);
             crates.put(key,loc);
@@ -207,7 +212,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         openCrate.put(p.getUniqueId(),type);
         Inventory inv=Bukkit.createInventory(null,27,Component.text(GUI+" | "+titleCase(type),NamedTextColor.DARK_GREEN));
         protectedInventories.add(inv);
-        inv.setItem(4,button(Material.CHEST,"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
+        inv.setItem(4,button(Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","SHULKER_BOX")) == null ? Material.SHULKER_BOX : Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","SHULKER_BOX")),"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
         inv.setItem(13,button(Material.TRIPWIRE_HOOK,"&eYour Keys: &f"+keys(p,type),List.of("&7Digital keys only","&7One key per successful opening")));
         List<String> rewards=configuredRewards(type);
         int slot=9;for(String entry:rewards){String[] bits=entry.split(":",4);if(bits.length<4)continue;String kind=bits[0].toUpperCase(Locale.ROOT);Material mat=Material.matchMaterial(bits[0]);if(kind.equals("KELVORAS")){inv.setItem(slot++,button(Material.AMETHYST_SHARD,"&b"+bits[1]+" Kelvoras",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("MONEY")){inv.setItem(slot++,button(Material.GOLD_INGOT,"&6$"+bits[1]+" Money",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("COMMAND")){inv.setItem(slot++,button(Material.COMMAND_BLOCK,"&dSpecial reward",List.of("&7Server reward","&8Tier: "+bits[3])));}else if(mat!=null&&isAllowedReward(mat)){inv.setItem(slot++,button(mat,"&f"+titleCase(mat.name().toLowerCase(Locale.ROOT).replace('_',' ')),List.of("&7Possible reward","&8Tier: "+bits[3])));}if(slot>=18)break;}
@@ -220,7 +225,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     @EventHandler public void interact(PlayerInteractEvent e) {
         if(e.getAction()!=Action.RIGHT_CLICK_BLOCK||e.getClickedBlock()==null)return;
         String key=locKey(e.getClickedBlock().getLocation());if(!crates.containsKey(key))return;
-        e.setCancelled(true);Player p=e.getPlayer();String type=data.getString(key+".type","common");openCrate(p,type);
+        e.setCancelled(true);Player p=e.getPlayer();String type=data.getString(key+".type","common");if(type.equalsIgnoreCase("gambling"))type="crimson";openCrate(p,type);
     }
     @EventHandler public void protectBreak(BlockBreakEvent e){if(crates.containsKey(locKey(e.getBlock().getLocation()))){e.setCancelled(true);e.getPlayer().sendMessage(Component.text("This crate is protected.",NamedTextColor.RED));}}
     @EventHandler public void protectPlace(BlockPlaceEvent e){if(crates.containsKey(locKey(e.getBlockPlaced().getLocation()))){e.setCancelled(true);}}
@@ -432,19 +437,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     private List<String> configuredRewards(String type) {
-        List<String> entries = new ArrayList<>(plugin.getConfig().getStringList("crates.types." + type + ".rewards"));
-        if (!type.equals("gambling")) return entries;
-        Set<String> disabled = new HashSet<>();
-        for (String item : plugin.getConfig().getStringList("crates.types.gambling.disabled-items")) disabled.add(item.toUpperCase(Locale.ROOT));
-        entries.removeIf(entry -> { String[] bits = entry.split(":", 4); return bits.length > 0 && disabled.contains(bits[0].toUpperCase(Locale.ROOT)); });
-        if (!plugin.getConfig().getBoolean("crates.types.gambling.include-eligible-catalogue", true)) return entries;
-        Set<String> configured = new HashSet<>();
-        for (String entry : entries) { String[] bits = entry.split(":", 4); if (bits.length > 0) configured.add(bits[0].toUpperCase(Locale.ROOT)); }
-        for (Material material : Material.values()) {
-            if (!isAllowedReward(material) || configured.contains(material.name()) || disabled.contains(material.name())) continue;
-            entries.add(material.name() + ":1:1:Common");
-        }
-        return entries;
+        return new ArrayList<>(plugin.getConfig().getStringList("crates.types." + type + ".rewards"));
     }
     private void validateConfiguredRewards() {
         for (String type : TYPES) {
