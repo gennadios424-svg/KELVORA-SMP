@@ -187,7 +187,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     private void teleport(Player p, SavedHome h) {
-        if (combat != null && combat.isInCombat(p)) { fail(p, "You cannot teleport to a home during combat."); return; }
+        if (combat != null && combat.isInCombat(p)) { p.sendActionBar(Component.text("You cannot teleport while in combat!", NamedTextColor.RED)); return; }
         if (!teleporting.add(p.getUniqueId())) { fail(p, "A teleport is already in progress."); return; }
         World world = Bukkit.getWorld(h.worldId);
         if (world == null) world = Bukkit.getWorld(h.worldName);
@@ -202,7 +202,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             @Override public void run() {
                 if (!p.isOnline() || p.isDead() || !teleporting.contains(id)) {
-                    teleporting.remove(id); teleportOrigins.remove(id); teleportTasks.remove(id); cancel(); return;
+                    teleporting.remove(id); teleportOrigins.remove(id); cancel(); teleportTasks.remove(id); return;
                 }
                 if (combat != null && combat.isInCombat(p)) {
                     teleporting.remove(id); teleportOrigins.remove(id); teleportTasks.remove(id);
@@ -216,7 +216,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
                     cancel(); return;
                 }
                 if (seconds[0] <= 0) {
-                    teleportOrigins.remove(id); teleportTasks.remove(id); cancel();
+                    teleportOrigins.remove(id); cancel(); teleportTasks.remove(id);
                     p.teleportAsync(target).whenComplete((success, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
                         teleporting.remove(id);
                         if (!p.isOnline()) return;
