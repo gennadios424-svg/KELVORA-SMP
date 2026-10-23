@@ -125,7 +125,7 @@ final class ShardShopManager implements Listener {
         player.openInventory(inv);
     }
 
-    private void handleItem(Player player, String category, String id) {
+    private synchronized void handleItem(Player player, String category, String id) {
         ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category + "." + id);
         if (entry == null) return;
         UUID uuid = player.getUniqueId();
@@ -221,13 +221,13 @@ final class ShardShopManager implements Listener {
         }
     }
 
-    String equippedTag(Player player) {
+    synchronized String equippedTag(Player player) {
         String id = activeCosmetic(player.getUniqueId(), "tags");
         ConfigurationSection section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.tags." + id);
         return section == null ? null : safeLabel(section.getString("name", id), 12);
     }
 
-    String equippedTitle(Player player) {
+    synchronized String equippedTitle(Player player) {
         String id = activeCosmetic(player.getUniqueId(), "titles");
         ConfigurationSection section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.titles." + id);
         return section == null ? null : safeLabel(section.getString("name", id), 16);
@@ -240,20 +240,20 @@ final class ShardShopManager implements Listener {
         return clean.length() > maxLength ? clean.substring(0, maxLength) : clean;
     }
 
-    String chatColour(Player player) {
+    synchronized String chatColour(Player player) {
         String id = activeCosmetic(player.getUniqueId(), "chat");
         if (id == null) return null;
         ConfigurationSection section = plugin.getConfig().getConfigurationSection("shardshop.catalogue.chat." + id);
         return section == null ? null : section.getString("legacy-color", null);
     }
 
-    private String activeCosmetic(UUID uuid, String category) {
+    private synchronized String activeCosmetic(UUID uuid, String category) {
         String id = data.getString(uuid + ".equipped." + category);
         if (id == null || id.isBlank() || !owns(uuid, category, id)) return null;
         return id;
     }
 
-    private boolean owns(UUID uuid, String category, String id) {
+    private synchronized boolean owns(UUID uuid, String category, String id) {
         String path = uuid + ".owned." + category + "." + id;
         if (!data.contains(path)) return false;
         long expires = data.getLong(path, 0);
@@ -270,7 +270,7 @@ final class ShardShopManager implements Listener {
         }
     }
 
-    private void expireAll() {
+    private synchronized void expireAll() {
         if (data == null) return;
         boolean changed = false;
         for (String uuidText : data.getKeys(false)) {
@@ -328,7 +328,7 @@ final class ShardShopManager implements Listener {
         item.setItemMeta(meta);
         inv.setItem(slot, item);
     }
-    private boolean saveData() {
+    private synchronized boolean saveData() {
         try { if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs(); data.save(dataFile); return true; }
         catch (IOException ex) { plugin.getLogger().severe("Could not save ShardShop ownership: " + ex.getMessage()); return false; }
     }
