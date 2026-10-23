@@ -27,6 +27,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.ConfigurationSection;
 
 final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private static final List<String> TYPES = List.of("common", "kelvora", "gold", "spawner", "gambling");
