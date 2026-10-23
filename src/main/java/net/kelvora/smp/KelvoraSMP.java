@@ -250,14 +250,13 @@ implements Listener {
         String kelvoras = this.getKelvoras(player);
         Component rotatingMessage;
         if (this.tabFrame == 0) {
-            rotatingMessage = Component.text("💬 Join our Discord", NamedTextColor.AQUA)
-                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
+            rotatingMessage = Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN);
         } else if (this.tabFrame == 1) {
-            rotatingMessage = Component.text("🛡️ Apply for Staff", NamedTextColor.GOLD);
+            rotatingMessage = Component.text("⚔️ JOIN NOW", NamedTextColor.GOLD);
         } else {
-            rotatingMessage = Component.text("🎥 Apply for Media", NamedTextColor.LIGHT_PURPLE);
+            rotatingMessage = Component.text("🌐 kelvorasmp.mcsh.gg", NamedTextColor.AQUA);
         }
-        player.sendPlayerListHeaderAndFooter(Component.empty(), rotatingMessage);
+        player.sendPlayerListHeaderAndFooter(rotatingMessage, Component.empty());
 
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
