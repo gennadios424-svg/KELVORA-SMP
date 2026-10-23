@@ -104,9 +104,29 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             String worldName = data.getString(path + ".world");
             World world = worldName == null ? null : Bukkit.getWorld(worldName);
             if (world == null) continue;
-            crates.put(key, new Location(world, data.getInt(path + ".x"), data.getInt(path + ".y"), data.getInt(path + ".z")));
+            Location crateLocation = new Location(world, data.getInt(path + ".x"), data.getInt(path + ".y"), data.getInt(path + ".z"));
+            crates.put(key, crateLocation);
+            String type = validType(data.getString(key + ".type", "common"));
+            if (type == null) type = "common";
+            Material appearance = Material.matchMaterial(crateConfig(type).getString("block", defaultBlock(type)));
+            if (appearance != null && appearance.name().endsWith("_SHULKER_BOX")
+                    && crateLocation.getBlock().getType().name().endsWith("_SHULKER_BOX")
+                    && crateLocation.getBlock().getType() != appearance) {
+                crateLocation.getBlock().setType(appearance, false);
+            }
         }
         save();
+    }
+
+    private String defaultBlock(String type) {
+        return switch (type.toLowerCase(Locale.ROOT)) {
+            case "common" -> "LIGHT_GRAY_SHULKER_BOX";
+            case "kelvora" -> "GREEN_SHULKER_BOX";
+            case "gold" -> "YELLOW_SHULKER_BOX";
+            case "spawner" -> "PURPLE_SHULKER_BOX";
+            case "crimson" -> "RED_SHULKER_BOX";
+            default -> "SHULKER_BOX";
+        };
     }
 
     private void rebuildHolograms() {
