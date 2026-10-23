@@ -1,2 +1,5 @@
-commit=68c08f61f507b7b946af2fe3eaba7022a308ed6f
+commit=771db925575c5c1254bda759437d369e82b9fc60
 status=failure
+compile=failure
+verify=skipped
+publish=skipped
