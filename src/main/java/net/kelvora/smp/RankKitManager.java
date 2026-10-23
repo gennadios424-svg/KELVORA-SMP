@@ -143,8 +143,14 @@ final class RankKitManager implements Listener {
                 sender.sendMessage(Component.text("LuckPerms is required for rank assignment.", NamedTextColor.RED));
                 return true;
             }
+            if (!args[1].matches("[A-Za-z0-9_]{3,16}")) {
+                sender.sendMessage(Component.text("Enter a valid Minecraft username.", NamedTextColor.RED)); return true;
+            }
             Player online = Bukkit.getPlayerExact(args[1]);
             org.bukkit.OfflinePlayer offline = online == null ? Bukkit.getOfflinePlayer(args[1]) : online;
+            if (online == null && !offline.hasPlayedBefore()) {
+                sender.sendMessage(Component.text("That player has never joined the server.", NamedTextColor.RED)); return true;
+            }
             java.util.UUID targetId = offline.getUniqueId();
             String targetName = online != null ? online.getName() : (offline.getName() == null ? args[1] : offline.getName());
             try {
@@ -220,6 +226,7 @@ final class RankKitManager implements Listener {
         put(inv, 30, Material.PURPLE_DYE, "&5Admin", List.of("Manages server operations", "Assigned by authorized staff"), "info");
         put(inv, 31, Material.RED_DYE, "&cOwner", List.of("Server leadership", "Assigned by authorized staff"), "info");
         put(inv, 33, Material.MAGENTA_DYE, "&dCreator", List.of("For YouTubers, TikTokers and streamers", "Assigned by authorized staff"), "info");
+        put(inv, 22, Material.BOOK, "&bPurchase Ranks on Discord", List.of("Ranks are purchased, not earned", "Click for the server Discord"), "discord");
         put(inv, 40, Material.BARRIER, "&cClose", List.of("Close menu"), "close");
         player.openInventory(inv);
     }
@@ -424,6 +431,7 @@ final class RankKitManager implements Listener {
         ItemStack item=event.getCurrentItem(); if(item==null || !item.hasItemMeta()) return;
         String action=item.getItemMeta().getPersistentDataContainer().get(actionKey,PersistentDataType.STRING);
         if(action==null) return;
+        if(action.equals("discord")) { sendDiscordInfo(p); return; }
         if(action.equals("close")) { p.closeInventory(); return; }
         if(action.startsWith("kit:")) { claimKit(p,action.substring(4)); p.playSound(p.getLocation(),Sound.UI_BUTTON_CLICK,0.2f,1.1f); }
         else if(action.startsWith("rank:")) { sendDiscordInfo(p); }
