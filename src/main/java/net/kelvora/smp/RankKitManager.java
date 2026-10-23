@@ -30,6 +30,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.io.File;
@@ -184,16 +185,19 @@ final class RankKitManager implements Listener {
     }
 
     private void openRanks(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
+        Inventory inv = Bukkit.createInventory(null, 45, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
         int[] slots = {10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
             String desc=plugin.getConfig().getString("ranks." + key + ".description", "Survival progression rank");
             put(inv, slots[i], rankMaterial(i), prefixFor(key) + LABELS.get(key), List.of(desc, "Progression " + (i+1) + "/5", "Use /rankup to upgrade"), "rank:" + key);
         }
-        put(inv, 19, Material.SHIELD, "&aStaff ranks", List.of("Helper, Moderator, Admin, Owner", "Assigned by authorized staff"), "info");
-        put(inv, 22, Material.PAPER, "&dCreator", List.of("For content creators", "Assigned by authorized staff"), "info");
-        put(inv, 26, Material.BARRIER, "&cClose", List.of("Close menu"), "close");
+        put(inv, 28, Material.LIME_DYE, "&aHelper", List.of("Answers questions and helps players", "Assigned by authorized staff"), "info");
+        put(inv, 29, Material.BLUE_DYE, "&9Moderator", List.of("Handles chat and rule enforcement", "Assigned by authorized staff"), "info");
+        put(inv, 30, Material.PURPLE_DYE, "&5Admin", List.of("Manages server operations", "Assigned by authorized staff"), "info");
+        put(inv, 31, Material.RED_DYE, "&cOwner", List.of("Server leadership", "Assigned by authorized staff"), "info");
+        put(inv, 33, Material.MAGENTA_DYE, "&dCreator", List.of("For YouTubers, TikTokers and streamers", "Assigned by authorized staff"), "info");
+        put(inv, 40, Material.BARRIER, "&cClose", List.of("Close menu"), "close");
         player.openInventory(inv);
     }
 
@@ -333,8 +337,8 @@ final class RankKitManager implements Listener {
             User user = luckPerms.getUserManager().getUser(event.getPlayer().getUniqueId());
             if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
         }
-        if (prefix == null || prefix.isBlank()) prefix = prefixFor(progressionRank(event.getPlayer().getUniqueId()));
-        final Component rankPrefix = Component.text(ChatColor.translateAlternateColorCodes('&', prefix));
+        if (prefix == null || prefix.isBlank()) prefix = "&7[I. Sprout] ";
+        final Component rankPrefix = LegacyComponentSerializer.legacySection().deserialize(ChatColor.translateAlternateColorCodes('&', prefix));
         event.renderer((source, displayName, message, viewer) -> rankPrefix.append(displayName).append(Component.text(": ")).append(message));
     }
 
