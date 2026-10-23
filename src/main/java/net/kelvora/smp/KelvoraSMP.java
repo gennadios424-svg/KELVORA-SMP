@@ -296,9 +296,11 @@ implements Listener {
             return "member";
         }
         group = group.toLowerCase(Locale.ROOT);
-        if (group.equals("default") || group.equals("member")) {
+        if (group.equals("default") || group.equals("member") || group.equals("i_sprout")) {
             for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout"}) {
-                if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(progression))) return progression;
+                if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(progression))) {
+                    return progression.equals("i_sprout") ? "sprout" : progression;
+                }
             }
             return "sprout";
         }
