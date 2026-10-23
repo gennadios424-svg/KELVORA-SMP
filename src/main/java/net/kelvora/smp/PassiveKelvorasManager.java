@@ -29,7 +29,7 @@ final class PassiveKelvorasManager implements Listener {
 
     void register() {
         if (!plugin.getConfig().getBoolean("passive-kelvoras.enabled", true)) return;
-        long interval = Math.max(1L, plugin.getConfig().getLong("passive-kelvoras.interval-seconds", 300L));
+        long interval = Math.max(1L, plugin.getConfig().getLong("passive-kelvoras.interval-seconds", 1200L));
         double amount = plugin.getConfig().getDouble("passive-kelvoras.amount", 1.0);
         boolean afkEligible = plugin.getConfig().getBoolean("passive-kelvoras.afk-eligible", true);
         long afkTimeout = Math.max(30L, plugin.getConfig().getLong("passive-kelvoras.afk-timeout-seconds", 60L));
