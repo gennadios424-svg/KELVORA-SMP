@@ -80,16 +80,15 @@ final class ShopSellManager implements Listener {
     }
 
     private void openShop(Player p) {
-        Inventory inv = Bukkit.createInventory(null, 54, Component.text(MAIN, NamedTextColor.DARK_GREEN));
-        fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
-        put(inv, 10, Material.BRICKS, "Blocks", "cat:blocks:0", "Building materials and decoration");
-        put(inv, 12, Material.COOKED_BEEF, "Food", "cat:food:0", "Food and survival supplies");
-        put(inv, 14, Material.OBSIDIAN, "PvP", "cat:pvp:0", "Crystal PvP consumables");
-        put(inv, 16, Material.HOPPER, "Redstone", "cat:redstone:0", "Components and storage");
-        put(inv, 29, Material.WHEAT, "Farm", "cat:farm:0", "Seeds and farming supplies");
-        put(inv, 31, Material.NETHERRACK, "Nether Shop", "cat:nether:0", "Nether materials and potions");
-        put(inv, 33, Material.END_STONE, "End Shop", "cat:end:0", "End building materials");
-        put(inv, 49, Material.BARRIER, "Close", "close", "Close the shop");
+        Inventory inv = Bukkit.createInventory(null, 36, Component.text(MAIN, NamedTextColor.DARK_GREEN));
+        put(inv, 10, Material.BRICKS, "Blocks", "cat:blocks:0", "Building blocks, wood and shulker boxes");
+        put(inv, 11, Material.COOKED_BEEF, "Food", "cat:food:0", "Ready-to-eat food");
+        put(inv, 12, Material.END_CRYSTAL, "Crystal PvP", "cat:pvp:0", "Crystals and combat supplies");
+        put(inv, 13, Material.REDSTONE, "Redstone", "cat:redstone:0", "Redstone components and mechanisms");
+        put(inv, 14, Material.WHEAT, "Farm", "cat:farm:0", "Seeds, crops and farming tools");
+        put(inv, 15, Material.NETHERRACK, "Nether", "cat:nether:0", "Nether blocks and materials");
+        put(inv, 16, Material.END_STONE, "End", "cat:end:0", "End blocks and materials");
+        put(inv, 31, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
 
     }
@@ -99,7 +98,7 @@ final class ShopSellManager implements Listener {
         List<ShopEntry> entries = categoryEntries(cat);
         int pages = Math.max(1, (entries.size() + 44) / 45);
         page = Math.max(0, Math.min(page, pages - 1));
-        Inventory inv = Bukkit.createInventory(null, 54, Component.text(CATEGORY + cat.toUpperCase(Locale.ROOT), NamedTextColor.DARK_GREEN));
+        Inventory inv = Bukkit.createInventory(null, 54, Component.text(CATEGORY + (cat.equals("pvp") ? "CRYSTAL PVP" : cat.toUpperCase(Locale.ROOT)), NamedTextColor.DARK_GREEN));
         for (int i = 0; i < 45; i++) {
             int index = page * 45 + i;
             if (index >= entries.size()) break;
@@ -119,13 +118,13 @@ final class ShopSellManager implements Listener {
         LinkedHashMap<Material, ShopEntry> entries = new LinkedHashMap<>();
         List<ShopEntry> specialEntries = new ArrayList<>();
         String csv = switch (cat) {
-            case "blocks" -> "STONE,COBBLESTONE,STONE_BRICKS,CRACKED_STONE_BRICKS,MOSSY_STONE_BRICKS,CHISELED_STONE_BRICKS,ANDESITE,DIORITE,GRANITE,DEEPSLATE,COBBLED_DEEPSLATE,DEEPSLATE_BRICKS,DEEPSLATE_TILES,DIRT,COARSE_DIRT,ROOTED_DIRT,GRASS_BLOCK,SAND,RED_SAND,GRAVEL,CLAY,BRICKS,BRICK,GLASS,GLASS_PANE,TERRACOTTA,SANDSTONE,CUT_SANDSTONE,SMOOTH_SANDSTONE,RED_SANDSTONE,QUARTZ_BLOCK,QUARTZ_BRICKS,CHISELED_QUARTZ_BLOCK,SMOOTH_QUARTZ,PRISMARINE,PRISMARINE_BRICKS,DARK_PRISMARINE,SEA_LANTERN,BOOKSHELF,CRAFTING_TABLE,CHEST,BARREL,IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK";
-            case "food" -> "BREAD,COOKED_BEEF,COOKED_PORKCHOP,COOKED_CHICKEN,COOKED_MUTTON,COOKED_RABBIT,COOKED_COD,COOKED_SALMON,BAKED_POTATO,GOLDEN_CARROT,APPLE,CARROT,POTATO,PUMPKIN_PIE,COOKIE,MELON_SLICE,SWEET_BERRIES,GLOW_BERRIES,DRIED_KELP";
+            case "blocks" -> "STONE,COBBLESTONE,STONE_BRICKS,CRACKED_STONE_BRICKS,MOSSY_STONE_BRICKS,CHISELED_STONE_BRICKS,ANDESITE,DIORITE,GRANITE,DEEPSLATE,COBBLED_DEEPSLATE,DEEPSLATE_BRICKS,DEEPSLATE_TILES,DIRT,COARSE_DIRT,ROOTED_DIRT,GRASS_BLOCK,SAND,RED_SAND,GRAVEL,CLAY,BRICKS,BRICK,GLASS,GLASS_PANE,TERRACOTTA,SANDSTONE,CUT_SANDSTONE,SMOOTH_SANDSTONE,RED_SANDSTONE,QUARTZ_BLOCK,QUARTZ_BRICKS,CHISELED_QUARTZ_BLOCK,SMOOTH_QUARTZ,PRISMARINE,PRISMARINE_BRICKS,DARK_PRISMARINE,SEA_LANTERN,BOOKSHELF,CRAFTING_TABLE,CHEST,BARREL,IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK,SHULKER_BOX,WHITE_SHULKER_BOX,ORANGE_SHULKER_BOX,MAGENTA_SHULKER_BOX,LIGHT_BLUE_SHULKER_BOX,YELLOW_SHULKER_BOX,LIME_SHULKER_BOX,PINK_SHULKER_BOX,GRAY_SHULKER_BOX,LIGHT_GRAY_SHULKER_BOX,CYAN_SHULKER_BOX,PURPLE_SHULKER_BOX,BLUE_SHULKER_BOX,BROWN_SHULKER_BOX,GREEN_SHULKER_BOX,RED_SHULKER_BOX,BLACK_SHULKER_BOX";
+            case "food" -> "BREAD,COOKED_BEEF,COOKED_PORKCHOP,COOKED_CHICKEN,COOKED_MUTTON,COOKED_RABBIT,COOKED_COD,COOKED_SALMON,BAKED_POTATO,GOLDEN_CARROT,APPLE,PUMPKIN_PIE,COOKIE,MELON_SLICE,SWEET_BERRIES,GLOW_BERRIES,DRIED_KELP";
             case "pvp" -> "OBSIDIAN,END_CRYSTAL,TOTEM_OF_UNDYING,RESPAWN_ANCHOR,GLOWSTONE,EXPERIENCE_BOTTLE,GOLDEN_APPLE,ENDER_PEARL,ENDER_CHEST,ENDER_EYE,ARROW,SPECTRAL_ARROW";
-            case "redstone" -> "REDSTONE,REDSTONE_TORCH,REPEATER,COMPARATOR,OBSERVER,PISTON,STICKY_PISTON,HOPPER,DROPPER,DISPENSER,REDSTONE_LAMP,LEVER,STONE_BUTTON,STONE_PRESSURE_PLATE,TRIPWIRE_HOOK,TARGET,DAYLIGHT_DETECTOR,NOTE_BLOCK,RAIL,POWERED_RAIL,DETECTOR_RAIL,ACTIVATOR_RAIL,MINECART,HOPPER_MINECART,SLIME_BLOCK,HONEY_BLOCK,CHEST,TRAPPED_CHEST,SHULKER_BOX";
-            case "farm" -> "WHEAT_SEEDS,CARROT,POTATO,BEETROOT_SEEDS,PUMPKIN_SEEDS,MELON_SEEDS,WHEAT,SUGAR_CANE,PUMPKIN,MELON,CACTUS,BAMBOO,COCOA_BEANS,NETHER_WART,BONE_MEAL,COMPOSTER,FLOWER_POT,WATER_BUCKET,LAVA_BUCKET,SHEARS,LEAD";
-            case "nether" -> "NETHERRACK,NETHER_BRICKS,RED_NETHER_BRICKS,BLACKSTONE,GILDED_BLACKSTONE,POLISHED_BLACKSTONE,POLISHED_BLACKSTONE_BRICKS,BASALT,POLISHED_BASALT,SMOOTH_BASALT,SOUL_SAND,SOUL_SOIL,GLOWSTONE,MAGMA_BLOCK,NETHER_QUARTZ_ORE,QUARTZ,NETHER_WART,BLAZE_ROD,BLAZE_POWDER,CRYING_OBSIDIAN,OBSIDIAN,GHAST_TEAR,MAGMA_CREAM";
-            case "end" -> "END_STONE,END_STONE_BRICKS,PURPUR_BLOCK,PURPUR_PILLAR,PURPUR_STAIRS,PURPUR_SLAB,END_ROD,CHORUS_FRUIT,POPPED_CHORUS_FRUIT,ENDER_PEARL,ENDER_EYE";
+            case "redstone" -> "REDSTONE,REDSTONE_TORCH,REPEATER,COMPARATOR,OBSERVER,PISTON,STICKY_PISTON,HOPPER,DROPPER,DISPENSER,REDSTONE_LAMP,LEVER,STONE_BUTTON,STONE_PRESSURE_PLATE,TRIPWIRE_HOOK,TARGET,DAYLIGHT_DETECTOR,NOTE_BLOCK,RAIL,POWERED_RAIL,DETECTOR_RAIL,ACTIVATOR_RAIL,MINECART,HOPPER_MINECART,SLIME_BLOCK,HONEY_BLOCK,TRAPPED_CHEST";
+            case "farm" -> "WHEAT_SEEDS,CARROT,POTATO,BEETROOT_SEEDS,PUMPKIN_SEEDS,MELON_SEEDS,WHEAT,SUGAR_CANE,PUMPKIN,MELON,CACTUS,BAMBOO,COCOA_BEANS,BONE_MEAL,COMPOSTER,FLOWER_POT,WATER_BUCKET,LAVA_BUCKET,SHEARS,LEAD";
+            case "nether" -> "NETHERRACK,NETHER_BRICKS,RED_NETHER_BRICKS,BLACKSTONE,GILDED_BLACKSTONE,POLISHED_BLACKSTONE,POLISHED_BLACKSTONE_BRICKS,BASALT,POLISHED_BASALT,SMOOTH_BASALT,SOUL_SAND,SOUL_SOIL,MAGMA_BLOCK,NETHER_QUARTZ_ORE,QUARTZ,NETHER_WART,BLAZE_ROD,BLAZE_POWDER,CRYING_OBSIDIAN,GHAST_TEAR,MAGMA_CREAM";
+            case "end" -> "END_STONE,END_STONE_BRICKS,PURPUR_BLOCK,PURPUR_PILLAR,PURPUR_STAIRS,PURPUR_SLAB,END_ROD,CHORUS_FRUIT,POPPED_CHORUS_FRUIT";
             default -> "";
         };
         for (String raw : csv.split(",")) {
@@ -133,6 +132,10 @@ final class ShopSellManager implements Listener {
             if (m != null && m.isItem()) entries.putIfAbsent(m, new ShopEntry(m, null, 0));
         }
         if (cat.equals("blocks")) {
+            for (String color : List.of("WHITE","ORANGE","MAGENTA","LIGHT_BLUE","YELLOW","LIME","PINK","GRAY","LIGHT_GRAY","CYAN","PURPLE","BLUE","BROWN","GREEN","RED","BLACK")) {
+                Material shulker = Material.matchMaterial(color + "_SHULKER_BOX");
+                if (shulker != null) entries.putIfAbsent(shulker, new ShopEntry(shulker, null, 0));
+            }
             addColorVariants(entries, "WOOL");
             addColorVariants(entries, "CONCRETE");
             addColorVariants(entries, "CONCRETE_POWDER");
