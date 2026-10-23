@@ -490,7 +490,7 @@ final class AuctionHouseManager implements Listener {
     private String exact(double value) { return EXACT.format(value); }
     private String itemName(ItemStack item) {
         ItemMeta meta = item.getItemMeta();
-        if (meta != null && meta.hasDisplayName()) return plain(meta.displayName());
+        if (meta != null && meta.hasDisplayName()) return plain(meta.getDisplayName());
         String[] parts = item.getType().name().toLowerCase(Locale.ROOT).split("_");
         StringJoiner out = new StringJoiner(" ");
         for (String part : parts) out.add(part.substring(0, 1).toUpperCase(Locale.ROOT) + part.substring(1));
