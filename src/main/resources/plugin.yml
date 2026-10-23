@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.16.0
+version: 2.17.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -12,6 +12,12 @@ commands:
   keyall:
     description: Grant digital crate keys to all online players
     usage: /keyall <type> <amount>
+  gamble:
+    description: Use your daily rank-based reward attempts
+    usage: /gamble [remaining]
+  leaderboard:
+    description: View persistent Kelvora player leaderboards
+    usage: /leaderboard [kills|deaths|playtime|money|kelvoras|rank]
   kelvoratools:
     description: Give Kelvora special tools
     usage: /kelvoratools give <player> <drill|gainer|sellaxe|treetrooper>
