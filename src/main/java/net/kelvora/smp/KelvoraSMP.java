@@ -99,6 +99,7 @@ implements Listener {
         this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
         this.shardShopManager.register();
         new CrateManager(this).register();
+        new GambleManager(this, this.kelvorasManager).register();
         new SpecialToolsManager(this, this.kelvorasManager, this.worthManager).register();
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
