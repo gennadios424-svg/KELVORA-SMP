@@ -1,8 +1,8 @@
 name: KelvoraSMP
-version: 2.3.0
+version: 2.4.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
-description: Kelvora SMP economy GUIs, Money leaderboard, bounty, and combat tags
+description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
 softdepend: [LuckPerms, Vault, PlaceholderAPI]
 author: Kelvora SMP
 commands:
@@ -29,6 +29,10 @@ commands:
   baltop:
     description: Show the richest players by Money balance
     usage: /baltop [page]
+  coinflip:
+    description: Play Money coinflip challenges
+    usage: /coinflip [create <amount>|cancel|history|help]
+    aliases: [cf]
   bounty:
     description: Place and browse Money bounties
     usage: /bounty [set <player> <amount>|check <player>|top|list]
@@ -48,6 +52,9 @@ permissions:
     default: true
   kelvora.ah:
     description: Use the Kelvora Auction House
+    default: true
+  kelvora.coinflip:
+    description: Use the Money coinflip system
     default: true
   kelvora.bounty:
     description: Use the Kelvora bounty system
