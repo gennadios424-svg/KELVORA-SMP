@@ -227,7 +227,7 @@ final class ShopSellManager implements Listener {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
             String action = action(e.getCurrentItem());
-            if (action != null) playUiSound(p, action.equals("confirm") ? Sound.ENTITY_EXPERIENCE_ORB_PICKUP : Sound.UI_BUTTON_CLICK);
+            if (action != null) playUiSound(p, Sound.UI_BUTTON_CLICK);
             QuantitySession session = quantitySessions.get(p.getUniqueId());
             if (action == null || session == null) return;
             if (action.startsWith("qty:")) {
@@ -251,7 +251,7 @@ final class ShopSellManager implements Listener {
             if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
             String action = action(e.getCurrentItem());
             if (action == null) return;
-            playUiSound(p, action.startsWith("page:") ? Sound.ITEM_BOOK_PAGE_TURN : Sound.UI_BUTTON_CLICK);
+            playUiSound(p, action.startsWith("page:") ? Sound.UI_BUTTON_CLICK : Sound.UI_BUTTON_CLICK);
             if (action.equals("back")) openShop(p);
             else if (action.equals("close")) p.closeInventory();
             else if (action.equals("balance")) tellBalance(p);
@@ -274,7 +274,7 @@ final class ShopSellManager implements Listener {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p)) return;
             String action = action(e.getCurrentItem());
-            if (action != null) playUiSound(p, "confirm".equals(action) ? Sound.ENTITY_EXPERIENCE_ORB_PICKUP : Sound.UI_BUTTON_CLICK);
+            if (action != null) playUiSound(p, Sound.UI_BUTTON_CLICK);
             if ("cancel".equals(action)) {
                 // The close handler safely returns every item still in the deposit area.
                 p.closeInventory();
