@@ -174,11 +174,10 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
                     player.sendActionBar(Component.text("Teleport cancelled — you are in combat!", NamedTextColor.RED));
                     cancel(); return;
                 }
-                Location now = player.getLocation();
-                double tolerance = Math.max(0.0, plugin.getConfig().getDouble("rtp.movement-tolerance", 0.05));
-                if (!now.getWorld().equals(origin.getWorld()) || now.distanceSquared(origin) > tolerance * tolerance) {
-                    searching.remove(id); countdownOrigins.remove(id); countdowns.remove(id);
-                    player.sendActionBar(Component.text("Teleport cancelled — don't move while teleporting!", NamedTextColor.RED));
+                // Coordinate movement is checked by PlayerMoveEvent against the immutable origin.
+                // Avoid a second per-second location comparison here: it can misclassify server corrections.
+                if (!player.getWorld().equals(origin.getWorld())) {
+                    cancelCountdown(player, "⚠ RTP cancelled — world changed!");
                     cancel(); return;
                 }
                 if (seconds[0] <= 0) {
