@@ -306,25 +306,19 @@ implements Listener {
             return "member";
         }
         String group = user.getPrimaryGroup();
-        if (group == null || group.isBlank()) {
-            return "member";
-        }
+        if (group == null || group.isBlank()) return "sprout";
         group = group.toLowerCase(Locale.ROOT);
-        if (group.equals("default") || group.equals("member") || group.equals("i_sprout")) {
-            for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout"}) {
-                if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(progression))) {
-                    return progression.equals("i_sprout") ? "sprout" : progression;
-                }
+        // Progression is independent of staff/media groups: prefer the actual inherited progression rank.
+        for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout"}) {
+            if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(progression))) {
+                return progression.equals("i_sprout") ? "sprout" : progression;
             }
-            return "sprout";
         }
-        if (group.equals("mod")) return "moderator";
+        if (Set.of("helper", "moderator", "mod", "admin", "owner", "creator", "default", "member", "i_sprout").contains(group)) return "sprout";
         if (group.equals("vip")) return "verdant";
         ConfigurationSection ranks = this.getConfig().getConfigurationSection("ranks");
-        if (ranks != null && ranks.contains(group)) {
-            return group;
-        }
-        return group.equals("default") ? "sprout" : (group.equals("i_sprout") ? "sprout" : group);
+        if (ranks != null && ranks.contains(group) && !Set.of("helper", "moderator", "admin", "owner", "creator").contains(group)) return group;
+        return "sprout";
     }
 
     KelvorasManager passiveKelvorasManager() { return this.kelvorasManager; }
