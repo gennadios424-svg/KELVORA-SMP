@@ -3,6 +3,9 @@ package net.kelvora.smp;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -38,6 +41,7 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
     private YamlConfiguration data;
     private final Map<String, Team> teams = new LinkedHashMap<>();
     private final Map<UUID, Map<String, Long>> invitations = new HashMap<>();
+    private final Set<UUID> awaitingTeamName = ConcurrentHashMap.newKeySet();
 
     TeamManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -352,12 +356,28 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
         String action = item.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
         if (action == null) return;
         if (action.equals("close")) { player.closeInventory(); return; }
-        if (action.equals("create-help")) { player.closeInventory(); player.sendMessage(yellow("Create your team with /team create <name>.")); return; }
+        if (action.equals("create-help")) { awaitingTeamName.add(player.getUniqueId()); player.closeInventory(); player.sendMessage(yellow("Type your team name in chat. Use letters, numbers, or underscores (3–16 characters). Type cancel to stop.")); return; }
         if (action.equals("info")) { player.closeInventory(); showInfo(player, null); return; }
         if (action.equals("list")) { player.closeInventory(); list(player); return; }
         if (action.equals("leave-help")) { player.closeInventory(); player.sendMessage(yellow("Use /team leave. A leader must transfer leadership first.")); return; }
         if (action.startsWith("invite:")) { invite(player, action.substring(7)); openGui(player); return; }
         if (action.startsWith("join:")) { join(player, action.substring(5)); openGui(player); }
+    }
+
+    @EventHandler public void onTeamNameChat(AsyncChatEvent event) {
+        Player player = event.getPlayer();
+        if (!awaitingTeamName.remove(player.getUniqueId())) return;
+        event.setCancelled(true);
+        String submitted = PlainTextComponentSerializer.plainText().serialize(event.message()).trim();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline()) return;
+            if (submitted.equalsIgnoreCase("cancel")) {
+                player.sendMessage(yellow("Team creation cancelled."));
+                return;
+            }
+            create(player, submitted);
+            openGui(player);
+        });
     }
 
     @EventHandler public void onInventoryDrag(InventoryDragEvent event) {
