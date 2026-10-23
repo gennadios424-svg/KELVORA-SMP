@@ -86,7 +86,7 @@ final class CoinflipManager implements Listener {
         }
     }
 
-    private boolean money(Player p, double amount, boolean withdraw) {
+    private boolean money(org.bukkit.OfflinePlayer p, double amount, boolean withdraw) {
         if (economy == null) connectEconomy();
         if (economy == null || !Double.isFinite(amount) || amount <= 0) return false;
         try {
@@ -249,7 +249,7 @@ final class CoinflipManager implements Listener {
     private void settle(Challenge c, Player winner, Player loser) {
         if (c.paid) return;
         c.paid = true; c.status = "PAID"; save(); // Persist claim before external economy call to prevent duplicate payouts after restart.
-        boolean paid = winner != null && money(winner, c.pot, false);
+        boolean paid = c.winner != null && money(Bukkit.getOfflinePlayer(c.winner), c.pot, false);
         String winnerName = c.winner.equals(c.creator) ? c.creatorName : c.opponentName;
         history.add(0, c.creatorName + " vs " + c.opponentName + " | winner " + winnerName + " | $" + fmt(c.pot));
         while (history.size() > 10) history.remove(history.size()-1);
@@ -327,7 +327,7 @@ final class CoinflipManager implements Listener {
                 if (status.equals("OPEN")) {
                     // An open challenge from a prior server session has no valid live opponent; refund escrow on startup.
                     Player creator = Bukkit.getPlayer(c.creator);
-                    if (creator != null && money(creator,c.amount,false)) continue;
+                    if (money(Bukkit.getOfflinePlayer(c.creator),c.amount,false)) continue;
                     c.status = "REFUND_PENDING"; challenges.put(c.id,c);
                 } else if (status.equals("RUNNING") && c.winner != null) {
                     c.status = "PAID"; c.paid = true;
