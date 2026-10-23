@@ -27,8 +27,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -182,21 +180,26 @@ final class ShardShopManager implements Listener {
 
     private void applyCosmetic(Player player, String category, String id, ConfigurationSection entry) {
         if (category.equals("glows")) {
-            player.removePotionEffect(PotionEffectType.GLOWING);
             if (id != null) {
                 // Colorized glowing uses scoreboard teams; teams are added to each viewer's current scoreboard.
                 ChatColor color = ChatColor.valueOf(entry.getString("color", "GREEN").toUpperCase(Locale.ROOT));
+                String glowStatePath = player.getUniqueId() + ".glow.previous-state";
+                if (!data.contains(glowStatePath)) data.set(glowStatePath, player.isGlowing());
+                saveData();
                 player.setGlowing(true);
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
                     Scoreboard board = viewer.getScoreboard();
                     String teamName = "ksglow_" + player.getUniqueId().toString().substring(0, 8);
                     Team old = board.getTeam(teamName);
                     Team team = old == null ? board.registerNewTeam(teamName) : old;
-                    team.color(color);
+                    team.setColor(color);
                     team.addEntry(player.getName());
                 }
             } else {
-                player.setGlowing(false);
+                boolean wasGlowing = data.getBoolean(player.getUniqueId() + ".glow.previous-state", false);
+                if (!wasGlowing) player.setGlowing(false);
+                data.set(player.getUniqueId() + ".glow.previous-state", null);
+                saveData();
                 removeGlowTeams(player);
             }
         }
@@ -274,7 +277,18 @@ final class ShardShopManager implements Listener {
                     long expires = cosmetics.getLong(id, 0);
                     if (expires > 0 && expires <= System.currentTimeMillis()) {
                         data.set(uuidText + ".owned." + category + "." + id, null);
-                        if (id.equals(data.getString(uuidText + ".equipped." + category))) data.set(uuidText + ".equipped." + category, null);
+                        if (id.equals(data.getString(uuidText + ".equipped." + category))) {
+                            data.set(uuidText + ".equipped." + category, null);
+                            if (category.equals("glows")) {
+                                Player online = Bukkit.getPlayer(uuid);
+                                if (online != null) {
+                                    boolean wasGlowing = data.getBoolean(uuidText + ".glow.previous-state", false);
+                                    if (!wasGlowing) online.setGlowing(false);
+                                    data.set(uuidText + ".glow.previous-state", null);
+                                    removeGlowTeams(online);
+                                }
+                            }
+                        }
                         changed = true;
                     }
                 }
