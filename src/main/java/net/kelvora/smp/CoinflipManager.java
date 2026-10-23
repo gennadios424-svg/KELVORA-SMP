@@ -36,6 +36,8 @@ final class CoinflipManager implements Listener {
     private Object economy;
     private final Map<UUID, Challenge> challenges = new LinkedHashMap<>();
     private final Map<UUID, UUID> confirmations = new HashMap<>();
+    private final Map<Inventory, Map<Integer, UUID>> challengeSlots = Collections.synchronizedMap(new WeakHashMap<>());
+    private final Set<Inventory> protectedGuis = Collections.newSetFromMap(new WeakHashMap<>());
     private final Map<UUID, Long> chatCreate = new HashMap<>();
     private final List<String> history = new ArrayList<>();
 
@@ -154,6 +156,8 @@ final class CoinflipManager implements Listener {
 
     private void openMain(Player p) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(MAIN, NamedTextColor.GREEN));
+        protectedGuis.add(inv);
+        Map<Integer, UUID> slotChallenges = new HashMap<>();
         for (int i = 0; i < 9; i++) inv.setItem(i, item(Material.LIME_STAINED_GLASS_PANE, " ", null));
         inv.setItem(4, item(Material.GOLD_INGOT, "Create Coinflip", List.of("Click, then enter the wager in chat", "or use /coinflip create <amount>")));
         inv.setItem(8, item(Material.CLOCK, "Refresh", List.of("Refresh open challenges")));
@@ -169,19 +173,23 @@ final class CoinflipManager implements Listener {
                 Component.text("Status: Waiting for Player", NamedTextColor.AQUA),
                 Component.text("Click to review and join", NamedTextColor.GRAY)));
             head.setItemMeta(meta);
-            inv.setItem(slot++, head);
+            inv.setItem(slot, head);
+            slotChallenges.put(slot, c.id);
+            slot++;
         }
         if (slot == 9) inv.setItem(22, item(Material.PAPER, "No Open Coinflips", List.of("Create one and wait for an opponent.")));
         inv.setItem(45, item(Material.WRITABLE_BOOK, "Latest Coinflips", history.isEmpty() ? List.of("No completed coinflips yet.") :
             history.stream().limit(6).map(s -> s.length() > 45 ? s.substring(0,45) : s).map(s -> Component.text(s, NamedTextColor.GRAY)).toList()));
         inv.setItem(49, item(Material.EMERALD, "Your Money", List.of("$" + fmt(Math.max(0, balance(p))))));
         inv.setItem(53, item(Material.BARRIER, "Close", null));
+        challengeSlots.put(inv, slotChallenges);
         p.openInventory(inv);
     }
 
     private void openConfirm(Player p, Challenge c) {
         confirmations.put(p.getUniqueId(), c.id);
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(CONFIRM, NamedTextColor.GOLD));
+        protectedGuis.add(inv);
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta sm = (SkullMeta) head.getItemMeta(); sm.setOwningPlayer(Bukkit.getOfflinePlayer(c.creator));
         sm.displayName(Component.text(c.creatorName, NamedTextColor.GREEN)); head.setItemMeta(sm);
@@ -195,7 +203,7 @@ final class CoinflipManager implements Listener {
         if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot join a coinflip during combat.", NamedTextColor.RED)); return; }
         Challenge c = challenges.get(id);
         if (c == null || !c.status.equals("OPEN")) { p.sendMessage(Component.text("That coinflip is no longer available.", NamedTextColor.RED)); openMain(p); return; }
-        if (c.creator.equals(p.getUniqueId())) { p.sendMessage(Component.text("You cannot join your own coinflip.", NamedTextColor.RED)); return; }
+        if (c.creator.equals(p.getUniqueId())) { p.sendMessage(Component.text("You cannot join your own coinflip.", NamedTextColor.RED)); openMain(p); return; }
         if (p.getWorld().getName().isBlank()) return;
         Player creator = Bukkit.getPlayer(c.creator);
         if (creator == null) {
@@ -224,6 +232,7 @@ final class CoinflipManager implements Listener {
         if (step == 0) {
             Inventory ia = Bukkit.createInventory(null, 27, Component.text(ANIMATION, NamedTextColor.GOLD));
             Inventory ib = Bukkit.createInventory(null, 27, Component.text(ANIMATION, NamedTextColor.GOLD));
+            protectedGuis.add(ia); protectedGuis.add(ib);
             fillAnimation(ia, c, step); fillAnimation(ib, c, step);
             a.openInventory(ia); b.openInventory(ib);
         }
@@ -245,6 +254,7 @@ final class CoinflipManager implements Listener {
             if (!viewer.isOnline()) continue;
             // Never clear an unrelated inventory if a participant closed or replaced the animation GUI.
             Inventory inv = Bukkit.createInventory(null, 27, Component.text(ANIMATION, NamedTextColor.GOLD));
+            protectedGuis.add(inv);
             inv.setItem(4, item(Material.DIAMOND_BLOCK, "WINNING POSITION", List.of("Server-side result locked")));
             inv.setItem(13, playerHead(c.winner, c.winner.equals(c.creator) ? c.creatorName : c.opponentName));
             inv.setItem(22, item(Material.GOLD_INGOT, (c.winner.equals(viewer.getUniqueId()) ? "YOU WIN" : "YOU LOSE"),
@@ -293,25 +303,44 @@ final class CoinflipManager implements Listener {
     }
 
     @EventHandler public void onClick(InventoryClickEvent e) {
-        String title = e.getView().getTitle();
-        if (!title.equals(MAIN) && !title.equals(CONFIRM) && !title.equals(ANIMATION)) return;
+        Inventory top = e.getView().getTopInventory();
+        if (!protectedGuis.contains(top)) return;
+        // Cancel every click mode while one of our exact inventory instances is open:
+        // shift-click, number-key, offhand, double-click, creative and bottom-inventory clicks too.
         e.setCancelled(true);
-        if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
+        if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != top) return;
+        String title = e.getView().getTitle();
+        int slot = e.getRawSlot();
         if (title.equals(MAIN)) {
-            if (e.getSlot() == 53) { p.closeInventory(); return; }
-            if (e.getSlot() == 8) { openMain(p); return; }
-            if (e.getSlot() == 4) { chatCreate.put(p.getUniqueId(), System.currentTimeMillis()); p.closeInventory(); p.sendMessage(Component.text("Type the wager amount in chat, or use /coinflip create <amount>. Type cancel to stop.", NamedTextColor.GOLD)); return; }
-            ItemStack clicked = e.getCurrentItem();
-            if (clicked != null && clicked.getType() == Material.PLAYER_HEAD) {
-                int slot = e.getSlot(); int index = slot - 9;
-                List<Challenge> list = challenges.values().stream().filter(c -> c.status.equals("OPEN")).toList();
-                if (index >= 0 && index < list.size()) openConfirm(p, list.get(index));
+            if (slot == 53) { p.closeInventory(); return; }
+            if (slot == 8) { openMain(p); return; }
+            if (slot == 4) { chatCreate.put(p.getUniqueId(), System.currentTimeMillis()); p.closeInventory(); p.sendMessage(Component.text("Type the wager amount in chat, or use /coinflip create <amount>. Type cancel to stop.", NamedTextColor.GOLD)); return; }
+            UUID challengeId = challengeSlots.getOrDefault(top, Map.of()).get(slot);
+            if (challengeId != null) {
+                Challenge current = challenges.get(challengeId);
+                if (current == null || !current.status.equals("OPEN")) {
+                    p.sendMessage(Component.text("That coinflip is no longer available. Refresh and try again.", NamedTextColor.RED));
+                    openMain(p);
+                } else openConfirm(p, current);
             }
         } else if (title.equals(CONFIRM)) {
-            UUID id = confirmations.remove(p.getUniqueId());
-            if (e.getSlot() == 13 && id != null) join(p, id);
-            else if (e.getSlot() == 15) openMain(p);
-            else if (e.getSlot() == 13) p.sendMessage(Component.text("Challenge expired.", NamedTextColor.RED));
+            UUID id = confirmations.get(p.getUniqueId());
+            if (slot == 13) {
+                confirmations.remove(p.getUniqueId());
+                if (id != null) join(p, id);
+                else { p.sendMessage(Component.text("Challenge expired. Open /coinflip again.", NamedTextColor.RED)); openMain(p); }
+            } else if (slot == 15) {
+                confirmations.remove(p.getUniqueId());
+                openMain(p);
+            }
+        }
+    }
+
+    @EventHandler public void onDrag(InventoryDragEvent e) {
+        if (protectedGuis.contains(e.getView().getTopInventory())) {
+            // Raw slots below the top inventory are player inventory slots; dragging into any
+            // top GUI slot is blocked, while no coinflip GUI items can be transferred out.
+            if (e.getRawSlots().stream().anyMatch(slot -> slot < e.getView().getTopInventory().getSize())) e.setCancelled(true);
         }
     }
 
