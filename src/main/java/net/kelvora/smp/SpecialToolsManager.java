@@ -10,6 +10,9 @@ import net.milkbowl.vault.economy.Economy;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.BlockFace;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.command.*;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -32,9 +35,10 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     private final NamespacedKey idKey, createdKey, expiresKey, progressKey, targetKey;
     private final Set<String> processing=ConcurrentHashMap.newKeySet();
     private final Set<String> placedBlocks=ConcurrentHashMap.newKeySet();
+    private final Map<UUID, BlockFace> lastMiningFace=new ConcurrentHashMap<>();
     private final File dataFile;
     private org.bukkit.configuration.file.YamlConfiguration data;
-    private final Random random=new Random();
+    private final java.security.SecureRandom random=new java.security.SecureRandom();
     private Economy economy;
 
     SpecialToolsManager(JavaPlugin plugin,KelvorasManager currency,WorthManager worth){
@@ -98,6 +102,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     public void onBreak(BlockBreakEvent event){
         Player p=event.getPlayer();if(processing.contains(blockKey(event.getBlock())))return;ItemStack tool=p.getInventory().getItemInMainHand();String type=id(tool);if(type==null)return;
         if(type.equals("drill")&&expired(tool)){event.setCancelled(true);downgrade(p,tool);return;}
+        if(type.equals("drill")&&restricted(event.getBlock())){event.setCancelled(true);return;}
         if(!p.getGameMode().equals(GameMode.SURVIVAL)&&!p.getGameMode().equals(GameMode.ADVENTURE))return;
         if(type.equals("gainer")){
             if(p.getGameMode()!=GameMode.SURVIVAL||!eligible(event.getBlock())||!natural(event.getBlock())||!plugin.getConfig().getStringList("kelvora-tools.gainer.eligible-blocks").contains(event.getBlock().getType().name()))return;
@@ -143,18 +148,28 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         }
     }
     private int maxBlocks(String type){return type.equals("drill")?9:Math.max(1,plugin.getConfig().getInt("kelvora-tools.treetrooper.max-logs",64));}
+    @EventHandler(priority=EventPriority.LOWEST)
+    public void rememberMiningFace(PlayerInteractEvent event) {
+        if(event.getAction()==Action.LEFT_CLICK_BLOCK && event.getClickedBlock()!=null
+                && "drill".equals(id(event.getItem())) && event.getBlockFace()!=null) {
+            lastMiningFace.put(event.getPlayer().getUniqueId(), event.getBlockFace());
+        }
+    }
     private List<Block> drillPlane(Block target,Player p){
-        List<Block> out=new ArrayList<>();float pitch=p.getLocation().getPitch();BlockFaceAxis axis= pitch>55?BlockFaceAxis.HORIZONTAL:BlockFaceAxis.VERTICAL;
+        List<Block> out=new ArrayList<>();
+        BlockFace face=lastMiningFace.getOrDefault(p.getUniqueId(),p.getFacing());
         for(int a=-1;a<=1;a++)for(int b=-1;b<=1;b++){
             Block block;
-            if(axis==BlockFaceAxis.HORIZONTAL)block=target.getRelative(a,0,b);
-            else if(p.getFacing()==org.bukkit.block.BlockFace.NORTH||p.getFacing()==org.bukkit.block.BlockFace.SOUTH)block=target.getRelative(a,b,0);
-            else block=target.getRelative(0,b,a);
+            if(face==BlockFace.UP||face==BlockFace.DOWN)block=target.getRelative(a,0,b);
+            else if(face==BlockFace.EAST||face==BlockFace.WEST)block=target.getRelative(0,a,b);
+            else block=target.getRelative(a,b,0);
             if(eligible(block)&&!restricted(block))out.add(block);
         }return out;
     }
-    private enum BlockFaceAxis{HORIZONTAL,VERTICAL}
-    private boolean restricted(Block b){return b.getType().name().contains("SPAWNER")||b.getState() instanceof org.bukkit.block.Container||b.getType()==Material.BEDROCK||b.getType()==Material.END_PORTAL_FRAME;}
+    private boolean restricted(Block b){
+        if(b.getType().name().contains("SPAWNER")||b.getState() instanceof org.bukkit.block.Container||b.getType()==Material.BEDROCK||b.getType()==Material.END_PORTAL_FRAME)return true;
+        return plugin.getConfig().getStringList("kelvora-tools.drill.restricted-blocks").contains(b.getType().name());
+    }
     private List<Block> treeBlocks(Block target){
         if(!isLog(target.getType()))return List.of(target);
         int limit=Math.max(1,plugin.getConfig().getInt("kelvora-tools.treetrooper.max-logs",64));
