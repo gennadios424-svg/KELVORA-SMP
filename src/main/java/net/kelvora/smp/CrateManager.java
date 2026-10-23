@@ -118,8 +118,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
 
     private void createHologram(String type, Location block) {
         if (block.getWorld() == null) return;
-        String title = plugin.getConfig().getString("crates.types." + type + ".name", titleCase(type) + " Crate");
-        String desc = plugin.getConfig().getString("crates.types." + type + ".description", "Special rewards");
+        String title = crateConfig(type).getString("name", titleCase(type) + " Crate");
+        String desc = crateConfig(type).getString("description", "Special rewards");
         Location base = block.clone().add(0.5, 1.15, 0.5);
         spawnLine(base, type, "&6&l" + title);
         spawnLine(base.clone().add(0, -0.27, 0), type, "&fRight-click to open");
@@ -190,7 +190,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if(target!=null) loc=(target.getType().isAir()?target:target.getRelative(0,1,0)).getLocation();
             else loc=p.getLocation().getBlock().getRelative(0,2,0).getLocation();
             if(!loc.getBlock().isPassable()){sender.sendMessage("Choose a clear block location (look at the ground or an empty space).");return true;}
-            Material appearance=Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","SHULKER_BOX"));
+            Material appearance=Material.matchMaterial(crateConfig(type).getString("block","SHULKER_BOX"));
             if(appearance==null||!appearance.isBlock()||appearance.isAir()||!appearance.name().endsWith("SHULKER_BOX")) appearance=Material.SHULKER_BOX;
             loc.getBlock().setType(appearance);
             String key=locKey(loc);
