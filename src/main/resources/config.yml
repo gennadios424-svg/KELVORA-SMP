@@ -239,3 +239,11 @@ prices:
   FIREWORK_ROCKET: 15
   TNT: 40
   TNT_MINECART: 350
+
+# RTP world names are optional. Leave blank to auto-detect by Bukkit world environment.
+# For Multiverse worlds, set the exact loaded world names here.
+rtp:
+  worlds:
+    overworld: ""
+    nether: ""
+    end: ""
