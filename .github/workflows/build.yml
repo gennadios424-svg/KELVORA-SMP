@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'src/main/resources/**'
       - 'pom.xml'
       - '.github/workflows/build.yml'
   workflow_dispatch:
@@ -52,6 +53,7 @@ jobs:
           unzip -p "$JAR" plugin.yml | grep -q 'baltop:'
           unzip -p "$JAR" plugin.yml | grep -q 'kelvoras:'
           unzip -p "$JAR" plugin.yml | grep -q 'coinflip:'
+          unzip -p "$JAR" plugin.yml | grep -q "version: ${VERSION}"
           echo "Compiled JAR, coinflip, shop manager, Money leaderboard, and Kelvoras command verified."
       - name: Publish compiled JAR to repository
         id: publish
