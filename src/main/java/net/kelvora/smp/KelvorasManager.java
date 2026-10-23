@@ -148,6 +148,22 @@ final class KelvorasManager {
         }
     }
 
+    synchronized boolean deposit(OfflinePlayer player, double amount) {
+        if (player == null || !Double.isFinite(amount) || amount <= 0 || amount > MAX_BALANCE) return false;
+        double current = balance(player);
+        if (!Double.isFinite(current) || current > MAX_BALANCE - amount) return false;
+        String key = "balances." + player.getUniqueId();
+        data.set(key, current + amount);
+        try {
+            data.save(file);
+            return true;
+        } catch (IOException ex) {
+            data.set(key, current);
+            plugin.getLogger().severe("Could not persist Kelvoras reward: " + ex.getMessage());
+            return false;
+        }
+    }
+
     synchronized boolean transfer(Player sender, Player target, double amount) {
         if (sender == null || target == null || sender.getUniqueId().equals(target.getUniqueId())
                 || !Double.isFinite(amount) || amount <= 0 || amount > MAX_BALANCE) return false;
