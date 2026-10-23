@@ -68,6 +68,7 @@ implements Listener {
     private LuckPerms luckPerms;
     private boolean placeholderApi;
     private KelvorasManager kelvorasManager;
+    private WorthManager worthManager;
     private ShardShopManager shardShopManager;
     private TeamManager teamManager;
     private int refreshTask;
@@ -80,7 +81,8 @@ implements Listener {
         this.setupIntegrations();
         this.kelvorasManager = new KelvorasManager(this);
         this.kelvorasManager.register();
-        new WorthManager(this).register();
+        this.worthManager = new WorthManager(this);
+        this.worthManager.register();
         new ShopSellManager(this).register();
         new AuctionHouseManager(this).register();
         BountyCombatManager combatManager = new BountyCombatManager(this);
@@ -94,6 +96,8 @@ implements Listener {
         new RankKitManager(this).register();
         this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
         this.shardShopManager.register();
+        new CrateManager(this).register();
+        new SpecialToolsManager(this, this.kelvorasManager, this.worthManager).register();
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
