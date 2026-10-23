@@ -63,8 +63,18 @@ jobs:
             sleep 2
           done
           if ! grep -q 'Done (' server.log; then cat server.log; kill "$SERVER_PID" 2>/dev/null || true; exit 1; fi
-          grep -q 'Auction House loaded' server.log
-          grep -q 'Kelvora SMP presentation enabled' server.log
+          if ! grep -q 'Auction House loaded' server.log; then
+            echo 'Startup smoke test did not see the Auction House initialization log.'
+            cat server.log
+            kill "$SERVER_PID" 2>/dev/null || true
+            exit 1
+          fi
+          if ! grep -q 'Kelvora SMP presentation enabled' server.log; then
+            echo 'Startup smoke test did not see the Kelvora presentation initialization log.'
+            cat server.log
+            kill "$SERVER_PID" 2>/dev/null || true
+            exit 1
+          fi
           if grep -E 'Could not load .+ plugin|Error occurred while enabling KelvoraSMP|Exception in thread' server.log; then
             cat server.log
             kill "$SERVER_PID" 2>/dev/null || true
