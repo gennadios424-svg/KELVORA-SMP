@@ -31,6 +31,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.configuration.file.YamlConfiguration;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.types.InheritanceNode;
 import java.io.File;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -246,7 +247,12 @@ final class BaltopManager implements Listener, TabCompleter {
                 User user = LuckPermsProvider.get().getUserManager().getUser(id);
                 if (user != null && user.getPrimaryGroup() != null) {
                     String group = user.getPrimaryGroup().toLowerCase(Locale.ROOT);
-                    if (group.equals("default") || group.equals("member")) group = "i_sprout";
+                    if (group.equals("default") || group.equals("member")) {
+                        for (String progression : List.of("ascendant", "sovereign", "emerald", "verdant", "i_sprout")) {
+                            String candidate = progression;
+                            if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(candidate))) { group = progression; break; }
+                        }
+                    }
                     if (group.equals("mod")) group = "moderator";
                     if (group.equals("vip")) group = "verdant";
                     if (group.equals("i_sprout")) return "I. Sprout";
