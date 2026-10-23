@@ -81,6 +81,7 @@ implements Listener {
         new AuctionHouseManager(this).register();
         new BountyCombatManager(this).register();
         new BaltopManager(this).register();
+        new CoinflipManager(this).register();
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
@@ -210,24 +211,22 @@ implements Listener {
             if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
         }
         if (prefix == null || prefix.isBlank()) prefix = rankColor + "[" + rankLabel + "] ";
-        player.setPlayerListName(this.color(prefix) + this.color("&f" + player.getName()));
+        player.setPlayerListName(this.color(prefix) + this.color("&f" + player.getName()) + this.color(" &8| &b" + player.getPing() + "ms"));
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
         String kelvoras = this.getKelvoras(player);
         Component header = Component.text("KELVORA SMP", NamedTextColor.GREEN)
             .append(Component.newline())
-            .append(Component.text("Survival • Economy • PvP", NamedTextColor.GRAY));
-        Component footer = Component.text("Money: ", NamedTextColor.WHITE)
-            .append(Component.text(Double.isFinite(balance) ? "$" + moneyCompact : "Not connected",
-                Double.isFinite(balance) ? NamedTextColor.GREEN : NamedTextColor.RED))
+            .append(Component.text("Survival ", NamedTextColor.GREEN)
+            .append(Component.text("• PvP ", NamedTextColor.RED))
+            .append(Component.text("• Economy", NamedTextColor.GOLD)));
+        Component footer = Component.text("Online: ", NamedTextColor.WHITE)
+            .append(Component.text(Bukkit.getOnlinePlayers().size(), NamedTextColor.GREEN))
+            .append(Component.text("/", NamedTextColor.GRAY))
+            .append(Component.text(Bukkit.getMaxPlayers(), NamedTextColor.GOLD))
             .append(Component.newline())
-            .append(Component.text("Kelvoras: ", NamedTextColor.WHITE))
-            .append(Component.text(kelvoras, "Not connected".equalsIgnoreCase(kelvoras) ? NamedTextColor.RED : NamedTextColor.AQUA))
-            .append(Component.newline())
-            .append(Component.text("Online: " + Bukkit.getOnlinePlayers().size(), NamedTextColor.GRAY))
-            .append(Component.newline())
-            .append(Component.text(serverAddress, NamedTextColor.GREEN));
+            .append(Component.text(serverAddress, NamedTextColor.AQUA));
         player.sendPlayerListHeaderAndFooter(header, footer);
 
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
@@ -239,7 +238,9 @@ implements Listener {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
-                created.getScore(entry).setScore(5 - i);
+                org.bukkit.scoreboard.Score score = created.getScore(entry);
+                score.setScore(5 - i);
+                score.numberFormat(org.bukkit.scoreboard.NumberFormat.blank());
             }
             this.playerBoards.put(player.getUniqueId(), board);
         }
