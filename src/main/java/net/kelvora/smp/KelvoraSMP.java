@@ -77,6 +77,7 @@ implements Listener {
         new ShopSellManager(this).register();
         new AuctionHouseManager(this).register();
         new BountyCombatManager(this).register();
+        new BaltopManager(this).register();
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
