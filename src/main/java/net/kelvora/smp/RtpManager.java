@@ -199,6 +199,11 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
 
     private void tryCandidate(Player player, World world, Location origin, String dimension, int attempt) {
         if (!searching.contains(player.getUniqueId())) return;
+        if (combat != null && combat.isInCombat(player)) {
+            searching.remove(player.getUniqueId());
+            player.sendActionBar(Component.text("⚠ RTP cancelled — you entered combat!", NamedTextColor.RED));
+            return;
+        }
         if (!player.isOnline() || player.isDead() || !player.getWorld().equals(origin.getWorld())) {
             searching.remove(player.getUniqueId()); return;
         }
@@ -226,6 +231,11 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
             if (!searching.contains(player.getUniqueId())) return;
             if (error != null || chunk == null || !chunk.isLoaded()) {
                 scheduleRetry(player, world, origin, dimension, attempt + ATTEMPTS_PER_REQUEST); return;
+            }
+            if (combat != null && combat.isInCombat(player)) {
+                searching.remove(player.getUniqueId());
+                player.sendActionBar(Component.text("⚠ RTP cancelled — you entered combat!", NamedTextColor.RED));
+                return;
             }
             Location safe = findSafeLocation(world, x, z);
             if (safe == null || !insideBorderWithMargin(border, safe)) {
