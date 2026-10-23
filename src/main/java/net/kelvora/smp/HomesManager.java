@@ -221,7 +221,9 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
         }
         inv.setItem(48, item(Material.ARROW, "§ePrevious page", List.of()));
         ItemStack count = item(Material.PAPER, "§aHomes: " + entries.size() + "/" + homeLimitText(p), List.of("§7Page " + (safePage + 1) + "/" + pages, "§7Saved homes persist after restarts."));
-        count.getItemMeta().getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, "page:" + safePage);
+        ItemMeta countMeta = count.getItemMeta();
+        countMeta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, "page:" + safePage);
+        count.setItemMeta(countMeta);
         inv.setItem(49, count);
         inv.setItem(50, item(Material.ARROW, "§eNext page", List.of()));
         inv.setItem(53, item(Material.BARRIER, "§cClose", List.of()));
