@@ -6,6 +6,15 @@ description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and 
 softdepend: [LuckPerms, Vault, PlaceholderAPI]
 author: Kelvora SMP
 commands:
+  crate:
+    description: Manage and open physical Kelvora crates
+    usage: /crate <spawn|remove|list|keys|givekey>
+  keyall:
+    description: Grant digital crate keys to all online players
+    usage: /keyall <type> <amount>
+  kelvoratools:
+    description: Give Kelvora special tools
+    usage: /kelvoratools give <player> <drill|gainer|sellaxe|treetrooper>
   shop:
     description: Open the Kelvora item shop
     usage: /shop
@@ -77,6 +86,12 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 permissions:
+  kelvora.crate.admin:
+    description: Administer physical crates and digital keys
+    default: op
+  kelvora.tools.admin:
+    description: Give Kelvora special tools
+    default: op
   kelvora.rank.view:
     description: View the rank guide
     default: true
