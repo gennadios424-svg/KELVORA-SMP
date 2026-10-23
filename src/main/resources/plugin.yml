@@ -38,9 +38,21 @@ commands:
     usage: /bounty [set <player> <amount>|check <player>|top|list]
     aliases: [bounties]
   rtp:
-    description: Randomly teleport to safe terrain
-    usage: /rtp [overworld|nether|end]
+    description: Open the random teleport dimension menu
+    usage: /rtp
     aliases: [randomteleport, wild]
+  sethome:
+    description: Save a named home
+    usage: /sethome <name>
+  home:
+    description: Teleport to a saved home or open the homes GUI
+    usage: /home [name]
+  homes:
+    description: Open the saved homes GUI
+    usage: /homes
+  delhome:
+    description: Delete a saved home
+    usage: /delhome <name>
 permissions:
   kelvora.balance:
     description: View your own currency balances and transfer Kelvoras
@@ -69,3 +81,12 @@ permissions:
   kelvora.rtp:
     description: Use random teleport
     default: true
+  kelvora.homes.use:
+    description: Save and use personal homes
+    default: true
+  kelvora.homes.admin:
+    description: Administrative home management permission
+    default: op
+  kelvora.homes.limit.unlimited:
+    description: Bypass the configured home slot limit
+    default: op
