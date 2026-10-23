@@ -40,6 +40,7 @@ jobs:
           test -s "$JAR"
           jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/KelvoraSMP.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/BountyCombatManager.class'
           jar tf "$JAR" | grep -q 'plugin.yml'
           unzip -p "$JAR" plugin.yml | grep -q "version: ${VERSION}"
       - name: Paper 1.21.11 startup smoke test
