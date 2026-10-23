@@ -101,6 +101,15 @@ TabExecutor {
         Bukkit.getPluginManager().registerEvents((Listener)this, (Plugin)this.plugin);
     }
 
+    double priceOf(Material material) {
+        if (material == null || !eligible(material)) return 0.0;
+        return prices.getOrDefault(material, 0.0);
+    }
+
+    boolean isEligible(Material material) {
+        return eligible(material);
+    }
+
     private boolean eligible(Material material) {
         if (material == null || !material.isItem() || material.isAir()) {
             return false;
