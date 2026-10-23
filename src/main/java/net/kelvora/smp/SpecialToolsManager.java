@@ -92,6 +92,14 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     private boolean eligible(Block b){return b!=null&&!b.getType().isAir()&&b.getType().isBlock()&&!Set.of(Material.BEDROCK,Material.BARRIER,Material.SPAWNER,Material.TRIAL_SPAWNER,Material.VAULT,Material.CHEST,Material.TRAPPED_CHEST,Material.BARREL,Material.ENDER_CHEST,Material.SHULKER_BOX).contains(b.getType())&&!b.getType().name().contains("COMMAND_BLOCK")&&!b.getType().name().contains("PORTAL");}
     private boolean natural(Block b){return !placedBlocks.contains(blockKey(b));}
     private boolean expired(ItemStack item){return "drill".equals(id(item))&&expires(item)>0&&System.currentTimeMillis()>=expires(item);}
+    private void updateDrillLore(Player player, ItemStack item) {
+        long left=Math.max(0,expires(item)-System.currentTimeMillis());
+        long seconds=left/1000L, days=seconds/86400L, hours=(seconds%86400L)/3600L, minutes=(seconds%3600L)/60L;
+        ItemMeta meta=item.getItemMeta();
+        List<Component> lore=meta.lore()==null?new ArrayList<>():new ArrayList<>(meta.lore());
+        for(int i=0;i<lore.size();i++){if(lore.get(i).toString().contains("Lifetime:")){lore.set(i,Component.text("Remaining: "+days+"d "+hours+"h "+minutes+"m",NamedTextColor.RED));}}
+        meta.lore(lore);item.setItemMeta(meta);player.getInventory().setItemInMainHand(item);
+    }
     private void downgrade(Player p,ItemStack item){
         ItemStack plain=new ItemStack(Material.DIAMOND_PICKAXE);ItemMeta old=item.getItemMeta();ItemMeta m=plain.getItemMeta();
         for(Map.Entry<Enchantment,Integer> e:old.getEnchants().entrySet())m.addEnchant(e.getKey(),e.getValue(),true);
@@ -101,7 +109,8 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     public void onBreak(BlockBreakEvent event){
         Player p=event.getPlayer();if(processing.contains(blockKey(event.getBlock())))return;ItemStack tool=p.getInventory().getItemInMainHand();String type=id(tool);if(type==null)return;
-        if(type.equals("drill")&&expired(tool)){event.setCancelled(true);downgrade(p,tool);return;}
+        if(type.equals("drill")&&expired(tool)){event.setCancelled(true);if(plugin.getConfig().getString("kelvora-tools.drill.expired-policy","convert-to-diamond-pickaxe").equalsIgnoreCase("remove")){p.getInventory().setItemInMainHand(null);p.sendMessage(Component.text("Your Kelvora Drill has expired and was removed.",NamedTextColor.RED));}else downgrade(p,tool);return;}
+        if(type.equals("drill"))updateDrillLore(p,tool);
         if(type.equals("drill")&&restricted(event.getBlock())){event.setCancelled(true);return;}
         if(!p.getGameMode().equals(GameMode.SURVIVAL)&&!p.getGameMode().equals(GameMode.ADVENTURE))return;
         if(type.equals("gainer")){
