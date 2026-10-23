@@ -11,6 +11,7 @@ passive-kelvoras:
   interval-seconds: 300
   amount: 1.0
   afk-eligible: true
+  afk-timeout-seconds: 60
 scoreboard:
   title: "&a&lKELVORA SMP"
 ranks:
