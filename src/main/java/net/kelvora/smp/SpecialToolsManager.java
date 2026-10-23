@@ -179,10 +179,12 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         Inventory inventory=container.getInventory();
         String token="sellaxe-inventory:"+System.identityHashCode(inventory);
         if(!processing.add(token)) return;
+        ItemStack[] before=null;
+        boolean paid=false;
         try {
             if(economy==null){RegisteredServiceProvider<Economy> rsp=Bukkit.getServicesManager().getRegistration(Economy.class);if(rsp!=null)economy=rsp.getProvider();}
             if(economy==null){player.sendMessage(Component.text("Money economy is unavailable; nothing was sold.",NamedTextColor.RED));return;}
-            ItemStack[] before=inventory.getContents().clone();
+            before=inventory.getContents().clone();
             ItemStack[] after=inventory.getContents().clone();
             double total=0;
             int sold=0;
@@ -203,9 +205,11 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
                 player.sendMessage(Component.text("Money payment failed; all chest contents were restored.",NamedTextColor.RED));
                 return;
             }
+            paid=true;
             player.sendActionBar(Component.text("Sold "+sold+" items from chest for $"+String.format(Locale.US,"%.2f",total),NamedTextColor.GREEN));
             player.playSound(player.getLocation(),Sound.ENTITY_EXPERIENCE_ORB_PICKUP,0.7f,1.2f);
         } catch(Exception ex) {
+            if (!paid && before != null) inventory.setContents(before);
             plugin.getLogger().warning("Sellaxe chest transaction failed: "+ex.getMessage());
             player.sendMessage(Component.text("Chest sale failed. Please check the chest before trying again.",NamedTextColor.RED));
         } finally { processing.remove(token); }
