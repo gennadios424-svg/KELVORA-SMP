@@ -273,6 +273,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             p.sendMessage(Component.text("Configured reward is invalid. Your key was not used.", NamedTextColor.RED));
             opening.remove(p.getUniqueId()); return;
         }
+        final int rewardAmount = amount;
+        final Material rewardMaterial = mat;
         ItemStack rewardItem = new ItemStack(mat, amount);
         if (!canFit(p, rewardItem)) {
             p.sendMessage(Component.text("Make room in your inventory before opening this crate. Your key was not used.", NamedTextColor.RED));
@@ -327,10 +329,10 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                     current.sendMessage(Component.text("Reward delivery failed; your key was refunded.", NamedTextColor.RED));
                 } else {
                     String rarity = bits.length > 3 ? bits[3] : "Common";
-                    current.sendMessage(Component.text("Crate reward: " + amount + "x " + mat.name().toLowerCase(Locale.ROOT).replace('_',' '), NamedTextColor.GOLD));
+                    current.sendMessage(Component.text("Crate reward: " + rewardAmount + "x " + rewardMaterial.name().toLowerCase(Locale.ROOT).replace('_',' '), NamedTextColor.GOLD));
                     current.playSound(current.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
                     if (plugin.getConfig().getBoolean("crates.broadcast-rare-rewards", true) && (rarity.equalsIgnoreCase("Legendary") || rarity.equalsIgnoreCase("Mythic")))
-                        Bukkit.broadcast(Component.text(current.getName() + " won " + mat.name().toLowerCase(Locale.ROOT).replace('_',' ') + " from a " + titleCase(type) + " Crate!", NamedTextColor.GOLD));
+                        Bukkit.broadcast(Component.text(current.getName() + " won " + rewardMaterial.name().toLowerCase(Locale.ROOT).replace('_',' ') + " from a " + titleCase(type) + " Crate!", NamedTextColor.GOLD));
                 }
                 current.closeInventory();
                 opening.remove(id);
