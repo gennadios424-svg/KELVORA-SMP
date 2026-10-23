@@ -23,6 +23,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -123,12 +124,14 @@ final class RankKitManager implements Listener {
 
     private boolean rankCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
+        if (!player.hasPermission("kelvora.rank.view")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         openRanks(player);
         return true;
     }
 
     private boolean rankupCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
+        if (!player.hasPermission("kelvora.rankup")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         if (args.length != 0) { player.sendMessage(Component.text("Usage: /rankup", NamedTextColor.RED)); return true; }
         String current = progressionRank(player.getUniqueId());
         int index = PROGRESSION.indexOf(current);
@@ -167,6 +170,7 @@ final class RankKitManager implements Listener {
 
     private boolean kitCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
+        if (!player.hasPermission("kelvora.kit.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         if (args.length == 0) { openKits(player); return true; }
         if (args.length == 2 && args[0].equalsIgnoreCase("preview")) {
             String key = normalize(args[1]);
@@ -321,6 +325,17 @@ final class RankKitManager implements Listener {
         catch(IOException ex) { plugin.getLogger().warning("Could not save "+file.getName()+": "+ex.getMessage()); }
     }
     @EventHandler public void onJoin(PlayerJoinEvent event) { cacheRank(event.getPlayer().getUniqueId(),progressionRank(event.getPlayer().getUniqueId())); }
+
+    @EventHandler public void onChat(AsyncChatEvent event) {
+        String prefix = null;
+        if (luckPerms != null) {
+            User user = luckPerms.getUserManager().getUser(event.getPlayer().getUniqueId());
+            if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
+        }
+        if (prefix == null || prefix.isBlank()) prefix = prefixFor(progressionRank(event.getPlayer().getUniqueId()));
+        final Component rankPrefix = Component.text(ChatColor.translateAlternateColorCodes('&', prefix));
+        event.renderer((source, displayName, message, viewer) -> rankPrefix.append(displayName).append(Component.text(": ")).append(message));
+    }
 
     @EventHandler public void onClick(InventoryClickEvent event) {
         String title=event.getView().title().toString();
