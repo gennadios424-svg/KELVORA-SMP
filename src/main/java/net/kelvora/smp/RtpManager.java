@@ -14,8 +14,16 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.NamespacedKey;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.util.Vector;
 
 /**
  * Bounded, asynchronous-chunk-loading random teleport with conservative landing checks.
@@ -23,15 +31,18 @@ import org.bukkit.util.Vector;
  */
 final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     private static final double BORDER_SIZE = 100000.0;
-    private static final int MAX_ATTEMPTS = 36;
+    private static final int MAX_ATTEMPTS = 8;
     private static final int ATTEMPTS_PER_REQUEST = 1;
+    private static final String GUI_TITLE = "KELVORA // RANDOM TELEPORT";
     private static final long REQUEST_TIMEOUT_TICKS = 20L * 20L;
     private final JavaPlugin plugin;
+    private final BountyCombatManager combat;
+    private final NamespacedKey actionKey;
     private final Set<UUID> searching = new HashSet<>();
     private final Map<String, World> dimensions = new HashMap<>();
     private final Random random = new Random();
 
-    RtpManager(JavaPlugin plugin) { this.plugin = plugin; }
+    RtpManager(JavaPlugin plugin, BountyCombatManager combat) { this.plugin = plugin; this.combat = combat; this.actionKey = new NamespacedKey(plugin, "rtp-dimension"); }
 
     void register() {
         resolveWorldsAndBorders();
@@ -77,30 +88,77 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
         if (!player.hasPermission("kelvora.rtp")) { player.sendMessage(ChatColor.RED + "You do not have permission."); return true; }
-        if (args.length > 1) { player.sendMessage(ChatColor.RED + "Usage: /rtp [overworld|nether|end]"); return true; }
-        String dimension = args.length == 0 ? "overworld" : args[0].toLowerCase(Locale.ROOT);
-        if (!List.of("overworld", "nether", "end").contains(dimension)) {
-            player.sendMessage(ChatColor.RED + "Usage: /rtp [overworld|nether|end]"); return true;
+        openMenu(player);
+        return true;
+    }
+
+    private void openMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text(GUI_TITLE, NamedTextColor.DARK_GREEN));
+        ItemStack frame = guiItem(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, frame);
+        addDimension(inv, 11, "overworld", Material.GRASS_BLOCK, "Overworld", "Random surface location");
+        addDimension(inv, 13, "nether", Material.NETHERRACK, "Nether", "Find a Nether surface");
+        addDimension(inv, 15, "end", Material.END_STONE, "End", "Find solid End terrain");
+        inv.setItem(22, guiItem(Material.BARRIER, "§cClose", List.of()));
+        player.openInventory(inv);
+    }
+
+    private void addDimension(Inventory inv, int slot, String dimension, Material material, String name, String description) {
+        ItemStack item = guiItem(material, "§a" + name, List.of("§7" + description, "§fClick to teleport"));
+        ItemMeta meta = item.getItemMeta();
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, dimension);
+        item.setItemMeta(meta);
+        inv.setItem(slot, item);
+    }
+
+    private ItemStack guiItem(Material material, String name, List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(ChatColor.stripColor(name)));
+        if (lore != null) meta.lore(lore.stream().map(s -> Component.text(ChatColor.stripColor(s))).toList());
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+    public void onGuiClick(InventoryClickEvent event) {
+        if (!GUI_TITLE.equals(ChatColor.stripColor(event.getView().getTitle()))) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player) || event.getClickedInventory() != event.getView().getTopInventory()) return;
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || !clicked.hasItemMeta()) return;
+        if (clicked.getType() == Material.BARRIER) { player.closeInventory(); return; }
+        String dimension = clicked.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
+        if (dimension == null || !List.of("overworld", "nether", "end").contains(dimension)) return;
+        player.playSound(player, Sound.UI_BUTTON_CLICK, 0.45f, 1.2f);
+        player.closeInventory();
+        beginRtp(player, dimension);
+    }
+
+    @EventHandler public void onGuiDrag(InventoryDragEvent event) {
+        if (GUI_TITLE.equals(ChatColor.stripColor(event.getView().getTitle()))) event.setCancelled(true);
+    }
+
+    private void beginRtp(Player player, String dimension) {
+        if (combat != null && combat.isInCombat(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot use random teleport during combat.");
+            return;
         }
         World target = dimensions.get(dimension);
-        if (target == null || !target.getWorldBorder().isInside(new Location(target, target.getWorldBorder().getCenter().getX(), target.getMinHeight() + 1, target.getWorldBorder().getCenter().getZ()))) {
+        if (target == null) {
             resolveWorldsAndBorders();
             target = dimensions.get(dimension);
         }
-        if (target == null) {
-            player.sendMessage(ChatColor.RED + "That dimension is unavailable right now."); return true;
-        }
+        if (target == null) { player.sendMessage(ChatColor.RED + "That dimension is unavailable right now."); return; }
         if (!searching.add(player.getUniqueId())) {
-            player.sendMessage(ChatColor.YELLOW + "Your random teleport is already searching."); return true;
+            player.sendMessage(ChatColor.YELLOW + "Your random teleport is already searching."); return;
         }
-        World destinationWorld = target;
         Location origin = player.getLocation().clone();
-        player.sendMessage(ChatColor.GRAY + "Searching for a safe location...");
+        player.sendMessage(ChatColor.GRAY + "Finding a location...");
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (searching.contains(player.getUniqueId()) && (!player.isOnline() || player.isDead())) searching.remove(player.getUniqueId());
+            if (searching.remove(player.getUniqueId()) && player.isOnline()) player.sendMessage(ChatColor.RED + "Random teleport timed out. Please try again.");
         }, REQUEST_TIMEOUT_TICKS);
-        tryCandidate(player, destinationWorld, origin, dimension, 0);
-        return true;
+        tryCandidate(player, target, origin, dimension, 0);
     }
 
     private void tryCandidate(Player player, World world, Location origin, String dimension, int attempt) {
@@ -155,47 +213,30 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     private Location findSafeLocation(World world, int x, int z) {
-        int highest = world.getHighestBlockYAt(x, z);
-        int min = Math.max(world.getMinHeight() + 2, highest - 10);
-        for (int y = Math.min(highest + 1, world.getMaxHeight() - 2); y >= min; y--) {
-            Location feet = new Location(world, x + 0.5, y, z + 0.5);
-            if (safeLanding(feet)) return feet;
-        }
-        return null;
-    }
-
-    private boolean safeLanding(Location feet) {
-        World world = feet.getWorld();
-        int x = feet.getBlockX(), y = feet.getBlockY(), z = feet.getBlockZ();
-        if (y <= world.getMinHeight() + 1 || y + 1 >= world.getMaxHeight()) return false;
-        WorldBorder border = world.getWorldBorder();
-        if (!insideBorderWithMargin(border, feet)) return false;
-        // Require a 3x3 support platform and two blocks of clear, non-liquid body space.
+        // Use this dimension's own heightmap and never search down into caves.
+        int floorY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+        int feetY = floorY + 1;
+        if (feetY <= world.getMinHeight() + 1 || feetY + 1 >= world.getMaxHeight()) return null;
+        Location feet = new Location(world, x + 0.5, feetY, z + 0.5);
+        if (!insideBorderWithMargin(world.getWorldBorder(), feet)) return null;
+        if (!safeFloor(world.getBlockAt(x, floorY, z))) return null;
+        if (!safeBody(world.getBlockAt(x, feetY, z)) || !safeBody(world.getBlockAt(x, feetY + 1, z))) return null;
+        int support = 0;
         for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
-            Block floor = world.getBlockAt(x + dx, y - 1, z + dz);
-            Block body = world.getBlockAt(x + dx, y, z + dz);
-            Block head = world.getBlockAt(x + dx, y + 1, z + dz);
-            if (!safeFloor(floor) || !safeBody(body) || !safeBody(head)) return false;
+            if (safeFloor(world.getBlockAt(x + dx, floorY, z + dz))) support++;
         }
-        // Reject hazards in the immediate landing perimeter, including fire and damaging blocks.
-        for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) {
-            for (int dy = -1; dy <= 2; dy++) {
-                Material material = world.getBlockAt(x + dx, y + dy, z + dz).getType();
-                if (isHazard(material)) return false;
-            }
-        }
-        return true;
+        return support >= 5 ? feet : null;
     }
 
     private boolean safeFloor(Block block) {
         Material m = block.getType();
-        if (!m.isSolid() || m == Material.BEDROCK || m == Material.MAGMA_BLOCK
-                || m == Material.CACTUS || m == Material.CAMPFIRE || m == Material.SOUL_CAMPFIRE
-                || m == Material.FIRE || m == Material.SOUL_FIRE || m == Material.POWDER_SNOW
-                || m == Material.HONEY_BLOCK || m == Material.SWEET_BERRY_BUSH) return false;
-        return !m.name().contains("LEAVES") && !m.name().contains("FENCE") && !m.name().contains("WALL")
-                && !m.name().contains("CARPET") && !m.name().contains("SLAB") && !m.name().contains("STAIRS")
-                && !m.name().contains("DOOR") && !m.name().contains("TRAPDOOR") && !m.name().contains("BED");
+        return m.isSolid() && m != Material.BEDROCK && m != Material.MAGMA_BLOCK
+            && m != Material.CACTUS && m != Material.CAMPFIRE && m != Material.SOUL_CAMPFIRE
+            && m != Material.POWDER_SNOW && m != Material.SWEET_BERRY_BUSH
+            && !m.name().contains("FENCE") && !m.name().contains("WALL")
+            && !m.name().contains("CARPET") && !m.name().contains("SLAB")
+            && !m.name().contains("STAIRS") && !m.name().contains("DOOR")
+            && !m.name().contains("TRAPDOOR") && !m.name().contains("BED");
     }
 
     private boolean safeBody(Block block) {
@@ -204,17 +245,18 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     private boolean isLiquid(Material m) {
-        return m == Material.WATER || m == Material.LAVA || m.name().contains("WATER")
-                || m.name().contains("LAVA") || m == Material.BUBBLE_COLUMN;
+        return m == Material.WATER || m == Material.LAVA || m == Material.BUBBLE_COLUMN
+            || m.name().contains("WATER") || m.name().contains("LAVA");
     }
 
     private boolean isHazard(Material m) {
         String n = m.name();
-        return isLiquid(m) || m == Material.FIRE || m == Material.SOUL_FIRE || m == Material.CACTUS
-                || m == Material.MAGMA_BLOCK || m == Material.CAMPFIRE || m == Material.SOUL_CAMPFIRE
-                || m == Material.POWDER_SNOW || m == Material.SWEET_BERRY_BUSH
-                || n.contains("LAVA") || n.contains("WATER") || n.contains("FIRE") || n.contains("KELP")
-                || n.contains("SEAGRASS") || n.contains("BUBBLE_COLUMN") || n.contains("WITHER_ROSE");
+        return isLiquid(m) || m == Material.FIRE || m == Material.SOUL_FIRE
+            || m == Material.CACTUS || m == Material.MAGMA_BLOCK
+            || m == Material.CAMPFIRE || m == Material.SOUL_CAMPFIRE
+            || m == Material.POWDER_SNOW || m == Material.SWEET_BERRY_BUSH
+            || n.contains("FIRE") || n.contains("KELP") || n.contains("SEAGRASS")
+            || n.contains("WITHER_ROSE");
     }
 
     private boolean insideBorderWithMargin(WorldBorder border, Location loc) {
