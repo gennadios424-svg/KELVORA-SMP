@@ -536,14 +536,14 @@ TabExecutor {
             case "clear": {
                 state.query = "";
                 state.page = 0;
-                this.play(player, Sound.UI_BUTTON_CLICK, 0.45f, 0.9f);
+                this.play(player, Sound.UI_BUTTON_CLICK, 0.18f, 0.9f);
                 break;
             }
             case "search": {
                 state.awaitingChat = true;
                 this.pendingSearch.put(player.getUniqueId(), state);
                 player.closeInventory();
-                this.play(player, Sound.UI_BUTTON_CLICK, 0.45f, 1.0f);
+                this.play(player, Sound.UI_BUTTON_CLICK, 0.18f, 1.0f);
                 player.sendMessage((Component)Component.text((String)"Type an item name to search. Type CANCEL to cancel; your search input will not be public.", (TextColor)GREEN));
                 return;
             }
