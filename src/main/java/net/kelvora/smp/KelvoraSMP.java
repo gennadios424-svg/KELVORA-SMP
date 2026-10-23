@@ -69,6 +69,7 @@ implements Listener {
     private boolean placeholderApi;
     private KelvorasManager kelvorasManager;
     private ShardShopManager shardShopManager;
+    private TeamManager teamManager;
     private int refreshTask;
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<UUID, Scoreboard>();
 
@@ -88,6 +89,8 @@ implements Listener {
         new CoinflipManager(this, combatManager).register();
         new RtpManager(this, combatManager).register();
         new HomesManager(this, combatManager).register();
+        this.teamManager = new TeamManager(this);
+        this.teamManager.register();
         new RankKitManager(this).register();
         this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
         this.shardShopManager.register();
@@ -248,7 +251,7 @@ implements Listener {
             board = Bukkit.getScoreboardManager().getNewScoreboard();
             Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("KELVORA SMP", NamedTextColor.GREEN));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
-            for (int i = 0; i < 7; ++i) {
+            for (int i = 0; i < 10; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
@@ -267,17 +270,20 @@ implements Listener {
         }
         int kills = player.getStatistic(Statistic.PLAYER_KILLS);
         int deaths = player.getStatistic(Statistic.DEATHS);
-        String kd = deaths == 0 ? (kills == 0 ? "0.00" : String.format(Locale.US, "%.2f", (double) kills)) : String.format(Locale.US, "%.2f", (double) kills / deaths);
         long playMinutes = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200L;
         String playtime = playMinutes >= 60 ? (playMinutes / 60) + "h " + (playMinutes % 60) + "m" : playMinutes + "m";
+        String teamName = this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
         String[] lines = new String[]{
+            this.color("&2&l✦ KELVORA SMP"),
             this.color("&fRank &r" + rankColor + rankLabel),
-            this.color("&6Kills &f" + kills),
-            this.color("&cDeaths &f" + deaths),
-            this.color("&dK/D &f" + kd),
-            this.color("&bPlaytime &f" + playtime),
-            this.color("&3Online &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7IP &f" + serverAddress)
+            this.color("&3Team &f" + teamName),
+            this.color("&6⚔ Kills &f" + kills),
+            this.color("&c☠ Deaths &f" + deaths),
+            this.color("&b⏱ Playtime &f" + playtime),
+            this.color("&6$ Money &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
+            this.color("&d✦ Shards &f" + kelvoras),
+            this.color("&b👥 Online &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
+            this.color("&7🌐 IP &f" + serverAddress)
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
@@ -321,6 +327,7 @@ implements Listener {
     }
 
     ShardShopManager getShardShopManager() { return this.shardShopManager; }
+    TeamManager getTeamManager() { return this.teamManager; }
 
     private String getKelvoras(Player player) {
         if (this.kelvorasManager == null) return "✦0";
