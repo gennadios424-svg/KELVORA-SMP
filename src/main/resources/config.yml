@@ -631,7 +631,7 @@ shardshop:
       og: { name: "OG", description: "Classic community tag", icon: GOLD_INGOT, price: 10000, duration-seconds: 0 }
     titles:
       title_1d: { name: "Supporter", description: "Temporary cosmetic title only", icon: NAME_TAG, price: 500, duration-seconds: 86400 }
-      title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: GOLDEN_HELMET, price: 2500, duration-seconds: 604800 }
+      title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: DIAMOND_HELMET, price: 2500, duration-seconds: 604800 }
       title_30d: { name: "Mythic", description: "Temporary cosmetic title only", icon: NETHER_STAR, price: 8000, duration-seconds: 2592000 }
     glows:
       green: { name: "Green Glow", description: "Emerald glow effect", icon: LIME_DYE, color: GREEN, price: 5000, duration-seconds: 0 }
