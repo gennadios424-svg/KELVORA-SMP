@@ -399,6 +399,38 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         String title = e.getView().getTitle();
         if (!protectedInventories.contains(e.getView().getTopInventory())) return;
         e.setCancelled(true);
+        if (title.startsWith("KELVORA | EDIT ")) {
+            String type = editingCrate.get(p.getUniqueId());
+            List<String> rewards = editingRewards.get(p.getUniqueId());
+            if (type == null || rewards == null) return;
+            int raw = e.getRawSlot();
+            if (raw == 45) { editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.closeInventory(); return; }
+            if (raw == 49 && e.getClickedInventory() == e.getView().getTopInventory()) {
+                if (saveEditedRewards(type, rewards)) {
+                    p.sendMessage(Component.text("Saved " + rewards.size() + " " + titleCase(type) + " rewards.", NamedTextColor.GREEN));
+                    editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.closeInventory();
+                } else p.sendMessage(Component.text("Reward config validation/save failed. The previous reward pool was retained.", NamedTextColor.RED));
+                return;
+            }
+            if (e.getClickedInventory() == e.getView().getTopInventory()) {
+                if (raw >= 0 && raw < 45 && raw < rewards.size()) {
+                    String removed = rewards.remove(raw);
+                    p.sendMessage(Component.text("Removed reward " + removed + ". Click SAVE REWARDS to persist.", NamedTextColor.YELLOW));
+                    openRewardEditor(p, type);
+                }
+                return;
+            }
+            if (e.getClickedInventory() == e.getView().getBottomInventory()) {
+                ItemStack cursorItem = e.getCurrentItem();
+                if (cursorItem == null || cursorItem.getType().isAir() || !isAllowedReward(cursorItem.getType())) return;
+                if (cursorItem.getAmount() > cursorItem.getType().getMaxStackSize()) return;
+                if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
+                rewards.add(cursorItem.getType().name() + ":" + cursorItem.getAmount() + ":1:Common");
+                p.sendMessage(Component.text("Added " + cursorItem.getType().name() + " x" + cursorItem.getAmount() + " as a reward template. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
+                openRewardEditor(p, type);
+            }
+            return;
+        }
         if (e.getClickedInventory() == null || e.getClickedInventory() != e.getView().getTopInventory()) return;
         if (title.equals(ADMIN)) {
             int slot = e.getRawSlot() - 10;
@@ -557,7 +589,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
-    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){protectedInventories.remove(e.getInventory());}
+    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){protectedInventories.remove(e.getInventory()); if(e.getPlayer() instanceof Player p && e.getView().getTitle().startsWith("KELVORA | EDIT ") && !e.getView().getTitle().equals("KELVORA | EDIT ")) { /* edits remain in memory until save/cancel; reconnecting cannot persist them */ }}
     @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
         openCrate.remove(e.getPlayer().getUniqueId());
         // A consumed key is refunded by the pending completion if the player disconnects.
