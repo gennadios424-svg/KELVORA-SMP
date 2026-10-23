@@ -37,7 +37,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private final Map<String, Location> crates = new LinkedHashMap<>();
     private final Map<UUID, String> openCrate = new HashMap<>();
     private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
-    private final Random random = new Random();
+    private final java.security.SecureRandom random = new java.security.SecureRandom();
     private final String GUI = "KELVORA | CRATES";
     private final String ADMIN = "KELVORA | CRATE ADMIN";
 
