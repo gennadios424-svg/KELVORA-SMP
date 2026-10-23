@@ -199,7 +199,7 @@ final class ShardShopManager implements Listener {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE + " | Confirm Rank", NamedTextColor.DARK_GREEN));
         add(inv, 11, material(entry.getString("icon", "EMERALD")), "&a" + entry.getString("name", id),
             List.of("Rank: " + entry.getString("rank", "verdant"), "Duration: " + durationLabel(duration),
-                "Price: ✦" + KelvorasManager.format(price) + " Kelvoras", "Balance: ✦" + KelvorasManager.format(currency.balance(player))), "rankconfirm");
+                "Price: ✦" + KelvorasManager.format(price) + " Kelvoras", "Replaces any active temporary rank", "Permanent rank and staff permissions are preserved", "Balance: ✦" + KelvorasManager.format(currency.balance(player))), "rankconfirm");
         add(inv, 15, Material.BARRIER, "&cCancel", List.of("No Kelvoras will be charged"), "rankcancel");
         player.openInventory(inv);
     }
