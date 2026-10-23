@@ -23,7 +23,12 @@ jobs:
           cache: maven
       - name: Compile and package for Paper 1.21.11
         id: compile
-        run: mvn --batch-mode --no-transfer-progress clean package
+        run: |
+          set +e
+          mvn --batch-mode --no-transfer-progress clean package > build.log 2>&1
+          result=$?
+          tail -n 100 build.log
+          exit "$result"
       - name: Verify compiled plugin JAR
         id: verify
         run: |
@@ -60,6 +65,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add build-status.txt
+          if [ -f build.log ]; then git add build.log; fi
           if git diff --cached --quiet; then
             echo "Build status is unchanged."
           else
