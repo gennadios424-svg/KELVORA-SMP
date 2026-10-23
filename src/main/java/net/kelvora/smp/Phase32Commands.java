@@ -151,7 +151,7 @@ final class Phase32Commands implements Listener {
         paneMeta.displayName(Component.text(" ", NamedTextColor.GRAY));
         pane.setItemMeta(paneMeta);
         for (int i = 0; i < 27; i++) inv.setItem(i, pane.clone());
-        set(inv, 11, Material.CHEST, "§aDaily Money Chest", List.of("§7Free random Money reward", "§7Possible reward: §f$1,000 - $150,000", left > 0 ? "§cAvailable in " + formatDuration(left) : "§eClick to claim your daily reward"), "claim");
+        set(inv, 11, Material.CHEST, "§aDaily Money Chest", List.of("§7Free random Money reward", "§7Possible reward: §f$" + formatMoney(plugin.getConfig().getDouble("daily.min-money", 1000)) + " - $" + formatMoney(plugin.getConfig().getDouble("daily.max-money", 150000)), left > 0 ? "§cAvailable in " + formatDuration(left) : "§eClick to claim your daily reward"), "claim");
         set(inv, 13, Material.CHEST, "§2Kelvora Daily", List.of("§7Random Money reward only", "§7No Kelvoras or keys are granted", left > 0 ? "§cAvailable in " + formatDuration(left) : "§aOne free claim"), "claim");
         set(inv, 15, Material.PAPER, "§fUse /gamble too!", List.of("§7Informational only", "§7Daily rewards and gamble are separate"), "info");
         player.openInventory(inv);
@@ -221,6 +221,9 @@ final class Phase32Commands implements Listener {
     private Double rollReward() {
         List<String> tiers = plugin.getConfig().getStringList("daily.reward-tiers");
         double total = 0;
+        double minReward = Math.max(1000, plugin.getConfig().getDouble("daily.min-money", 1000));
+        double maxReward = Math.min(150000, plugin.getConfig().getDouble("daily.max-money", 150000));
+        if (!Double.isFinite(minReward) || !Double.isFinite(maxReward) || minReward > maxReward) return null;
         List<double[]> parsed = new ArrayList<>();
         for (String tier : tiers) {
             String[] parts = tier.split(":", 2);
@@ -228,7 +231,7 @@ final class Phase32Commands implements Listener {
             try {
                 double value = parseAmount(parts[0]);
                 double weight = Double.parseDouble(parts[1]);
-                if (!Double.isFinite(value) || value < 1000 || value > 150000 || !Double.isFinite(weight) || weight <= 0) continue;
+                if (!Double.isFinite(value) || value < minReward || value > maxReward || !Double.isFinite(weight) || weight <= 0) continue;
                 parsed.add(new double[]{value, weight});
                 total += weight;
             } catch (IllegalArgumentException ignored) { }
@@ -294,6 +297,10 @@ final class Phase32Commands implements Listener {
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Invalid amount. Examples: 1000, 10k, 1.5m, 2b.");
         }
+    }
+
+    private String formatMoney(double value) {
+        return new DecimalFormat("#,##0.##").format(value);
     }
 
     private String formatDuration(long millis) {
