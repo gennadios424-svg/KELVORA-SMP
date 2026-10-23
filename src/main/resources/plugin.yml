@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.1.6
+version: 2.1.7
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP TAB list, compact sidebar, and item worth GUI
@@ -16,6 +16,10 @@ commands:
     description: Browse configured item values
     usage: /worth [search]
     aliases: [itemworth]
+  ah:
+    description: Open and manage the Kelvora Auction House
+    usage: /ah [sell <price>|listings|cancel <id>|help]
+    aliases: [auctionhouse, auctions]
   bal:
     description: Show your Money and Kelvoras balances
     usage: /bal
@@ -31,4 +35,7 @@ permissions:
     default: true
   kelvora.worth:
     description: Use the worth GUI
+    default: true
+  kelvora.ah:
+    description: Use the Kelvora Auction House
     default: true
