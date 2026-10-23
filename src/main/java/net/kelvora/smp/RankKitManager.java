@@ -418,13 +418,20 @@ final class RankKitManager implements Listener {
         String colour = cosmetics == null ? null : cosmetics.chatColour(event.getPlayer());
         final Component cosmeticTag = tag == null ? Component.empty() : Component.text(" [" + tag + "]", NamedTextColor.AQUA);
         final Component cosmeticTitle = title == null ? Component.empty() : Component.text(" {" + title + "}", NamedTextColor.GOLD);
-        final String safeColour = colour == null ? null : ChatColor.translateAlternateColorCodes('&', colour);
+        final NamedTextColor safeChatColor = switch (colour == null ? "" : colour.toLowerCase(Locale.ROOT)) {
+            case "&f" -> NamedTextColor.WHITE;
+            case "&a" -> NamedTextColor.GREEN;
+            case "&b" -> NamedTextColor.AQUA;
+            case "&9" -> NamedTextColor.BLUE;
+            case "&5" -> NamedTextColor.DARK_PURPLE;
+            case "&6" -> NamedTextColor.GOLD;
+            case "&d" -> NamedTextColor.LIGHT_PURPLE;
+            case "&c" -> NamedTextColor.RED;
+            default -> null;
+        };
         event.renderer((source, displayName, message, viewer) -> {
-            Component renderedMessage = message;
-            if (safeColour != null) {
-                String serialized = LegacyComponentSerializer.legacySection().serialize(message);
-                renderedMessage = LegacyComponentSerializer.legacySection().deserialize(safeColour + serialized);
-            }
+            // Apply only a server-approved text color. Never parse player message text as legacy formatting.
+            Component renderedMessage = safeChatColor == null ? message : message.color(safeChatColor);
             return rankPrefix.append(visibleProgression).append(cosmeticTitle).append(displayName).append(cosmeticTag).append(Component.text(": ")).append(renderedMessage);
         });
     }
