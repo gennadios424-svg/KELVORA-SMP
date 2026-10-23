@@ -26,7 +26,7 @@ import org.bukkit.potion.PotionType;
 
 final class ShopSellManager implements Listener {
     private static final String MAIN = "KELVORA  /  SHOP";
-    private static final String SELL = "KELVORA // SELL VAULT";
+    private static final String SELL = "KELVORA / SELL";
     private static final String QUANTITY = "KELVORA  /  QUANTITY";
     private static final String CATEGORY = "KELVORA  /  ";
     // Slots 9-44 are deposit slots; row 0 is the instruction header and row 5 is protected controls.
@@ -190,7 +190,6 @@ final class ShopSellManager implements Listener {
             p.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED));
             return;
         }
-        p.sendMessage(Component.text("Opened Kelvora Sell Vault v2.1.6.", NamedTextColor.GRAY));
         openSell(p);
     }
 
@@ -198,13 +197,9 @@ final class ShopSellManager implements Listener {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL, NamedTextColor.DARK_GREEN));
         // New layout: dedicated instruction header, four rows of real deposit slots, and protected controls.
         for (int i = 0; i < SELL_START; i++) inv.setItem(i, createSellHeaderFrame());
-        put(inv, 4, Material.BOOK, "SELL VAULT  |  DROP ITEMS BELOW", "info",
-            "Place items in the four rows below; only /worth-priced items sell.");
         for (int i = SELL_END; i < 54; i++) inv.setItem(i, createSellFrame());
         put(inv, 45, Material.BARRIER, "Cancel & Return", "cancel", "Close safely and return every unsold item");
-        put(inv, 47, Material.HOPPER, "UNPRICED ITEMS", "info", "Items without a /worth price are returned to you");
         put(inv, 49, Material.GOLD_INGOT, "Sell Value: $0", "total", "Click to announce the current sell value");
-        put(inv, 51, Material.CHEST, "QUICK DEPOSIT", "info", "Shift-click items in your inventory to deposit them");
         put(inv, 53, Material.LIME_DYE, "CONFIRM SALE", "confirm", "Sell priced items for Money");
         updateSellButton(inv);
         p.openInventory(inv);
