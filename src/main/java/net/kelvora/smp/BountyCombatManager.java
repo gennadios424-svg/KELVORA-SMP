@@ -169,6 +169,7 @@ final class BountyCombatManager implements Listener {
         bounty.contributors.add(issuer.getName() + ":$" + money(amount));
         if (!save()) {
             bounty.total = round(bounty.total - amount);
+            if (!bounty.contributors.isEmpty()) bounty.contributors.remove(bounty.contributors.size() - 1);
             if (bounty.total <= 0) bounties.remove(id);
             deposit(issuer, amount);
             fail(issuer, "Could not save bounty; your payment was refunded if Money accepted it.");
@@ -189,7 +190,6 @@ final class BountyCombatManager implements Listener {
     private void showList(Player p, boolean top) {
         List<Map.Entry<UUID, Bounty>> entries = new ArrayList<>(bounties.entrySet());
         entries.removeIf(e -> pendingClaims.containsKey(e.getKey()));
-        entries.removeIf(e -> pendingClaims.containsKey(e.getKey()));
         entries.sort((a,b) -> Double.compare(b.getValue().total, a.getValue().total));
         if (entries.isEmpty()) { p.sendMessage(Component.text("No active bounties.", NamedTextColor.GRAY)); return; }
         p.sendMessage(Component.text(top ? "Top Bounties" : "Active Bounties", NamedTextColor.GREEN));
@@ -205,6 +205,7 @@ final class BountyCombatManager implements Listener {
         ItemStack frame = item(Material.GREEN_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 0; i < 54; i++) inv.setItem(i, frame);
         List<Map.Entry<UUID, Bounty>> entries = new ArrayList<>(bounties.entrySet());
+        entries.removeIf(e -> pendingClaims.containsKey(e.getKey()));
         entries.sort((a,b) -> Double.compare(b.getValue().total, a.getValue().total));
         for (int i = 0; i < Math.min(45, entries.size()); i++) {
             Map.Entry<UUID, Bounty> e = entries.get(i);
@@ -395,7 +396,10 @@ final class BountyCombatManager implements Listener {
         }
         if (!deposit(killer, reward)) {
             pendingClaims.remove(victimId);
-            save();
+            if (!save()) {
+                pendingClaims.put(victimId, pending);
+                plugin.getLogger().severe("Bounty payout failed and transaction state could not be cleared; target remains locked for recovery.");
+            }
             paying.remove(victimId);
             plugin.getLogger().severe("Bounty payout failed; bounty remains active for " + victim.getName());
             return;
