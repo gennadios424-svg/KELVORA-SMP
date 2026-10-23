@@ -6,7 +6,7 @@ server-address: "kelvorasmp.mcsh.gg"
 scoreboard:
   title: "&a&lKELVORA SMP"
 ranks:
-  i_sprout: { label: "I. Sprout", color: "&7", description: "Starting rank · New players" }
+  sprout: { label: "Sprout", color: "&7", description: "Starting rank · New players" }
   verdant: { label: "Verdant", color: "&a", description: "Early progression · Growing your wealth" }
   emerald: { label: "Emerald", color: "&3", description: "Mid progression · Established players" }
   sovereign: { label: "Sovereign", color: "&3", description: "High rank · Powerful and respected" }
@@ -19,7 +19,7 @@ ranks:
   # Compatibility aliases for existing groups
   mod: { label: "Moderator", color: "&9" }
   vip: { label: "Verdant", color: "&a" }
-  member: { label: "I. Sprout", color: "&7" }
+  member: { label: "Sprout", color: "&7" }
   bootstrap-groups: true
 kelvoras:
   placeholder: "%kelvoras_balance%"
@@ -285,8 +285,8 @@ rank-up:
 
 kits:
   allow-lower-rank-kits: false
-  i_sprout:
-    display: "I. Sprout Kit"
+  sprout:
+    display: "Sprout Kit"
     summary: "Starter enchanted diamond combat bundle"
     cooldown-seconds: 86400
     items:
@@ -498,8 +498,8 @@ rank-up:
 
 kits:
   allow-lower-rank-kits: false
-  i_sprout:
-    display: "I. Sprout Kit"
+  sprout:
+    display: "Sprout Kit"
     summary: "Starter enchanted diamond combat bundle"
     cooldown-seconds: 86400
     items:
@@ -594,3 +594,58 @@ kits:
       - { material: EXPERIENCE_BOTTLE, amount: 64 }
       - { material: TOTEM_OF_UNDYING, amount: 1 }
       - { material: COOKED_BEEF, amount: 64 }
+
+# Phase 23: Ranks are purchased through Discord. Gameplay-based rank upgrades are disabled.
+ranks:
+  bootstrap-groups: true
+  sprout: { label: "Sprout", color: "&7", description: "Free starting rank" }
+  verdant: { label: "Verdant", color: "&a", description: "Purchased progression rank" }
+  emerald: { label: "Emerald", color: "&2", description: "Purchased progression rank" }
+  sovereign: { label: "Sovereign", color: "&b", description: "Purchased progression rank" }
+  ascendant: { label: "Ascendant", color: "&6", description: "Highest purchased progression rank" }
+  helper: { label: "Helper", color: "&a", description: "Staff role" }
+  moderator: { label: "Moderator", color: "&9", description: "Staff role" }
+  admin: { label: "Admin", color: "&c", description: "Staff role" }
+  owner: { label: "Owner", color: "&4", description: "Staff role" }
+  creator: { label: "Creator", color: "&d", description: "Media role" }
+  mod: { label: "Moderator", color: "&9" }
+  vip: { label: "Verdant", color: "&a" }
+  member: { label: "Sprout", color: "&7" }
+
+rank-up:
+  enabled: false
+  costs:
+    verdant: -1
+    emerald: -1
+    sovereign: -1
+    ascendant: -1
+
+shardshop:
+  catalogue:
+    tags:
+      pvp: { name: "PvP", description: "Show your PvP style", icon: IRON_SWORD, price: 2500, duration-seconds: 0 }
+      warrior: { name: "Warrior", description: "A battle-ready tag", icon: DIAMOND_SWORD, price: 4000, duration-seconds: 0 }
+      miner: { name: "Miner", description: "For dedicated miners", icon: IRON_PICKAXE, price: 2000, duration-seconds: 0 }
+      elite: { name: "Elite", description: "A premium cosmetic tag", icon: NETHER_STAR, price: 8000, duration-seconds: 0 }
+      legend: { name: "Legend", description: "A legendary cosmetic tag", icon: DRAGON_HEAD, price: 15000, duration-seconds: 0 }
+      og: { name: "OG", description: "Classic community tag", icon: GOLD_INGOT, price: 10000, duration-seconds: 0 }
+    titles:
+      title_1d: { name: "Supporter", description: "Temporary cosmetic title only", icon: NAME_TAG, price: 500, duration-seconds: 86400 }
+      title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: GOLDEN_HELMET, price: 2500, duration-seconds: 604800 }
+      title_30d: { name: "Mythic", description: "Temporary cosmetic title only", icon: NETHER_STAR, price: 8000, duration-seconds: 2592000 }
+    glows:
+      green: { name: "Green Glow", description: "Emerald glow effect", icon: LIME_DYE, color: GREEN, price: 5000, duration-seconds: 0 }
+      cyan: { name: "Cyan Glow", description: "Cool cyan glow effect", icon: CYAN_DYE, color: AQUA, price: 5000, duration-seconds: 0 }
+      blue: { name: "Blue Glow", description: "Blue glow effect", icon: BLUE_DYE, color: BLUE, price: 5000, duration-seconds: 0 }
+      purple: { name: "Purple Glow", description: "Purple glow effect", icon: PURPLE_DYE, color: DARK_PURPLE, price: 5000, duration-seconds: 0 }
+      red: { name: "Red Glow", description: "Red glow effect", icon: RED_DYE, color: RED, price: 5000, duration-seconds: 0 }
+      gold: { name: "Gold Glow", description: "Gold glow effect", icon: GOLD_INGOT, color: GOLD, price: 5000, duration-seconds: 0 }
+    chat:
+      white: { name: "White Chat", description: "White message text", icon: WHITE_DYE, legacy-color: "&f", price: 1500, duration-seconds: 0 }
+      green: { name: "Green Chat", description: "Green message text", icon: LIME_DYE, legacy-color: "&a", price: 2500, duration-seconds: 0 }
+      aqua: { name: "Aqua Chat", description: "Aqua message text", icon: LIGHT_BLUE_DYE, legacy-color: "&b", price: 2500, duration-seconds: 0 }
+      blue: { name: "Blue Chat", description: "Blue message text", icon: BLUE_DYE, legacy-color: "&9", price: 2500, duration-seconds: 0 }
+      purple: { name: "Purple Chat", description: "Purple message text", icon: PURPLE_DYE, legacy-color: "&5", price: 3000, duration-seconds: 0 }
+      gold: { name: "Gold Chat", description: "Gold message text", icon: GOLD_INGOT, legacy-color: "&6", price: 4000, duration-seconds: 0 }
+      pink: { name: "Pink Chat", description: "Pink message text", icon: PINK_DYE, legacy-color: "&d", price: 3500, duration-seconds: 0 }
+      red: { name: "Red Chat", description: "Red message text", icon: RED_DYE, legacy-color: "&c", price: 3000, duration-seconds: 0 }
