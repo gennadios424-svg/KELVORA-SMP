@@ -371,7 +371,7 @@ final class ShardShopManager implements Listener {
     }
 
     private String categoryLabel(String category) {
-        return switch (category) { case "tags" -> "Tags"; case "titles" -> "Temporary Ranks"; case "glows" -> "Glows"; default -> "Chat Colours"; };
+        return switch (category) { case "tags" -> "Tags"; case "titles" -> "Temporary Titles"; case "ranks" -> "Temporary Ranks"; case "glows" -> "Glows"; default -> "Chat Colours"; };
     }
     private String durationLabel(long seconds) {
         if (seconds % 86400 == 0) return (seconds / 86400) + " day(s)";
