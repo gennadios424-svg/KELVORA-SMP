@@ -157,6 +157,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
         if (!searching.add(player.getUniqueId())) {
             player.sendMessage(ChatColor.YELLOW + "Your random teleport is already searching."); return;
         }
+        final World selectedWorld = target;
         Location origin = player.getLocation().clone();
         countdownOrigins.put(player.getUniqueId(), origin.clone());
         final int[] seconds = {5};
@@ -184,7 +185,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
                         if (searching.remove(id) && player.isOnline()) player.sendActionBar(Component.text("Random teleport timed out. Try again.", NamedTextColor.RED));
                     }, REQUEST_TIMEOUT_TICKS);
-                    tryCandidate(player, target, origin, dimension, 0);
+                    tryCandidate(player, selectedWorld, origin, dimension, 0);
                     return;
                 }
                 player.sendActionBar(Component.text("RTP in " + seconds[0] + "s — Don't move!", NamedTextColor.YELLOW));
