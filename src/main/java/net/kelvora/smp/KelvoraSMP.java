@@ -253,19 +253,17 @@ implements Listener {
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
         String kelvoras = this.getKelvoras(player);
-        Component rotatingMessage;
-        if (this.tabFrame == 0) {
-            rotatingMessage = Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN);
-        } else if (this.tabFrame == 1) {
-            rotatingMessage = Component.text("⚔️ JOIN NOW", NamedTextColor.GOLD);
-        } else {
-            rotatingMessage = Component.text("🌐 kelvorasmp.mcsh.gg", NamedTextColor.AQUA);
-        }
+        Component rotatingMessage = switch (this.tabFrame) {
+            case 0 -> Component.text("🌿 KELVORA SMP", net.kyori.adventure.text.format.TextColor.color(0x008000));
+            case 1 -> Component.text("🌿 KELVORA SMP", NamedTextColor.DARK_GREEN);
+            default -> Component.text("🌿 KELVORA SMP", net.kyori.adventure.text.format.TextColor.color(0x7CFC00));
+        };
         Component footerMessage = switch (this.footerFrame) {
-            case 0 -> Component.text("💬 Join our Discord — discord.gg/gUt2uGcwe", NamedTextColor.LIGHT_PURPLE);
-            case 1 -> Component.text("🛡️ Apply for Staff", NamedTextColor.GOLD);
-            case 2 -> Component.text("🎥 Apply for Media", NamedTextColor.AQUA);
-            case 3 -> Component.text("🌿 Join Kelvora SMP", NamedTextColor.GREEN);
+            case 0 -> Component.text("💬 JOIN OUR DISCORD", NamedTextColor.LIGHT_PURPLE)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
+            case 1 -> Component.text("🛡️ APPLY FOR STAFF", NamedTextColor.GOLD);
+            case 2 -> Component.text("🎥 APPLY FOR MEDIA", NamedTextColor.AQUA);
+            case 3 -> Component.text("⚔️ JOIN KELVORA SMP", NamedTextColor.GREEN);
             default -> Component.text("🌐 kelvorasmp.mcsh.gg", NamedTextColor.YELLOW);
         };
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
