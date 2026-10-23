@@ -246,7 +246,7 @@ final class RankKitManager implements Listener {
             player.sendMessage(Component.text("Unknown kit.", NamedTextColor.RED)); return;
         }
         if (!canClaimRank(player,key)) { player.sendMessage(Component.text("Your rank cannot claim this kit.", NamedTextColor.RED)); return; }
-        long now=System.currentTimeMillis(), readyAt=cooldowns.getLong(player.getUniqueId()+"."+key,0);
+        long now=System.currentTimeMillis(), readyAt=cooldowns.getLong(player.getUniqueId()+"."+key, key.equals("sprout") ? cooldowns.getLong(player.getUniqueId()+".i_sprout",0) : 0);
         if (readyAt>now) { player.sendMessage(Component.text("Kit available in "+duration(readyAt-now)+".", NamedTextColor.RED)); return; }
         if (!claiming.add(player.getUniqueId())) { player.sendMessage(Component.text("Your kit claim is already processing.", NamedTextColor.RED)); return; }
         try {
@@ -303,22 +303,40 @@ final class RankKitManager implements Listener {
     }
 
     private String progressionRank(UUID id) {
-        String cached=rankCache.getString(id.toString());
-        if(luckPerms!=null) {
-            User user=luckPerms.getUserManager().getUser(id);
-            if(user!=null) {
-                String primary=user.getPrimaryGroup().toLowerCase(Locale.ROOT);
-                if(primary.equals("i_sprout")) { cacheRank(id,"sprout"); return "sprout"; }
-                if(PROGRESSION.contains(primary)) { cacheRank(id,primary); return primary; }
-                for(int i=PROGRESSION.size()-1;i>=0;i--) {
+        String cached = rankCache.getString(id.toString());
+        if (luckPerms != null) {
+            User user = luckPerms.getUserManager().getUser(id);
+            if (user != null) {
+                String primary = user.getPrimaryGroup() == null ? "default" : user.getPrimaryGroup().toLowerCase(Locale.ROOT);
+                boolean hasLegacySprout = user.getNodes().stream().anyMatch(n -> n instanceof InheritanceNode in && in.getGroupName().equalsIgnoreCase("i_sprout"));
+                if (hasLegacySprout) {
+                    user.data().remove(InheritanceNode.builder("i_sprout").build());
+                    user.data().add(InheritanceNode.builder("sprout").build());
+                    if (primary.equals("i_sprout")) user.setPrimaryGroup("sprout");
+                    try { luckPerms.getUserManager().saveUser(user).join(); }
+                    catch (Exception ex) { plugin.getLogger().warning("Could not migrate legacy i_sprout rank for " + id + ": " + ex.getMessage()); }
+                }
+                if (PROGRESSION.contains(primary)) {
+                    cacheRank(id, primary);
+                    return primary;
+                }
+                for (int i = PROGRESSION.size() - 1; i >= 0; i--) {
                     String candidate = PROGRESSION.get(i);
-                    if(user.getNodes().stream().anyMatch(n -> n instanceof InheritanceNode in && in.getGroupName().equalsIgnoreCase(candidate))) {
-                        cacheRank(id,candidate); return candidate;
+                    if (user.getNodes().stream().anyMatch(n -> n instanceof InheritanceNode in && in.getGroupName().equalsIgnoreCase(candidate))) {
+                        cacheRank(id, candidate);
+                        return candidate;
                     }
                 }
+                // Give accounts without a progression node the free Sprout rank while keeping
+                // their separate staff/media primary group untouched.
+                user.data().add(InheritanceNode.builder("sprout").build());
+                try { luckPerms.getUserManager().saveUser(user).join(); }
+                catch (Exception ex) { plugin.getLogger().warning("Could not assign default Sprout rank for " + id + ": " + ex.getMessage()); }
+                cacheRank(id, "sprout");
+                return "sprout";
             }
         }
-        return cached==null ? "sprout" : (cached.equalsIgnoreCase("i_sprout") ? "sprout" : cached);
+        return cached == null || cached.equalsIgnoreCase("i_sprout") ? "sprout" : cached;
     }
 
     private boolean setProgressionRank(Player player,String target) {
