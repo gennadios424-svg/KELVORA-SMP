@@ -37,6 +37,10 @@ commands:
     description: Place and browse Money bounties
     usage: /bounty [set <player> <amount>|check <player>|top|list]
     aliases: [bounties]
+  rtp:
+    description: Randomly teleport to safe terrain
+    usage: /rtp [overworld|nether|end]
+    aliases: [randomteleport, wild]
 permissions:
   kelvora.balance:
     description: View your own currency balances and transfer Kelvoras
@@ -62,3 +66,6 @@ permissions:
   kelvora.bounty.admin:
     description: Recover interrupted bounty payout transactions
     default: op
+  kelvora.rtp:
+    description: Use random teleport
+    default: true
