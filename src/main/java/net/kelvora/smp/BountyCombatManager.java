@@ -295,7 +295,7 @@ final class BountyCombatManager implements Listener {
             long seconds = Math.max(1, (c.until - now + 999) / 1000);
             if (seconds == 10 || seconds == 5 || seconds == 3 || seconds == 2 || seconds == 1) {
                 p.sendMessage(Component.text("Combat ends in " + seconds + "s.", NamedTextColor.RED));
-                sound(p, Sound.UI_BUTTON_CLICK);
+                if (seconds == 5 || seconds == 1) sound(p, Sound.UI_BUTTON_CLICK);
             }
         }
     }
