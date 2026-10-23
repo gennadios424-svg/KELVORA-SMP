@@ -52,6 +52,8 @@ final class BountyCombatManager implements Listener {
     private YamlConfiguration store;
     private final Set<UUID> paying = ConcurrentHashMap.newKeySet();
     private final Set<UUID> handledDeaths = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> combatLogouts = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, TimedOwner> lastAttackers = new HashMap<>();
 
     BountyCombatManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -257,6 +259,7 @@ final class BountyCombatManager implements Listener {
         boolean freshA = !active(attacker.getUniqueId(), now), freshV = !active(victim.getUniqueId(), now);
         combat.put(attacker.getUniqueId(), new Combat(now + COMBAT_MS, victim.getUniqueId(), now));
         combat.put(victim.getUniqueId(), new Combat(now + COMBAT_MS, attacker.getUniqueId(), now));
+        lastAttackers.put(victim.getUniqueId(), new TimedOwner(attacker.getUniqueId(), now + COMBAT_MS));
         if (freshA) { attacker.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(attacker, Sound.ENTITY_IRON_GOLEM_HURT); }
         if (freshV) { victim.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(victim, Sound.ENTITY_IRON_GOLEM_HURT); }
     }
@@ -358,8 +361,13 @@ final class BountyCombatManager implements Listener {
         combat.remove(victimId);
         if (tag != null) combat.remove(tag.opponent, tag);
         if (!handledDeaths.add(victimId)) return;
+        if (combatLogouts.remove(victimId)) return;
         Player killer = victim.getKiller();
-        if (killer == null && tag != null && tag.until > System.currentTimeMillis()) killer = Bukkit.getPlayer(tag.opponent);
+        if (killer == null) {
+            TimedOwner last = lastAttackers.get(victimId);
+            if (last != null && last.expires > System.currentTimeMillis()) killer = Bukkit.getPlayer(last.owner);
+        }
+        lastAttackers.remove(victimId);
         if (killer == null || killer.equals(victim) || !killer.isOnline()) return;
         Bounty bounty = bounties.get(victimId);
         if (bounty == null || bounty.total <= 0 || !paying.add(victimId)) return;
@@ -388,6 +396,7 @@ final class BountyCombatManager implements Listener {
         Combat c = combat.remove(id);
         if (c != null && c.until > System.currentTimeMillis()) {
             Player attacker = Bukkit.getPlayer(c.opponent);
+            combatLogouts.add(id);
             e.getPlayer().setHealth(0.0);
             if (attacker != null && attacker.isOnline()) {
                 attacker.sendMessage(Component.text(e.getPlayer().getName() + " combat-logged.", NamedTextColor.RED));
@@ -395,6 +404,7 @@ final class BountyCombatManager implements Listener {
             }
         }
         combat.remove(id);
+        lastAttackers.remove(id);
         recentCrystalUse.remove(id);
         Bukkit.getScheduler().runTaskLater(plugin, () -> handledDeaths.remove(id), 2L);
     }
@@ -402,6 +412,8 @@ final class BountyCombatManager implements Listener {
     @EventHandler public void onJoin(PlayerJoinEvent e) {
         UUID id = e.getPlayer().getUniqueId();
         combat.remove(id);
+        lastAttackers.remove(id);
+        combatLogouts.remove(id);
         handledDeaths.remove(id);
     }
 
