@@ -225,25 +225,48 @@ final class GambleManager implements Listener, CommandExecutor, TabCompleter {
         List<String> pool = config.getStringList("validated-rewards");
         if (pool.isEmpty()) return null;
         ConfigurationSection exact = config.getConfigurationSection("exact-chances");
+        Set<String> exactMaterials = new HashSet<>();
         if (exact != null) {
-            double total = 0;
-            for (String k : exact.getKeys(false)) total += exact.getDouble(k, 0);
-            if (total < 100) {
-                double roll = random.nextDouble() * 100;
+            double totalChance = 0;
+            for (String k : exact.getKeys(false)) {
+                double chance = exact.getDouble(k, -1);
+                if (!Double.isFinite(chance) || chance < 0 || chance >= 100 || !eligible(Material.matchMaterial(k))) continue;
+                boolean exists = pool.stream().anyMatch(e -> e.split(":", 4)[0].equalsIgnoreCase(k));
+                if (!exists) continue;
+                totalChance += chance;
+                exactMaterials.add(k.toUpperCase(Locale.ROOT));
+            }
+            if (totalChance >= 100) {
+                plugin.getLogger().warning("gamble.yml exact-chances total must be below 100%; ignoring exact chances for this roll.");
+                exactMaterials.clear();
+            } else if (!exactMaterials.isEmpty()) {
+                double roll = random.nextDouble() * 100.0;
                 double cursor = 0;
                 for (String k : exact.getKeys(false)) {
-                    cursor += exact.getDouble(k, 0);
+                    double chance = exact.getDouble(k, -1);
+                    if (!Double.isFinite(chance) || chance < 0 || chance >= 100) continue;
+                    cursor += chance;
                     if (roll < cursor) {
                         for (String entry : pool) if (entry.split(":", 4)[0].equalsIgnoreCase(k)) return entry;
                     }
                 }
             }
         }
-        double total = 0;
-        for (String e : pool) total += Double.parseDouble(e.split(":", 4)[2]);
-        double pick = random.nextDouble() * total;
-        for (String e : pool) { pick -= Double.parseDouble(e.split(":", 4)[2]); if (pick <= 0) return e; }
-        return pool.get(pool.size() - 1);
+        List<String> weighted = new ArrayList<>();
+        double totalWeight = 0;
+        for (String entry : pool) {
+            String material = entry.split(":", 4)[0].toUpperCase(Locale.ROOT);
+            if (exactMaterials.contains(material)) continue;
+            double weight;
+            try { weight = Double.parseDouble(entry.split(":", 4)[2]); } catch (RuntimeException ex) { continue; }
+            if (!Double.isFinite(weight) || weight <= 0) continue;
+            weighted.add(entry);
+            totalWeight += weight;
+        }
+        if (weighted.isEmpty() || totalWeight <= 0) return exactMaterials.isEmpty() ? null : pool.stream().filter(e -> exactMaterials.contains(e.split(":", 4)[0].toUpperCase(Locale.ROOT))).findFirst().orElse(null);
+        double pick = random.nextDouble() * totalWeight;
+        for (String entry : weighted) { pick -= Double.parseDouble(entry.split(":", 4)[2]); if (pick <= 0) return entry; }
+        return weighted.get(weighted.size() - 1);
     }
 
     private boolean deliver(Player p, String reward) {
