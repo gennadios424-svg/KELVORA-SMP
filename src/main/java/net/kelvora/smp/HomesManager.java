@@ -20,6 +20,8 @@ import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.event.player.PlayerMoveEvent;
 
 /** Persistent, rank-limited player homes with a protected paginated GUI. */
 final class HomesManager implements Listener, CommandExecutor, TabCompleter {
@@ -30,6 +32,8 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
     private final NamespacedKey actionKey;
     private final Map<UUID, Map<String, SavedHome>> homes = new HashMap<>();
     private final Set<UUID> teleporting = new HashSet<>();
+    private final Map<UUID, BukkitTask> teleportTasks = new HashMap<>();
+    private final Map<UUID, Location> teleportOrigins = new HashMap<>();
     private YamlConfiguration store;
     private LuckPerms luckPerms;
 
@@ -190,13 +194,44 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
         if (world == null) { teleporting.remove(p.getUniqueId()); fail(p, "That home's world is unavailable. Your home has been kept."); return; }
         Location target = new Location(world, h.x, h.y, h.z, h.yaw, h.pitch);
         p.closeInventory();
-        p.teleportAsync(target).whenComplete((success, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
-            teleporting.remove(p.getUniqueId());
-            if (!p.isOnline()) return;
-            if (error != null || !Boolean.TRUE.equals(success)) { fail(p, "Teleport failed. You have been left where you were."); return; }
-            p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.45f, 1.25f);
-            p.sendMessage(Component.text("Teleported home '" + h.name + "'.", NamedTextColor.GREEN));
-        }));
+        UUID id = p.getUniqueId();
+        Location origin = p.getLocation().clone();
+        teleportOrigins.put(id, origin);
+        final int[] seconds = {5};
+        p.sendActionBar(Component.text("Home teleport in 5s — Don't move!", NamedTextColor.YELLOW));
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+            @Override public void run() {
+                if (!p.isOnline() || p.isDead() || !teleporting.contains(id)) {
+                    teleporting.remove(id); teleportOrigins.remove(id); teleportTasks.remove(id); cancel(); return;
+                }
+                if (combat != null && combat.isInCombat(p)) {
+                    teleporting.remove(id); teleportOrigins.remove(id); teleportTasks.remove(id);
+                    p.sendActionBar(Component.text("You cannot teleport while in combat!", NamedTextColor.RED));
+                    cancel(); return;
+                }
+                Location now = p.getLocation();
+                if (!now.getWorld().equals(origin.getWorld()) || now.distanceSquared(origin) > 0.0001) {
+                    teleporting.remove(id); teleportOrigins.remove(id); teleportTasks.remove(id);
+                    p.sendActionBar(Component.text("Teleport cancelled — don't move while teleporting!", NamedTextColor.RED));
+                    cancel(); return;
+                }
+                if (seconds[0] <= 0) {
+                    teleportOrigins.remove(id); teleportTasks.remove(id); cancel();
+                    p.teleportAsync(target).whenComplete((success, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
+                        teleporting.remove(id);
+                        if (!p.isOnline()) return;
+                        if (error != null || !Boolean.TRUE.equals(success)) { fail(p, "Teleport failed. You have been left where you were."); return; }
+                        p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.45f, 1.25f);
+                        p.sendActionBar(Component.text("Teleported home '" + h.name + "'.", NamedTextColor.GREEN));
+                    }));
+                    return;
+                }
+                p.sendActionBar(Component.text("Home teleport in " + seconds[0] + "s — Don't move!", NamedTextColor.YELLOW));
+                seconds[0]--;
+            }
+            private void cancel() { BukkitTask active = teleportTasks.get(id); if (active != null) active.cancel(); }
+        }, 0L, 20L);
+        teleportTasks.put(id, task);
     }
 
     private void openHomes(Player p, int page) {
@@ -281,7 +316,21 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
     @EventHandler public void onInventoryDrag(InventoryDragEvent e) {
         if (TITLE.equals(ChatColor.stripColor(e.getView().getTitle()))) e.setCancelled(true);
     }
-    @EventHandler public void onQuit(PlayerQuitEvent e) { teleporting.remove(e.getPlayer().getUniqueId()); }
+    @EventHandler(ignoreCancelled = true)
+    public void onTeleportMove(PlayerMoveEvent e) {
+        UUID id = e.getPlayer().getUniqueId();
+        if (!teleportOrigins.containsKey(id) || e.getTo() == null) return;
+        Location from = e.getFrom(), to = e.getTo();
+        if (!from.getWorld().equals(to.getWorld()) || from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
+            teleporting.remove(id); teleportOrigins.remove(id);
+            BukkitTask task = teleportTasks.remove(id); if (task != null) task.cancel();
+            e.getPlayer().sendActionBar(Component.text("Teleport cancelled — don't move while teleporting!", NamedTextColor.RED));
+        }
+    }
+    @EventHandler public void onQuit(PlayerQuitEvent e) {
+        UUID id = e.getPlayer().getUniqueId(); teleporting.remove(id); teleportOrigins.remove(id);
+        BukkitTask task = teleportTasks.remove(id); if (task != null) task.cancel();
+    }
 
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!(sender instanceof Player p) || args.length != 1) return Collections.emptyList();
