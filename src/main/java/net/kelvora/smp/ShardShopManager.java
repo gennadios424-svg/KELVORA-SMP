@@ -122,7 +122,7 @@ final class ShardShopManager implements Listener {
             }
         }
         add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
-        add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
+        add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Shards"), "info");
         add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
         player.openInventory(inv);
     }
