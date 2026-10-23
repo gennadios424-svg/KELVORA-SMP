@@ -228,7 +228,7 @@ final class ShardShopManager implements Listener {
             if (!currency.withdraw(player, price)) { user.data().remove(newNode); lp.getUserManager().saveUser(user).join(); player.sendMessage(Component.text("Purchase failed; no Kelvoras were charged.", NamedTextColor.RED)); return; }
             for (Node node : new ArrayList<>(user.getNodes())) {
                 if (node.equals(newNode) || !(node instanceof InheritanceNode inherited)) continue;
-                if (Set.of("verdant", "emerald", "sovereign").contains(inherited.getGroupName().toLowerCase(Locale.ROOT)) && node.getExpiry().isPresent()) user.data().remove(node);
+                if (Set.of("verdant", "emerald", "sovereign").contains(inherited.getGroupName().toLowerCase(Locale.ROOT)) && !node.getExpiry().equals(java.time.Instant.MAX)) user.data().remove(node);
             }
             lp.getUserManager().saveUser(user).join();
             long expiresAt = System.currentTimeMillis() + duration * 1000L;
