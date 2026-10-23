@@ -170,9 +170,9 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
                     countdownOrigins.remove(id); cancel(); countdowns.remove(id); return;
                 }
                 if (combat != null && combat.isInCombat(player)) {
-                    searching.remove(id); countdownOrigins.remove(id); countdowns.remove(id);
+                    searching.remove(id); countdownOrigins.remove(id); cancel(); countdowns.remove(id);
                     player.sendActionBar(Component.text("Teleport cancelled — you are in combat!", NamedTextColor.RED));
-                    cancel(); return;
+                    return;
                 }
                 // Coordinate movement is checked by PlayerMoveEvent against the immutable origin.
                 // Avoid a second per-second location comparison here: it can misclassify server corrections.
@@ -181,7 +181,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
                     cancel(); return;
                 }
                 if (seconds[0] <= 0) {
-                    countdownOrigins.remove(id); countdowns.remove(id); cancel();
+                    countdownOrigins.remove(id); cancel(); countdowns.remove(id);
                     player.sendActionBar(Component.text("Finding a location...", NamedTextColor.AQUA));
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
                         if (searching.remove(id) && player.isOnline()) player.sendActionBar(Component.text("Random teleport timed out. Try again.", NamedTextColor.RED));
