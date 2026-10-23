@@ -109,7 +109,7 @@ final class RankDailyKeysManager {
         }
         StringJoiner summary = new StringJoiner(", ");
         parsed.forEach((type, amount) -> summary.add(amount + " " + title(type) + " key" + (amount == 1 ? "" : "s")));
-        player.sendMessage(Component.text("Daily rank reward claimed: " + summary + ". Next claim in 24 hours.", NamedTextColor.GREEN));
+        player.sendMessage(Component.text("Daily rank reward claimed: " + summary + ". Next claim in " + duration(cooldown) + ".", NamedTextColor.GREEN));
         return true;
     }
 
