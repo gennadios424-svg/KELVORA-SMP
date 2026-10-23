@@ -83,6 +83,7 @@ implements Listener {
         combatManager.register();
         new BaltopManager(this).register();
         new CoinflipManager(this, combatManager).register();
+        new RtpManager(this).register();
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
