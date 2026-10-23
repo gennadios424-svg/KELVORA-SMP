@@ -248,14 +248,14 @@ final class BaltopManager implements Listener, TabCompleter {
                 if (user != null && user.getPrimaryGroup() != null) {
                     String group = user.getPrimaryGroup().toLowerCase(Locale.ROOT);
                     if (group.equals("default") || group.equals("member")) {
-                        for (String progression : List.of("ascendant", "sovereign", "emerald", "verdant", "i_sprout")) {
+                        for (String progression : List.of("ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout")) {
                             String candidate = progression;
                             if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(candidate))) { group = progression; break; }
                         }
                     }
                     if (group.equals("mod")) group = "moderator";
                     if (group.equals("vip")) group = "verdant";
-                    if (group.equals("i_sprout")) return "I. Sprout";
+                    if (group.equals("sprout") || group.equals("i_sprout")) return "Sprout";
                     if (group.equals("verdant")) return "Verdant";
                     if (group.equals("emerald")) return "Emerald";
                     if (group.equals("sovereign")) return "Sovereign";
@@ -269,7 +269,7 @@ final class BaltopManager implements Listener, TabCompleter {
             }
             if (cachedRank != null) {
                 return switch (cachedRank.toLowerCase(Locale.ROOT)) {
-                    case "i_sprout", "member", "default" -> "I. Sprout";
+                    case "sprout", "i_sprout", "member", "default" -> "Sprout";
                     case "verdant", "vip" -> "Verdant";
                     case "emerald" -> "Emerald";
                     case "sovereign" -> "Sovereign";
