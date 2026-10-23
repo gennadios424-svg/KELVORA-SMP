@@ -6,6 +6,15 @@ description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and 
 softdepend: [LuckPerms, Vault, PlaceholderAPI]
 author: Kelvora SMP
 commands:
+  kelvora:
+    description: Operator-only Kelvoras administration
+    usage: /kelvora give <player> <amount>
+  news:
+    description: Broadcast an on-screen server announcement
+    usage: /news <message>
+  daily:
+    description: Claim your daily random Money reward
+    usage: /daily
   crate:
     description: Manage and open physical Kelvora crates
     usage: /crate <spawn|remove|list|keys|givekey>
