@@ -210,8 +210,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if(target!=null) loc=(target.getType().isAir()?target:target.getRelative(0,1,0)).getLocation();
             else loc=p.getLocation().getBlock().getRelative(0,2,0).getLocation();
             if(!loc.getBlock().isPassable()){sender.sendMessage("Choose a clear block location (look at the ground or an empty space).");return true;}
-            Material appearance=Material.matchMaterial(crateConfig(type).getString("block","SHULKER_BOX"));
-            if(appearance==null||!appearance.isBlock()||appearance.isAir()||!appearance.name().endsWith("SHULKER_BOX")) appearance=Material.SHULKER_BOX;
+            Material appearance=Material.matchMaterial(defaultBlock(type));
+            if(appearance==null) appearance=Material.SHULKER_BOX;
             loc.getBlock().setType(appearance);
             String key=locKey(loc);
             crates.put(key,loc);
@@ -267,7 +267,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         openCrate.put(p.getUniqueId(),type);
         Inventory inv=Bukkit.createInventory(null,27,Component.text(GUI+" | "+titleCase(type),NamedTextColor.DARK_GREEN));
         protectedInventories.add(inv);
-        inv.setItem(4,button(Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","SHULKER_BOX")) == null ? Material.SHULKER_BOX : Material.matchMaterial(plugin.getConfig().getString("crates.types."+type+".block","SHULKER_BOX")),"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
+        inv.setItem(4,button(Material.matchMaterial(defaultBlock(type)) == null ? Material.SHULKER_BOX : Material.matchMaterial(defaultBlock(type)),"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
         inv.setItem(13,button(Material.TRIPWIRE_HOOK,"&eYour Keys: &f"+keys(p,type),List.of("&7Digital keys only","&7One key per successful opening")));
         List<String> rewards=configuredRewards(type);
         int slot=9;for(String entry:rewards){String[] bits=entry.split(":",4);if(bits.length<4)continue;String kind=bits[0].toUpperCase(Locale.ROOT);Material mat=Material.matchMaterial(bits[0]);if(kind.equals("KELVORAS")){inv.setItem(slot++,button(Material.AMETHYST_SHARD,"&b"+bits[1]+" Kelvoras",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("MONEY")){inv.setItem(slot++,button(Material.GOLD_INGOT,"&6$"+bits[1]+" Money",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("COMMAND")){inv.setItem(slot++,button(Material.COMMAND_BLOCK,"&dSpecial reward",List.of("&7Server reward","&8Tier: "+bits[3])));}else if(mat!=null&&isAllowedReward(mat)){inv.setItem(slot++,button(mat,"&f"+titleCase(mat.name().toLowerCase(Locale.ROOT).replace('_',' ')),List.of("&7Possible reward","&8Tier: "+bits[3])));}if(slot>=18)break;}
