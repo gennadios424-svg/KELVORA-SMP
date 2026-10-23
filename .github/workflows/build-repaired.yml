@@ -19,8 +19,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: kelvora-build-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: kelvora-build-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
