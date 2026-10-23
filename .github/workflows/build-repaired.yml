@@ -42,6 +42,34 @@ jobs:
           jar tf "$JAR" | grep -q 'net/kelvora/smp/KelvoraSMP.class'
           jar tf "$JAR" | grep -q 'plugin.yml'
           unzip -p "$JAR" plugin.yml | grep -q "version: ${VERSION}"
+      - name: Paper 1.21.11 startup smoke test
+        run: |
+          VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')
+          BUILD=$(curl -fsSL https://api.papermc.io/v2/projects/paper/versions/1.21.11 | python3 -c "import json,sys; print(json.load(sys.stdin)['builds'][-1])")
+          curl -fsSL "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/${BUILD}/downloads/paper-1.21.11-${BUILD}.jar" -o paper-smoke.jar
+          mkdir -p smoke/plugins
+          cp "target/KelvoraSMP-${VERSION}.jar" smoke/plugins/
+          printf 'eula=true\n' > smoke/eula.txt
+          printf 'online-mode=false\nserver-port=25575\nview-distance=2\nsimulation-distance=2\n' > smoke/server.properties
+          cd smoke
+          timeout 150s java -Xms512M -Xmx1G -jar ../paper-smoke.jar --nogui > server.log 2>&1 &
+          SERVER_PID=$!
+          for i in $(seq 1 70); do
+            if grep -q 'Done (' server.log; then break; fi
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then cat server.log; exit 1; fi
+            sleep 2
+          done
+          if ! grep -q 'Done (' server.log; then cat server.log; kill "$SERVER_PID" 2>/dev/null || true; exit 1; fi
+          grep -q 'Auction House loaded' server.log
+          grep -q 'Kelvora SMP presentation enabled' server.log
+          if grep -E 'Could not load .+ plugin|Error occurred while enabling KelvoraSMP|Exception in thread' server.log; then
+            cat server.log
+            kill "$SERVER_PID" 2>/dev/null || true
+            exit 1
+          fi
+          kill "$SERVER_PID" 2>/dev/null || true
+          wait "$SERVER_PID" 2>/dev/null || true
+          echo 'Paper 1.21.11 startup smoke test passed.'
       - name: Publish compiled JAR to repository
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
