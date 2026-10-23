@@ -225,7 +225,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 } else {
                     inv.setItem(13, button(Material.LIME_DYE, "&a&lKEYS DELIVERED", List.of("&f+" + amount + " " + titleCase(type) + " key(s)", "&7Use a physical crate to open them")));
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
-                    Bukkit.getScheduler().cancelTask(task[0]);
+                    Bukkit.getScheduler().cancelTask(task[0].getTaskId());
                     Bukkit.getScheduler().runTaskLater(plugin, () -> { if (player.isOnline() && player.getOpenInventory().getTitle().equals(animationTitle)) player.closeInventory(); }, 30L);
                 }
             }
@@ -286,7 +286,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         inv.setItem(13, button(Material.CLOCK, "&e&lRolling...", List.of("&7The server selected the reward securely")));
         inv.setItem(22, button(Material.YELLOW_STAINED_GLASS_PANE, "&ePlease wait...", List.of("&7One key consumed")));
         final UUID id = p.getUniqueId();
-        final int[] task = new int[1];
+        final org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
         task[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             int step = 0;
             public void run() {
@@ -307,7 +307,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                     current.playSound(current.getLocation(), Sound.UI_BUTTON_CLICK, 0.4f, 0.8f + step * 0.1f);
                     step++; return;
                 }
-                Bukkit.getScheduler().cancelTask(task[0]);
+                Bukkit.getScheduler().cancelTask(task[0].getTaskId());
                 if (current == null || !current.isOnline()) {
                     data.set(path, keysByUuid(id, type) + 1);
                     save();
