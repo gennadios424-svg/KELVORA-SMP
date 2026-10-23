@@ -737,30 +737,18 @@ crates:
         - "NETHER_STAR:1:1:Mythic"
         - "KELVORAS:500:2:Epic"
         - "MONEY:750:1:Legendary"
-    gambling:
-      name: "&cGambling Crate"
-      description: "High variance — valuable rewards are not guaranteed"
-      block: BARREL
-      include-eligible-catalogue: true
-      # Add material names here to disable them from the generated Gambling catalogue.
-      disabled-items: []
-      # Exact percentages override relative weights. 0.001 means 0.001% (1 in 100,000).
-      exact-chances:
-        DRAGON_EGG: 0.001
-      rewards:
-        - "DIRT:16:40:Common"
-        - "COAL:16:25:Common"
-        - "IRON_INGOT:8:15:Uncommon"
-        - "DIAMOND:1:10:Rare"
-        - "NETHERITE_INGOT:1:2:Legendary"
-        - "DRAGON_EGG:1:0.0009200092:Mythic"
-        - "KELVORAS:10000:0.2:Mythic"
-
-kelvora-tools:
-  drill:
-    lifetime-seconds: 604800
-    expired-policy: convert-to-diamond-pickaxe
-    restricted-blocks: [BEDROCK, SPAWNER, TRIAL_SPAWNER, VAULT, CHEST, TRAPPED_CHEST, BARREL, ENDER_CHEST, SHULKER_BOX, END_PORTAL_FRAME]
+    crimson:
+    name: "&4&lCrimson Crate"
+    description: "Dark crimson rewards"
+    block: "RED_SHULKER_BOX"
+    rewards:
+      - "IRON_INGOT:16:10:Common"
+      - "GOLD_INGOT:8:8:Common"
+      - "DIAMOND:2:3:Rare"
+      - "NETHERITE_INGOT:1:1:Legendary"
+      - "MONEY:1000:2:Epic"
+      - "KELVORAS:500:2:Epic"
+  restricted-blocks: [BEDROCK, SPAWNER, TRIAL_SPAWNER, VAULT, CHEST, TRAPPED_CHEST, BARREL, ENDER_CHEST, SHULKER_BOX, END_PORTAL_FRAME]
   gainer:
     max-interval: 168
     reward-min: 5
