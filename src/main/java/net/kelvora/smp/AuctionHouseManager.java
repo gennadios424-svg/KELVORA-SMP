@@ -45,6 +45,7 @@ final class AuctionHouseManager implements Listener {
     private final Map<UUID, ViewSession> sessions = new ConcurrentHashMap<>();
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
     private final Set<String> reservedListings = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, String> searchQueries = new ConcurrentHashMap<>();
     private YamlConfiguration data;
     private Object economy;
 
@@ -61,26 +62,34 @@ final class AuctionHouseManager implements Listener {
             plugin.getCommand("ah").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player p)) { sender.sendMessage("Use this command in-game."); return true; }
                 if (!p.hasPermission("kelvora.ah")) { p.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
-                if (args.length == 0) { openBrowse(p, 0, false); return true; }
+                if (args.length == 0) { searchQueries.remove(p.getUniqueId()); openBrowse(p, 0, false); return true; }
                 switch (args[0].toLowerCase(Locale.ROOT)) {
                     case "sell" -> {
                         if (args.length != 2) { msg(p, NamedTextColor.RED, "Usage: /ah sell <price>"); return true; }
                         createListing(p, args[1]);
                     }
-                    case "listings" -> openBrowse(p, 0, true);
+                    case "listings" -> { searchQueries.remove(p.getUniqueId()); openBrowse(p, 0, true); }
+                    case "search" -> {
+                        if (args.length < 2) { msg(p, NamedTextColor.YELLOW, "Usage: /ah search <item name>"); return true; }
+                        String query = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim();
+                        if (query.isBlank()) { msg(p, NamedTextColor.YELLOW, "Usage: /ah search <item name>"); return true; }
+                        searchQueries.put(p.getUniqueId(), query.toLowerCase(Locale.ROOT));
+                        if (visibleListings(p, false).isEmpty()) msg(p, NamedTextColor.YELLOW, "No active listings match '" + query + "'.");
+                        openBrowse(p, 0, false);
+                    }
                     case "cancel" -> {
                         if (args.length != 2) { msg(p, NamedTextColor.RED, "Usage: /ah cancel <listing-id>"); return true; }
                         cancelListing(p, args[1]);
                     }
                     case "help" -> {
-                        msg(p, NamedTextColor.GREEN, "/ah • /ah sell <price> • /ah listings • /ah cancel <listing-id>");
+                        msg(p, NamedTextColor.GREEN, "/ah • /ah search <query> • /ah sell <price> • /ah listings • /ah cancel <listing-id>");
                     }
-                    default -> msg(p, NamedTextColor.RED, "Usage: /ah [sell <price>|listings|cancel <id>|help]");
+                    default -> msg(p, NamedTextColor.RED, "Usage: /ah [search <query>|sell <price>|listings|cancel <id>|help]");
                 }
                 return true;
             });
             plugin.getCommand("ah").setTabCompleter((sender, command, alias, args) -> {
-                if (args.length == 1) return starts(List.of("sell", "listings", "cancel", "help"), args[0]);
+                if (args.length == 1) return starts(List.of("search", "sell", "listings", "cancel", "help"), args[0]);
                 if (args.length == 2 && args[0].equalsIgnoreCase("cancel") && sender instanceof Player p) {
                     List<String> ids = new ArrayList<>();
                     for (Listing listing : listings.values()) if (listing.owner.equals(p.getUniqueId())) ids.add(listing.id);
@@ -279,6 +288,15 @@ final class AuctionHouseManager implements Listener {
                 .filter(l -> !ownOnly || l.owner.equals(p.getUniqueId()))
                 .sorted(Comparator.comparingLong(l -> l.createdAt))
                 .toList();
+    }
+
+    private boolean matchesSearch(Listing listing, String query) {
+        String q = query.toLowerCase(Locale.ROOT);
+        if (listing.item.getType().name().toLowerCase(Locale.ROOT).contains(q)) return true;
+        ItemMeta meta = listing.item.getItemMeta();
+        if (meta != null && meta.hasDisplayName() && plain(meta.displayName()).toLowerCase(Locale.ROOT).contains(q)) return true;
+        String label = listing.item.getType().translationKey().replace("item.minecraft.", "").replace("block.minecraft.", "").replace('_', ' ');
+        return label.toLowerCase(Locale.ROOT).contains(q);
     }
 
     private ItemStack listingDisplay(Listing l) {
