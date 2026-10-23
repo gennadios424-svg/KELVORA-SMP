@@ -92,6 +92,7 @@ final class ShopSellManager implements Listener {
         put(inv, 16, Material.END_STONE, "End", "cat:end:0", "End blocks and materials");
         put(inv, 31, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.3f, 1.15f);
 
     }
 
@@ -117,6 +118,7 @@ final class ShopSellManager implements Listener {
         put(inv, controls + 5, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.25f);
     }
 
     private List<ShopEntry> categoryEntries(String cat) {
@@ -255,9 +257,9 @@ final class ShopSellManager implements Listener {
             if (action == null || session == null) return;
             if (action.startsWith("qty:")) {
                 int qty = parsePage(action.substring(4));
-                if (qty <= session.prototype.getMaxStackSize() && validQuantity(qty, session.prototype.getMaxStackSize())) {
+                if (validQuantity(qty, session.prototype.getMaxStackSize())) {
                     session.quantity = qty;
-                    refreshQuantityView(p, e.getView().getTopInventory(), session);
+                    confirmPurchase(p, session);
                 }
             } else if (action.equals("confirm")) confirmPurchase(p, session);
             else if (action.equals("back")) {
@@ -449,20 +451,21 @@ final class ShopSellManager implements Listener {
     }
 
     private boolean validQuantity(int quantity, int maxStack) {
-        return quantity == 1 || (quantity == 8 && maxStack >= 8) || (quantity == 16 && maxStack >= 16);
+        return quantity == 1 || quantity == 32 || quantity == 64;
     }
 
     private void openQuantity(Player p, QuantitySession session) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         refreshQuantityView(p, inv, session);
-        put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
-        if (session.prototype.getMaxStackSize() >= 8) put(inv, 21, Material.LIME_CONCRETE, "Buy 8", "qty:8", "Total: $" + MONEY.format(session.unitPrice * 8));
-        if (session.prototype.getMaxStackSize() >= 16) put(inv, 22, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
+        put(inv, 19, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
+        put(inv, 21, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
+        put(inv, 23, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
         put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
         put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
         put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.2f);
     }
 
     private void refreshQuantityView(Player p, Inventory inv, QuantitySession session) {
@@ -496,33 +499,40 @@ final class ShopSellManager implements Listener {
             } else {
                 unit = shopPrice(type);
                 if (!Double.isFinite(unit) || unit <= 0) {
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                     p.sendMessage(Component.text("This item no longer has a valid shop price. No charge was made.", NamedTextColor.RED));
                     return;
                 }
             }
             int qty = session.quantity;
             if (!validQuantity(qty, session.prototype.getMaxStackSize())) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Invalid quantity. No charge was made.", NamedTextColor.RED)); return;
             }
             double cost = unit * qty;
             if (!Double.isFinite(cost) || cost <= 0) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Invalid price. No charge was made.", NamedTextColor.RED)); return;
             }
             if (economy == null) connectEconomy();
             if (economy == null) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Money is not connected. The server needs Vault and its existing Money economy provider.", NamedTextColor.RED)); return;
             }
             double available = balance(p);
             if (available + 0.000001 < cost) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Not enough Money. Need $" + MONEY.format(cost) + "; your balance is $" + MONEY.format(available) + ".", NamedTextColor.RED)); return;
             }
             ItemStack grant = session.prototype.clone();
             grant.setAmount(qty);
             if (!simulateAdd(p.getInventory(), grant).isEmpty()) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Not enough inventory space for that quantity. No charge was made.", NamedTextColor.RED)); return;
             }
             Object response = economyCall("withdrawPlayer", p, cost);
             if (!transactionSucceeded(response)) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Money transaction failed. No items were given.", NamedTextColor.RED)); return;
             }
             Map<Integer, ItemStack> failed = p.getInventory().addItem(grant);
@@ -534,11 +544,10 @@ final class ShopSellManager implements Listener {
                     : "Inventory changed; leftover items were dropped safely. Contact staff to verify the refund.", NamedTextColor.RED));
                 return;
             }
-            quantitySessions.remove(p.getUniqueId(), session);
-            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.25f);
+            p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.45f, 1.4f);
             p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
                 + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
-            openCategory(p, session.category, session.page);
+            refreshQuantityView(p, p.getOpenInventory().getTopInventory(), session);
         } finally {
             transactions.remove(p.getUniqueId());
         }
