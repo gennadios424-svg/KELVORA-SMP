@@ -114,7 +114,19 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
                     if (target == null) { player.sendMessage(red("That team does not exist.")); return true; }
                     disbandTeam(target, "Team " + target.name + " was disbanded by staff.");
                     player.sendMessage(green("Team " + target.name + " disbanded."));
-                } else usage(player, "/team admin disband <name>");
+                } else if (args.length == 4 && args[1].equalsIgnoreCase("kick")) {
+                    Team target = find(args[2]);
+                    if (target == null) { player.sendMessage(red("That team does not exist.")); return true; }
+                    UUID member = findMember(target, args[3]);
+                    if (member == null) { player.sendMessage(red("That player is not in that team.")); return true; }
+                    if (member.equals(target.leader)) { player.sendMessage(red("Transfer leadership before removing the leader.")); return true; }
+                    target.members.remove(member);
+                    if (!save()) { target.members.add(member); player.sendMessage(red("Could not save the moderation change.")); return true; }
+                    Player online = Bukkit.getPlayer(member);
+                    if (online != null) online.sendMessage(yellow("Staff removed you from team " + target.name + "."));
+                    announce(target, Bukkit.getOfflinePlayer(member).getName() + " was removed by staff.");
+                    player.sendMessage(green("Removed that player from " + target.name + "."));
+                } else usage(player, "/team admin <disband <name>|kick <team> <player>");
             }
             default -> { openGui(player); }
         }
