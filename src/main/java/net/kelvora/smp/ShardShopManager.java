@@ -43,6 +43,7 @@ final class ShardShopManager implements Listener {
     private final File dataFile;
     private YamlConfiguration data;
     private final Set<UUID> processing = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, String> pendingRankPurchases = new ConcurrentHashMap<>();
     private final Map<UUID, String> openCategory = new HashMap<>();
 
     ShardShopManager(KelvoraSMP plugin, KelvorasManager currency) {
@@ -71,7 +72,7 @@ final class ShardShopManager implements Listener {
         }
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
         if (label.equalsIgnoreCase("shards")) {
-            player.sendMessage(Component.text("Your Shards: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
+            player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
             return true;
         }
         if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
@@ -83,10 +84,11 @@ final class ShardShopManager implements Listener {
         openCategory.put(player.getUniqueId(), "categories");
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
         add(inv, 10, Material.NAME_TAG, "&aTags", List.of("Decorative labels beside your name", "Coming Soon"), "category:tags");
-        add(inv, 11, Material.CLOCK, "&eTemporary Ranks", List.of("Cosmetic titles only", "No permissions or gameplay benefits"), "category:titles");
+        add(inv, 11, Material.CLOCK, "&eTemporary Titles", List.of("Cosmetic titles", "Existing ShardShop products"), "category:titles");
+        add(inv, 12, Material.EMERALD, "&aTemporary Ranks", List.of("Verdant, Emerald, Sovereign", "1, 3 or 7 days using Kelvoras"), "category:ranks");
         add(inv, 13, Material.GLOW_INK_SAC, "&bGlows", List.of("Cosmetic player glow effects", "Coming Soon"), "category:glows");
         add(inv, 15, Material.WRITABLE_BOOK, "&dChat Colours", List.of("Colour your message text", "Click to browse"), "category:chat");
-        add(inv, 22, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Shards"), "info");
+        add(inv, 22, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
         add(inv, 26, Material.BARRIER, "&cClose", List.of(), "close");
         player.openInventory(inv);
     }
@@ -152,7 +154,7 @@ final class ShardShopManager implements Listener {
                 return;
             }
             double price = entry.getDouble("price", -1);
-            if (!entry.getBoolean("available", false) || price < 0 || !Double.isFinite(price)) { player.sendMessage(Component.text("Coming Soon — this cosmetic is not available yet. No Shards were charged.", NamedTextColor.YELLOW)); openItems(player, category); return; }
+            if (!entry.getBoolean("available", false) || price < 0 || !Double.isFinite(price)) { player.sendMessage(Component.text("Coming Soon — this cosmetic is not available yet. No Kelvoras were charged.", NamedTextColor.YELLOW)); openItems(player, category); return; }
             double balance = currency.balance(player);
             if (!Double.isFinite(balance) || balance + 0.000001 < price) {
                 player.sendMessage(Component.text("Not enough Shards! Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED)); return;
