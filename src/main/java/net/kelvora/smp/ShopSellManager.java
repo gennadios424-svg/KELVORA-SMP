@@ -92,6 +92,7 @@ final class ShopSellManager implements Listener {
         put(inv, 16, Material.END_STONE, "End", "cat:end:0", "End blocks and materials");
         put(inv, 31, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.3f, 1.15f);
 
     }
 
@@ -117,6 +118,7 @@ final class ShopSellManager implements Listener {
         put(inv, controls + 5, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.25f);
     }
 
     private List<ShopEntry> categoryEntries(String cat) {
@@ -463,6 +465,7 @@ final class ShopSellManager implements Listener {
         put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
         put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.2f);
     }
 
     private void refreshQuantityView(Player p, Inventory inv, QuantitySession session) {
@@ -496,33 +499,40 @@ final class ShopSellManager implements Listener {
             } else {
                 unit = shopPrice(type);
                 if (!Double.isFinite(unit) || unit <= 0) {
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                     p.sendMessage(Component.text("This item no longer has a valid shop price. No charge was made.", NamedTextColor.RED));
                     return;
                 }
             }
             int qty = session.quantity;
             if (!validQuantity(qty, session.prototype.getMaxStackSize())) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Invalid quantity. No charge was made.", NamedTextColor.RED)); return;
             }
             double cost = unit * qty;
             if (!Double.isFinite(cost) || cost <= 0) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Invalid price. No charge was made.", NamedTextColor.RED)); return;
             }
             if (economy == null) connectEconomy();
             if (economy == null) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Money is not connected. The server needs Vault and its existing Money economy provider.", NamedTextColor.RED)); return;
             }
             double available = balance(p);
             if (available + 0.000001 < cost) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Not enough Money. Need $" + MONEY.format(cost) + "; your balance is $" + MONEY.format(available) + ".", NamedTextColor.RED)); return;
             }
             ItemStack grant = session.prototype.clone();
             grant.setAmount(qty);
             if (!simulateAdd(p.getInventory(), grant).isEmpty()) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Not enough inventory space for that quantity. No charge was made.", NamedTextColor.RED)); return;
             }
             Object response = economyCall("withdrawPlayer", p, cost);
             if (!transactionSucceeded(response)) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Money transaction failed. No items were given.", NamedTextColor.RED)); return;
             }
             Map<Integer, ItemStack> failed = p.getInventory().addItem(grant);
