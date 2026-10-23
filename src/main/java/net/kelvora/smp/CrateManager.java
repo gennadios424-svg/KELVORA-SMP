@@ -262,7 +262,32 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         sender.sendMessage("Usage: /crate <spawn <type>|remove|list|keys|givekey <player> <type> <amount>>");return true;
     }
     private int parseAmount(String s){try{int n=Integer.parseInt(s);return n>0&&n<=100000?n:-1;}catch(Exception e){return -1;}}
-    boolean grantDigitalKeys(Player player, String type, int amount) { String normalized = validType(type); return player != null && normalized != null && amount > 0 && addKeys(player, normalized, amount); }
+    boolean grantDigitalKeys(Player player, String type, int amount) {
+        String normalized = validType(type);
+        if (player == null || normalized == null || amount < 1) return false;
+        return addKeys(player, normalized, amount);
+    }
+
+    boolean grantDigitalKeys(Player player, Map<String, Integer> rewards) {
+        if (player == null || rewards == null || rewards.isEmpty()) return false;
+        Map<String, Integer> oldValues = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> entry : rewards.entrySet()) {
+            String type = validType(entry.getKey());
+            Integer amount = entry.getValue();
+            if (type == null || amount == null || amount < 1) return false;
+            String path = playerPath(player, type);
+            int old = data.getInt(path, 0);
+            if ((long) old + amount > Integer.MAX_VALUE) return false;
+            oldValues.put(path, old);
+        }
+        for (Map.Entry<String, Integer> entry : rewards.entrySet()) {
+            String type = validType(entry.getKey());
+            data.set(playerPath(player, type), data.getInt(playerPath(player, type), 0) + entry.getValue());
+        }
+        if (save()) return true;
+        oldValues.forEach(data::set);
+        return false;
+    }
     private String playerPath(Player p,String type){return "players."+p.getUniqueId()+"."+type;}
     private int keys(Player p,String type){return data.getInt(playerPath(p,type),0);}
     private boolean addKeys(Player p,String type,int amount){String path=playerPath(p,type);int old=data.getInt(path,0);data.set(path,Math.min(2_000_000_000L,(long)old+amount));if(!save()){data.set(path,old);return false;}return true;}
