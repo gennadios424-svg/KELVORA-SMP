@@ -37,6 +37,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private final Map<String, Location> crates = new LinkedHashMap<>();
     private final Map<UUID, String> openCrate = new HashMap<>();
     private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, String> pendingRemoval = new HashMap<>();
+    private final Map<UUID, Long> pendingRemovalAt = new HashMap<>();
     private final java.security.SecureRandom random = new java.security.SecureRandom();
     private final String GUI = "KELVORA | CRATES";
     private final String ADMIN = "KELVORA | CRATE ADMIN";
@@ -159,7 +161,18 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if (!(sender instanceof Player p)) {sender.sendMessage("Use this command in-game.");return true;}
             Block target=p.getTargetBlockExact(6); if(target==null){p.sendMessage("Look at a crate block within 6 blocks.");return true;}
             String key=locKey(target.getLocation()); if(!crates.containsKey(key)){p.sendMessage("That is not a registered Kelvora crate.");return true;}
-            target.setType(Material.AIR); crates.remove(key);data.set(key,null);save();rebuildHolograms();
+            UUID id = p.getUniqueId();
+            long now = System.currentTimeMillis();
+            if (!key.equals(pendingRemoval.get(id)) || now - pendingRemovalAt.getOrDefault(id, 0L) > 10_000L) {
+                pendingRemoval.put(id, key);
+                pendingRemovalAt.put(id, now);
+                p.sendMessage(Component.text("Run /crate remove again within 10 seconds to confirm removing this crate.", NamedTextColor.YELLOW));
+                return true;
+            }
+            pendingRemoval.remove(id); pendingRemovalAt.remove(id);
+            target.setType(Material.AIR); crates.remove(key);data.set(key,null);
+            if (!save()) { p.sendMessage(Component.text("Could not save crate removal. Check server logs.", NamedTextColor.RED)); return true; }
+            rebuildHolograms();
             p.sendMessage(Component.text("Crate and hologram removed.",NamedTextColor.GREEN));return true;
         }
         if(sub.equals("list")) {
