@@ -317,8 +317,10 @@ final class RankKitManager implements Listener {
         if(luckPerms==null) return false;
         User user=luckPerms.getUserManager().getUser(player.getUniqueId());
         if(user==null) return false;
+        String oldPrimary = user.getPrimaryGroup() == null ? "" : user.getPrimaryGroup().toLowerCase(Locale.ROOT);
         for(String key:PROGRESSION) user.data().remove(InheritanceNode.builder(key).build());
         user.data().add(InheritanceNode.builder(target).build());
+        if (PROGRESSION.contains(oldPrimary)) user.setPrimaryGroup(target);
         try { luckPerms.getUserManager().saveUser(user).join(); cacheRank(player.getUniqueId(),target); return true; }
         catch(Exception ex) { return false; }
     }
