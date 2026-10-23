@@ -416,7 +416,6 @@ TabExecutor {
         SearchState state = new SearchState(String.join((CharSequence)" ", args).trim());
         this.pendingSearch.remove(player.getUniqueId());
         this.openWorth(player, state);
-        this.play(player, Sound.BLOCK_CHEST_OPEN, 0.55f, 1.0f);
         return true;
     }
 
@@ -520,18 +519,18 @@ TabExecutor {
         switch (action) {
             case "prev": {
                 --state.page;
-                this.play(player, Sound.UI_BUTTON_CLICK, 0.45f, 0.9f);
+                this.play(player, Sound.UI_BUTTON_CLICK, 0.18f, 0.9f);
                 break;
             }
             case "next": {
                 ++state.page;
-                this.play(player, Sound.UI_BUTTON_CLICK, 0.45f, 1.1f);
+                this.play(player, Sound.UI_BUTTON_CLICK, 0.18f, 1.1f);
                 break;
             }
             case "sort": {
                 state.sort = Sort.values()[(state.sort.ordinal() + 1) % Sort.values().length];
                 state.page = 0;
-                this.play(player, Sound.UI_BUTTON_CLICK, 0.45f, 1.0f);
+                this.play(player, Sound.UI_BUTTON_CLICK, 0.18f, 1.0f);
                 break;
             }
             case "clear": {
@@ -583,7 +582,7 @@ TabExecutor {
             if (this.results(state).isEmpty()) {
                 event.getPlayer().sendMessage((Component)Component.text((String)"No matching items found.", (TextColor)NamedTextColor.YELLOW));
             } else {
-                this.play(event.getPlayer(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.35f, 1.35f);
+                this.play(event.getPlayer(), Sound.UI_BUTTON_CLICK, 0.18f, 1.15f);
             }
         });
     }
