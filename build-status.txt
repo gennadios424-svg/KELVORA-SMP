@@ -1,5 +1,0 @@
-commit=0f9dfa36ec7e49ea2bb468491d154cbec95d6462
-status=failure
-compile=failure
-verify=skipped
-publish=skipped
