@@ -283,7 +283,9 @@ final class AuctionHouseManager implements Listener {
 
     private List<Listing> visibleListings(Player p, boolean ownOnly) {
         long now = System.currentTimeMillis();
+        String query = searchQueries.getOrDefault(p.getUniqueId(), "");
         return listings.values().stream().filter(l -> l.expiresAt > now)
+                .filter(l -> query.isBlank() || matchesSearch(l, query))
                 .filter(l -> !reservedListings.contains(l.id))
                 .filter(l -> !ownOnly || l.owner.equals(p.getUniqueId()))
                 .sorted(Comparator.comparingLong(l -> l.createdAt))
