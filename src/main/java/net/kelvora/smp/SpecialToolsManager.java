@@ -56,7 +56,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         RegisteredServiceProvider<Economy> rsp=Bukkit.getServicesManager().getRegistration(Economy.class);
         if(rsp!=null)economy=rsp.getProvider();
     }
-    private boolean admin(CommandSender s){return s.isOp()||s.hasPermission("kelvora.tools.admin");}
+    private boolean admin(CommandSender s){return s.isOp();}
     private String id(ItemStack item){if(item==null||!item.hasItemMeta())return null;return item.getItemMeta().getPersistentDataContainer().get(idKey,PersistentDataType.STRING);}
     private long expires(ItemStack item){return item.getItemMeta().getPersistentDataContainer().getOrDefault(expiresKey,PersistentDataType.LONG,0L);}
     private String pretty(String id){return switch(id){case "drill"->"Kelvora Drill";case "gainer"->"Kelvora Gainer";case "sellaxe"->"Kelvora Sellaxe";default->"Kelvora Tree Trooper";};}
@@ -71,8 +71,12 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             case "sellaxe"->{meta.addEnchant(Enchantment.EFFICIENCY,5,true);meta.addEnchant(Enchantment.UNBREAKING,3,true);meta.addEnchant(Enchantment.FORTUNE,3,true);lore.add(Component.text("Automatically sells eligible drops for Money",NamedTextColor.GOLD));}
             default->{meta.addEnchant(Enchantment.EFFICIENCY,5,true);meta.addEnchant(Enchantment.UNBREAKING,3,true);meta.addEnchant(Enchantment.FORTUNE,3,true);lore.add(Component.text("Chops connected tree logs",NamedTextColor.GREEN));}
         }
+        long lifetime = Math.max(60L, plugin.getConfig().getLong("kelvora-tools." + id + ".lifetime-seconds", 604800L));
+        long createdAt = System.currentTimeMillis();
+        meta.getPersistentDataContainer().set(createdKey, PersistentDataType.LONG, createdAt);
+        meta.getPersistentDataContainer().set(expiresKey, PersistentDataType.LONG, createdAt + lifetime * 1000L);
         meta.getPersistentDataContainer().set(idKey,PersistentDataType.STRING,id);
-        if(id.equals("drill"))lore.add(Component.text("Lifetime: 7 days from issue",NamedTextColor.RED));
+        lore.add(Component.text("Expires: " + new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date(createdAt + lifetime * 1000L)), NamedTextColor.RED));
         lore.add(Component.text("Kelvora Special Tool",NamedTextColor.DARK_GRAY));meta.lore(lore);item.setItemMeta(meta);return item;
     }
     @Override public boolean onCommand(CommandSender s,Command c,String label,String[] args){
@@ -91,7 +95,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     private String blockKey(Block b){return b.getWorld().getName()+":"+b.getX()+":"+b.getY()+":"+b.getZ();}
     private boolean eligible(Block b){return b!=null&&!b.getType().isAir()&&b.getType().isBlock()&&!Set.of(Material.BEDROCK,Material.BARRIER,Material.SPAWNER,Material.TRIAL_SPAWNER,Material.VAULT,Material.CHEST,Material.TRAPPED_CHEST,Material.BARREL,Material.ENDER_CHEST,Material.SHULKER_BOX).contains(b.getType())&&!b.getType().name().contains("COMMAND_BLOCK")&&!b.getType().name().contains("PORTAL");}
     private boolean natural(Block b){return !placedBlocks.contains(blockKey(b));}
-    private boolean expired(ItemStack item){return "drill".equals(id(item))&&expires(item)>0&&System.currentTimeMillis()>=expires(item);}
+    private boolean expired(ItemStack item){return id(item)!=null&&expires(item)>0&&System.currentTimeMillis()>=expires(item);}
     private void updateDrillLore(Player player, ItemStack item) {
         long left=Math.max(0,expires(item)-System.currentTimeMillis());
         long seconds=left/1000L, days=seconds/86400L, hours=(seconds%86400L)/3600L, minutes=(seconds%3600L)/60L;
