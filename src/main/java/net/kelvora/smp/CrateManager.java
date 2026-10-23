@@ -736,8 +736,9 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
     @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){
         if(a.equalsIgnoreCase("keyall")) return args.length==1 ? TYPES : List.of();
-        if(args.length==1) return List.of("spawn","remove","list","keys","givekey","reload");
+        if(args.length==1) return List.of("spawn","remove","list","keys","givekey","reload","edit");
         if(args.length==2&&args[0].equalsIgnoreCase("spawn")) return TYPES;
+        if(args.length==2&&args[0].equalsIgnoreCase("edit")) return TYPES;
         if(args.length==2&&args[0].equalsIgnoreCase("givekey")) return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
         if(args.length==3&&args[0].equalsIgnoreCase("givekey")) return TYPES;
         return List.of();
