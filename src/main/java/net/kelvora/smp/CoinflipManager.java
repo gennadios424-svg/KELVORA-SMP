@@ -337,11 +337,7 @@ final class CoinflipManager implements Listener {
     }
 
     @EventHandler public void onDrag(InventoryDragEvent e) {
-        if (protectedGuis.contains(e.getView().getTopInventory())) {
-            // Raw slots below the top inventory are player inventory slots; dragging into any
-            // top GUI slot is blocked, while no coinflip GUI items can be transferred out.
-            if (e.getRawSlots().stream().anyMatch(slot -> slot < e.getView().getTopInventory().getSize())) e.setCancelled(true);
-        }
+        if (protectedGuis.contains(e.getView().getTopInventory())) e.setCancelled(true);
     }
 
     @EventHandler public void onChat(AsyncPlayerChatEvent e) {
@@ -392,21 +388,18 @@ final class CoinflipManager implements Listener {
                     if (money(Bukkit.getOfflinePlayer(c.creator),c.amount,false)) continue;
                     c.status = "REFUND_PENDING"; challenges.put(c.id,c);
                 } else if (status.equals("RUNNING") && c.winner != null) {
-                    // Outcome was already locked before the crash. Mark payout claimed before contacting Vault,
-                    // and preserve the record if the provider cannot confirm the deposit.
-                    c.paid = true;
-                    if (money(Bukkit.getOfflinePlayer(c.winner), c.pot, false)) {
-                        plugin.getLogger().info("Recovered interrupted coinflip payout " + c.id);
-                    } else {
-                        c.status = "PAYOUT_PENDING";
-                        challenges.put(c.id, c);
-                        plugin.getLogger().severe("Interrupted coinflip payout needs staff review; durable record preserved: " + c.id);
-                    }
+                    // Vault has no generic idempotency key. A crash could happen immediately
+                    // after a deposit but before saving PAID, so never auto-deposit on recovery.
+                    c.status = "PAYOUT_PENDING";
+                    challenges.put(c.id, c);
+                    plugin.getLogger().severe("Interrupted coinflip payout preserved for staff reconciliation (no automatic retry): " + c.id);
                 } else if (status.equals("REFUND_PENDING")) {
-                    if (!money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) challenges.put(c.id, c);
-                    else plugin.getLogger().info("Recovered pending coinflip refund " + c.id);
+                    // The previous provider response may have been lost after accepting the refund.
+                    // Keep a durable claim for staff review rather than risk issuing the refund twice.
+                    challenges.put(c.id, c);
+                    plugin.getLogger().severe("Coinflip refund preserved for staff reconciliation (no automatic retry): " + c.id);
                 } else if (status.equals("PAYOUT_PENDING")) {
-                    c.paid = true;
+                    // Do not retry automatically: generic Vault providers cannot guarantee exactly-once deposits.
                     challenges.put(c.id, c);
                 }
             } catch (Exception ex) { plugin.getLogger().warning("Skipping malformed coinflip record " + key); }
