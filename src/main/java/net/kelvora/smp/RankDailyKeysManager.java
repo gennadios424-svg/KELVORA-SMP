@@ -101,13 +101,11 @@ final class RankDailyKeysManager {
             player.sendMessage(Component.text("Could not safely save your claim. No keys were granted.", NamedTextColor.RED));
             return true;
         }
-        for (Map.Entry<String, Integer> reward : parsed.entrySet()) {
-            if (!crates.grantDigitalKeys(player, reward.getKey(), reward.getValue())) {
-                claims.set(path, previous);
-                save();
-                player.sendMessage(Component.text("A key grant failed. The cooldown was rolled back; please contact staff before retrying.", NamedTextColor.RED));
-                return true;
-            }
+        if (!crates.grantDigitalKeys(player, parsed)) {
+            claims.set(path, previous);
+            save();
+            player.sendMessage(Component.text("The key grant could not be saved. The cooldown was rolled back; no keys were granted.", NamedTextColor.RED));
+            return true;
         }
         StringJoiner summary = new StringJoiner(", ");
         parsed.forEach((type, amount) -> summary.add(amount + " " + title(type) + " key" + (amount == 1 ? "" : "s")));
