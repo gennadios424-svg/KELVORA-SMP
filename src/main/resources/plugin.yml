@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.9.0
+version: 2.10.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -60,6 +60,10 @@ commands:
     description: Open the random teleport dimension menu
     usage: /rtp
     aliases: [randomteleport, wild]
+  team:
+    description: Create and manage survival teams
+    usage: /team [create|invite|join|leave|kick|promote|info|list|disband]
+    aliases: [teams]
   sethome:
     description: Save a named home
     usage: /sethome <name>
@@ -121,6 +125,9 @@ permissions:
   kelvora.rtp:
     description: Use random teleport
     default: true
+  kelvora.team.admin:
+    description: Moderate teams
+    default: op
   kelvora.homes.use:
     description: Save and use personal homes
     default: true
