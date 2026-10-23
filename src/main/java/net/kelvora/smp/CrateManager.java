@@ -83,7 +83,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         Location base = block.clone().add(0.5, 1.15, 0.5);
         spawnLine(base, type, "&6&l" + title);
         spawnLine(base.clone().add(0, -0.27, 0), type, "&fRight-click to open");
-        spawnLine(base.clone().add(0, -0.27, 0), type, "&7" + desc);
+        spawnLine(base.clone().add(0, -0.54, 0), type, "&7" + desc);
     }
 
     private void spawnLine(Location location, String type, String text) {
