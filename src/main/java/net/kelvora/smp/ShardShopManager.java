@@ -10,7 +10,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.Scoreboard;
+import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.Team;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
