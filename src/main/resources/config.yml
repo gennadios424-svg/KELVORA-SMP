@@ -682,11 +682,12 @@ teams:
 # The server selects the reward independently of any GUI animation.
 crates:
   broadcast-rare-rewards: true
+  migrate-gambling-keys-to-crimson: false
   types:
     common:
       name: "&aCommon Crate"
       description: "Useful survival supplies"
-      block: BARREL
+      block: WHITE_SHULKER_BOX
       rewards:
         - "BREAD:8:30:Common"
         - "TORCH:16:25:Common"
@@ -699,7 +700,7 @@ crates:
     kelvora:
       name: "&3Kelvora Crate"
       description: "Valuable resources and equipment"
-      block: BARREL
+      block: CYAN_SHULKER_BOX
       rewards:
         - "IRON_INGOT:16:25:Common"
         - "GOLD_INGOT:8:20:Uncommon"
@@ -714,7 +715,7 @@ crates:
     gold:
       name: "&6Gold Crate"
       description: "Premium gear and rare materials"
-      block: BARREL
+      block: YELLOW_SHULKER_BOX
       rewards:
         - "GOLD_BLOCK:4:25:Common"
         - "DIAMOND:8:20:Uncommon"
@@ -727,7 +728,7 @@ crates:
     spawner:
       name: "&5Spawner Crate"
       description: "Mob drops and monster-hunting supplies"
-      block: BARREL
+      block: PURPLE_SHULKER_BOX
       rewards:
         - "BLAZE_ROD:8:25:Common"
         - "ENDER_PEARL:16:20:Uncommon"
@@ -738,16 +739,16 @@ crates:
         - "KELVORAS:500:2:Epic"
         - "MONEY:750:1:Legendary"
     crimson:
-    name: "&4&lCrimson Crate"
-    description: "Dark crimson rewards"
-    block: "RED_SHULKER_BOX"
-    rewards:
-      - "IRON_INGOT:16:10:Common"
-      - "GOLD_INGOT:8:8:Common"
-      - "DIAMOND:2:3:Rare"
-      - "NETHERITE_INGOT:1:1:Legendary"
-      - "MONEY:1000:2:Epic"
-      - "KELVORAS:500:2:Epic"
+      name: "&4&lCrimson Crate"
+      description: "Dark crimson rewards"
+      block: RED_SHULKER_BOX
+      rewards:
+        - "IRON_INGOT:16:10:Common"
+        - "GOLD_INGOT:8:8:Common"
+        - "DIAMOND:2:3:Rare"
+        - "NETHERITE_INGOT:1:1:Legendary"
+        - "MONEY:1000:2:Epic"
+        - "KELVORAS:500:2:Epic"
   restricted-blocks: [BEDROCK, SPAWNER, TRIAL_SPAWNER, VAULT, CHEST, TRAPPED_CHEST, BARREL, ENDER_CHEST, SHULKER_BOX, END_PORTAL_FRAME]
   gainer:
     max-interval: 168
