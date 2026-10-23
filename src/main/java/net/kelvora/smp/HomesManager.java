@@ -62,14 +62,14 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
 
     private void applyReducedDebugInfo() {
         for (World world : Bukkit.getWorlds()) {
-            try { world.setGameRule(GameRule.REDUCED_DEBUG_INFO, true); }
+            try { world.setGameRule(GameRule.REDUCED_DEBUG_INFO, false); }
             catch (IllegalArgumentException | NoSuchFieldError ignored) {
                 plugin.getLogger().warning("Could not apply reducedDebugInfo to world " + world.getName());
             }
         }
         Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (World world : Bukkit.getWorlds()) {
-                try { if (!Boolean.TRUE.equals(world.getGameRuleValue(GameRule.REDUCED_DEBUG_INFO))) world.setGameRule(GameRule.REDUCED_DEBUG_INFO, true); }
+                try { if (Boolean.TRUE.equals(world.getGameRuleValue(GameRule.REDUCED_DEBUG_INFO))) world.setGameRule(GameRule.REDUCED_DEBUG_INFO, false); }
                 catch (IllegalArgumentException | NoSuchFieldError ignored) { }
             }
         }, 1200L, 1200L);
