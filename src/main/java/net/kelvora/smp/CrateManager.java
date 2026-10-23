@@ -262,6 +262,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         sender.sendMessage("Usage: /crate <spawn <type>|remove|list|keys|givekey <player> <type> <amount>>");return true;
     }
     private int parseAmount(String s){try{int n=Integer.parseInt(s);return n>0&&n<=100000?n:-1;}catch(Exception e){return -1;}}
+    boolean grantDigitalKeys(Player player, String type, int amount) { String normalized = validType(type); return player != null && normalized != null && amount > 0 && addKeys(player, normalized, amount); }
     private String playerPath(Player p,String type){return "players."+p.getUniqueId()+"."+type;}
     private int keys(Player p,String type){return data.getInt(playerPath(p,type),0);}
     private boolean addKeys(Player p,String type,int amount){String path=playerPath(p,type);int old=data.getInt(path,0);data.set(path,Math.min(2_000_000_000L,(long)old+amount));if(!save()){data.set(path,old);return false;}return true;}
