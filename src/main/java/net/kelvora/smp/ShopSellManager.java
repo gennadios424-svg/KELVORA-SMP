@@ -170,9 +170,9 @@ final class ShopSellManager implements Listener {
     private String categoryFor(ShopEntry entry) {
         if (entry.potionType != null) return "pvp";
         String name = entry.material.name();
-        if (Set.of("OBSIDIAN","END_CRYSTAL","TOTEM_OF_UNDYING","RESPAWN_ANCHOR","GLOWSTONE","EXPERIENCE_BOTTLE","GOLDEN_APPLE","ENDER_PEARL","ENDER_CHEST","ENDER_EYE","ARROW","SPECTRAL_ARROW","POTION").contains(name)) return "pvp";
+        if (Set.of("OBSIDIAN","END_CRYSTAL","TOTEM_OF_UNDYING","RESPAWN_ANCHOR","GLOWSTONE","EXPERIENCE_BOTTLE","GOLDEN_APPLE","ENDER_PEARL","ARROW","SPECTRAL_ARROW","POTION").contains(name)) return "pvp";
         if (name.startsWith("NETHER") || Set.of("BLACKSTONE","GILDED_BLACKSTONE","POLISHED_BLACKSTONE","POLISHED_BLACKSTONE_BRICKS","BASALT","POLISHED_BASALT","SMOOTH_BASALT","SOUL_SAND","SOUL_SOIL","MAGMA_BLOCK","BLAZE_ROD","BLAZE_POWDER","CRYING_OBSIDIAN","GHAST_TEAR","MAGMA_CREAM","QUARTZ").contains(name)) return "nether";
-        if (name.startsWith("END_") || name.startsWith("PURPUR_") || name.startsWith("CHORUS_") || name.equals("POPPED_CHORUS_FRUIT")) return "end";
+        if (name.startsWith("END_") || name.startsWith("PURPUR_") || name.equals("ENDER_CHEST") || name.equals("ENDER_EYE") || name.equals("POPPED_CHORUS_FRUIT")) return "end";
         if (Set.of("WHEAT_SEEDS","CARROT","POTATO","BEETROOT_SEEDS","PUMPKIN_SEEDS","MELON_SEEDS","WHEAT","SUGAR_CANE","PUMPKIN","MELON","CACTUS","BAMBOO","COCOA_BEANS","BONE_MEAL","COMPOSTER","FLOWER_POT","WATER_BUCKET","LAVA_BUCKET","SHEARS","LEAD").contains(name)) return "farm";
         if (Set.of("BREAD","COOKED_BEEF","COOKED_PORKCHOP","COOKED_CHICKEN","COOKED_MUTTON","COOKED_RABBIT","COOKED_COD","COOKED_SALMON","BAKED_POTATO","GOLDEN_CARROT","APPLE","PUMPKIN_PIE","COOKIE","MELON_SLICE","SWEET_BERRIES","GLOW_BERRIES","DRIED_KELP","CHORUS_FRUIT").contains(name)) return "food";
         if (Set.of("REDSTONE","REDSTONE_TORCH","REPEATER","COMPARATOR","OBSERVER","PISTON","STICKY_PISTON","HOPPER","DROPPER","DISPENSER","REDSTONE_LAMP","LEVER","STONE_BUTTON","STONE_PRESSURE_PLATE","TRIPWIRE_HOOK","TARGET","DAYLIGHT_DETECTOR","NOTE_BLOCK","RAIL","POWERED_RAIL","DETECTOR_RAIL","ACTIVATOR_RAIL","MINECART","HOPPER_MINECART","SLIME_BLOCK","HONEY_BLOCK","TRAPPED_CHEST").contains(name)) return "redstone";
