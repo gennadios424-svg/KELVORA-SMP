@@ -169,7 +169,7 @@ final class AuctionHouseManager implements Listener {
         }
     }
 
-    private synchronized void saveData() {
+    private synchronized boolean saveData() {
         YamlConfiguration out = new YamlConfiguration();
         for (Listing listing : listings.values()) {
             String path = "listings." + listing.id;
@@ -183,9 +183,14 @@ final class AuctionHouseManager implements Listener {
         for (Map.Entry<UUID, List<ItemStack>> entry : pending.entrySet()) {
             out.set("pending." + entry.getKey(), entry.getValue());
         }
-        try { out.save(dataFile); }
-        catch (Exception ex) { plugin.getLogger().severe("Could not save Auction House data: " + ex.getMessage()); }
-        data = out;
+        try {
+            out.save(dataFile);
+            data = out;
+            return true;
+        } catch (Exception ex) {
+            plugin.getLogger().severe("Could not save Auction House data: " + ex.getMessage());
+            return false;
+        }
     }
 
     private void createListing(Player p, String rawPrice) {
@@ -203,7 +208,11 @@ final class AuctionHouseManager implements Listener {
         String id = UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
         Listing listing = new Listing(id, p.getUniqueId(), p.getName(), listed, price, System.currentTimeMillis(), System.currentTimeMillis() + DURATION);
         listings.put(id, listing);
-        saveData();
+        if (!saveData()) {
+            listings.remove(id);
+            msg(p, NamedTextColor.RED, "Could not save the listing. Your item was not taken.");
+            return;
+        }
         // Remove the exact stack only after its listing has been written to persistent storage.
         p.getInventory().setItemInMainHand(null);
         p.updateInventory();
