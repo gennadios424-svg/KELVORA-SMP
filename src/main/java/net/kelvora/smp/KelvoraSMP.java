@@ -212,6 +212,9 @@ implements Listener {
     }
 
     private void updatePlayer(Player player) {
+        // Restore the normal Java debug screen so F3 coordinates remain visible.
+        // Reassert periodically because some server configurations/plugins change this flag.
+        player.setReducedDebugInfo(false);
         if (this.economy == null) this.economy = this.resolveEconomyProvider();
         String serverAddress = this.getConfig().getString("server-address", "kelvorasmp.mcsh.gg");
         String rank = this.rankKey(player);
@@ -273,17 +276,18 @@ implements Listener {
         long playMinutes = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200L;
         String playtime = playMinutes >= 60 ? (playMinutes / 60) + "h " + (playMinutes % 60) + "m" : playMinutes + "m";
         String teamName = this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
+        // Keep the two authoritative currencies immediately under the server title.
         String[] lines = new String[]{
-            this.color("&2&l✦ KELVORA SMP"),
-            this.color("&fRank &r" + rankColor + rankLabel),
-            this.color("&3Team &f" + teamName),
-            this.color("&6⚔ Kills &f" + kills),
-            this.color("&c☠ Deaths &f" + deaths),
-            this.color("&b⏱ Playtime &f" + playtime),
-            this.color("&6$ Money &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
-            this.color("&d✦ Shards &f" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
-            this.color("&b👥 Online &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7🌐 IP &f" + serverAddress)
+            this.color("&2&l✦ &a&lKELVORA &3&lSMP"),
+            this.color("&6💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
+            this.color("&d💎 Shards: &f" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
+            this.color("&bRank: &f" + rankColor + rankLabel),
+            this.color("&3Team: &f" + teamName),
+            this.color("&c⚔ Kills: &f" + kills),
+            this.color("&4☠ Deaths: &f" + deaths),
+            this.color("&b⏱ Playtime: &f" + playtime),
+            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
+            this.color("&7🌐 &f" + serverAddress)
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
