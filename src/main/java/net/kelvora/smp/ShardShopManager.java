@@ -211,11 +211,22 @@ final class ShardShopManager implements Listener {
     }
 
     String equippedTag(Player player) {
-        return activeCosmetic(player.getUniqueId(), "tags");
+        String id = activeCosmetic(player.getUniqueId(), "tags");
+        ConfigurationSection section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.tags." + id);
+        return section == null ? null : safeLabel(section.getString("name", id), 12);
     }
 
     String equippedTitle(Player player) {
-        return activeCosmetic(player.getUniqueId(), "titles");
+        String id = activeCosmetic(player.getUniqueId(), "titles");
+        ConfigurationSection section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.titles." + id);
+        return section == null ? null : safeLabel(section.getString("name", id), 16);
+    }
+
+    private String safeLabel(String value, int maxLength) {
+        String clean = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', value == null ? "" : value));
+        if (clean == null) return "";
+        clean = clean.replaceAll("[^A-Za-z0-9 _-]", "").trim();
+        return clean.length() > maxLength ? clean.substring(0, maxLength) : clean;
     }
 
     String chatColour(Player player) {
