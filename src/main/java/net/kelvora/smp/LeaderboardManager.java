@@ -64,6 +64,14 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         page = Math.min(page, maxPage);
         selected.put(p.getUniqueId(), type); pages.put(p.getUniqueId(), page);
         Inventory inv=Bukkit.createInventory(null,54,Component.text(TITLE+" | "+label(type),NamedTextColor.DARK_GREEN));
+        if (entries.isEmpty()) {
+            ItemStack empty = new ItemStack(Material.PAPER);
+            ItemMeta em = empty.getItemMeta();
+            em.displayName(Component.text("No saved statistics yet", NamedTextColor.GRAY));
+            em.lore(List.of(Component.text("This leaderboard has no eligible entries.", NamedTextColor.DARK_GRAY)));
+            empty.setItemMeta(em);
+            inv.setItem(22, empty);
+        }
         for(int i=0;i<10;i++) {
             int index=page*10+i;
             if(index>=entries.size()) break;
@@ -96,7 +104,10 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
                 case "rank" -> { String rank=rank(p); value=rankScore(rank); shown=rank; }
                 default -> { value=0; shown="0"; }
             }
-            if(!Double.isFinite(value)) value=0;
+            if (!Double.isFinite(value)) {
+                if (type.equals("money")) continue;
+                value = 0;
+            }
             out.add(new Entry(p.getUniqueId(),name,value,shown));
         }
         out.sort(Comparator.comparingDouble(Entry::value).reversed().thenComparing(Entry::name,String.CASE_INSENSITIVE_ORDER).thenComparing(e->e.id.toString()));
@@ -143,6 +154,7 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         e.setCancelled(true);
         if(!(e.getWhoClicked() instanceof Player p)||e.getClickedInventory()!=e.getView().getTopInventory())return;
         String title=e.getView().getTitle();
+        p.playSound(p.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.35f, 1.15f);
         if(title.equals(TITLE)) {
             int slot=e.getRawSlot()-10;
             if(slot>=0&&slot<TYPES.size())openBoard(p,TYPES.get(slot),0);
