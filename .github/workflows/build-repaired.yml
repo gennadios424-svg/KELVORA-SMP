@@ -19,7 +19,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: kelvora-build-${{ github.ref }}
+  group: kelvora-build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -52,6 +52,8 @@ jobs:
           curl -fsSL -H "User-Agent: ${USER_AGENT}" "$DOWNLOAD_URL" -o paper-smoke.jar
           mkdir -p smoke/plugins
           cp "target/KelvoraSMP-${VERSION}.jar" smoke/plugins/
+          LUCKPERMS_URL=$(curl -fsSL -H "User-Agent: KelvoraSMP-CI/1.0 (https://github.com/gennadios424-svg/kelvora-smp)" "https://metadata.luckperms.net/data/downloads" | python3 -c "import json,sys; print(json.load(sys.stdin)['downloads']['bukkit'])")
+          curl -fsSL "$LUCKPERMS_URL" -o smoke/plugins/LuckPerms.jar
           printf 'eula=true\n' > smoke/eula.txt
           printf 'online-mode=false\nserver-port=25575\nview-distance=2\nsimulation-distance=2\n' > smoke/server.properties
           cd smoke
