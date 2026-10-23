@@ -132,7 +132,7 @@ final class BaltopManager implements Listener, TabCompleter {
                 return;
             }
         }
-        // A deterministic name/UUID tie-break keeps equal-balance ranks stable.
+        // Stable name/UUID tie-break keeps equal-balance ranks deterministic.
         entries.sort(Comparator.comparingDouble(Entry::balance).reversed()
             .thenComparing(Entry::name, String.CASE_INSENSITIVE_ORDER)
             .thenComparing(e -> e.id().toString()));
