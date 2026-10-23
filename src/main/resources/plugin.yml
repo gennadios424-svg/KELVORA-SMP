@@ -46,3 +46,6 @@ permissions:
   kelvora.bounty:
     description: Use the Kelvora bounty system
     default: true
+  kelvora.bounty.admin:
+    description: Recover interrupted bounty payout transactions
+    default: op
