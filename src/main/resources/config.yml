@@ -727,7 +727,7 @@ crates:
         - "IRON_INGOT:8:15:Uncommon"
         - "DIAMOND:1:10:Rare"
         - "NETHERITE_INGOT:1:2:Legendary"
-        - "DRAGON_EGG:1:0.001:Mythic"
+        - "DRAGON_EGG:1:0.0009200092:Mythic"
 
 kelvora-tools:
   drill:
