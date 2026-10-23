@@ -17,7 +17,7 @@ commands:
     usage: /daily
   crate:
     description: Manage and open physical Kelvora crates
-    usage: /crate <spawn|remove|list|keys|givekey>
+    usage: /crate [spawn|remove|list|keys|givekey|edit|reload]
   keyall:
     description: Grant digital crate keys to all online players
     usage: /keyall <type> <amount>
