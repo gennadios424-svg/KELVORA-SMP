@@ -71,7 +71,7 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
             ItemStack item=new ItemStack(index==0?Material.GOLD_INGOT:index==1?Material.IRON_INGOT:index==2?Material.COPPER_INGOT:Material.PAPER);
             ItemMeta meta=item.getItemMeta();
             meta.displayName(Component.text("#"+(index+1)+" "+entry.name, index==0?NamedTextColor.GOLD:index==1?NamedTextColor.WHITE:index==2?NamedTextColor.RED:NamedTextColor.AQUA));
-            meta.lore(List.of(Component.text(entry.value,NamedTextColor.GREEN),Component.text("Position "+(index+1),NamedTextColor.GRAY)));
+            meta.lore(List.of(Component.text(entry.display,NamedTextColor.GREEN),Component.text("Position "+(index+1),NamedTextColor.GRAY)));
             item.setItemMeta(meta); inv.setItem(10+i,item);
         }
         ItemStack back=new ItemStack(Material.ARROW); ItemMeta bm=back.getItemMeta(); bm.displayName(Component.text("Categories",NamedTextColor.YELLOW)); back.setItemMeta(bm); inv.setItem(45,back);
@@ -156,5 +156,5 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
     }
     @EventHandler public void drag(InventoryDragEvent e){if(e.getView().getTitle()!=null&&e.getView().getTitle().startsWith(TITLE))e.setCancelled(true);}
     @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){if(args.length==1)return TYPES; if(args.length==2)return List.of("1","2","3");return List.of();}
-    private record Entry(UUID id,String name,double value,String valueText){ private String value(){return valueText;} }
+    private record Entry(UUID id,String name,double value,String display) {}
 }
