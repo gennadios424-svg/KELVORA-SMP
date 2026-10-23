@@ -472,6 +472,19 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 }
                 if (!valid) plugin.getLogger().warning("Invalid or disallowed reward in crates.types." + type + ": " + entry);
             }
+            ConfigurationSection chances = plugin.getConfig().getConfigurationSection("crates.types." + type + ".exact-chances");
+            if (chances != null) {
+                double totalChance = 0.0;
+                for (String key : chances.getKeys(false)) {
+                    double percent = chances.getDouble(key, -1);
+                    Material material = Material.matchMaterial(key);
+                    boolean present = entries.stream().anyMatch(value -> value.split(":", 4)[0].equalsIgnoreCase(key));
+                    if (!Double.isFinite(percent) || percent < 0 || percent >= 100 || !isAllowedReward(material) || !present) {
+                        plugin.getLogger().warning("Invalid or disabled exact chance in crates.types." + type + ".exact-chances." + key + ": " + percent);
+                    } else totalChance += percent;
+                }
+                if (totalChance >= 100) plugin.getLogger().warning("Exact chances for crate '" + type + "' total " + totalChance + "%; must be below 100%.");
+            }
         }
     }
 
