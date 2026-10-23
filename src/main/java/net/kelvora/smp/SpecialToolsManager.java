@@ -190,7 +190,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             int sold=0;
             for(int i=0;i<after.length;i++){
                 ItemStack stack=after[i];
-                if(stack==null||stack.getType().isAir()||id(stack)!=null)continue;
+                if(stack==null||stack.getType().isAir()||containsKelvoraTool(stack))continue;
                 double price=worth.priceOf(stack.getType());
                 if(!Double.isFinite(price)||price<=0)continue;
                 total+=price*stack.getAmount();
@@ -213,6 +213,18 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             plugin.getLogger().warning("Sellaxe chest transaction failed: "+ex.getMessage());
             player.sendMessage(Component.text("Chest sale failed. Please check the chest before trying again.",NamedTextColor.RED));
         } finally { processing.remove(token); }
+    }
+
+    private boolean containsKelvoraTool(ItemStack item) {
+        if (item == null || item.getType().isAir()) return false;
+        if (id(item) != null) return true;
+        if (item.getItemMeta() instanceof org.bukkit.inventory.meta.BlockStateMeta blockMeta
+                && blockMeta.getBlockState() instanceof org.bukkit.block.ShulkerBox box) {
+            for (ItemStack nested : box.getInventory().getContents()) {
+                if (nested != null && containsKelvoraTool(nested)) return true;
+            }
+        }
+        return false;
     }
 
     private int maxBlocks(String type){return type.equals("drill")?9:Math.max(1,plugin.getConfig().getInt("kelvora-tools.treetrooper.max-logs",64));}
