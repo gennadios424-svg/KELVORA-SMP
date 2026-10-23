@@ -196,6 +196,19 @@ final class CoinflipManager implements Listener {
         if (c == null || !c.status.equals("OPEN")) { p.sendMessage(Component.text("That coinflip is no longer available.", NamedTextColor.RED)); openMain(p); return; }
         if (c.creator.equals(p.getUniqueId())) { p.sendMessage(Component.text("You cannot join your own coinflip.", NamedTextColor.RED)); return; }
         if (p.getWorld().getName().isBlank()) return;
+        Player creator = Bukkit.getPlayer(c.creator);
+        if (creator == null) {
+            // The creator's escrow is still owed even if their challenge owner disconnected.
+            if (money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) {
+                challenges.remove(c.id);
+            } else {
+                c.status = "REFUND_PENDING";
+                challenges.put(c.id, c);
+            }
+            save();
+            p.sendMessage(Component.text("Creator disconnected; the challenge was cancelled.", NamedTextColor.YELLOW));
+            return;
+        }
         if (balance(p) + 0.000001 < c.amount) { p.sendMessage(Component.text("You do not have enough Money.", NamedTextColor.RED)); return; }
         if (!money(p, c.amount, true)) { p.sendMessage(Component.text("Your wager could not be reserved.", NamedTextColor.RED)); return; }
         // Lock and persist the match and fair server-side result before starting any animation.
@@ -203,11 +216,6 @@ final class CoinflipManager implements Listener {
         c.winner = ThreadLocalRandom.current().nextBoolean() ? c.creator : p.getUniqueId();
         c.pot = c.amount * 2;
         save();
-        Player creator = Bukkit.getPlayer(c.creator);
-        if (creator == null) {
-            money(p, c.amount, false); challenges.remove(c.id); save();
-            p.sendMessage(Component.text("Creator disconnected; your wager was returned.", NamedTextColor.YELLOW)); return;
-        }
         animate(c, creator, p, 0);
     }
 
@@ -234,12 +242,13 @@ final class CoinflipManager implements Listener {
         Player loser = Bukkit.getPlayer(c.winner.equals(c.creator) ? c.opponent : c.creator);
         for (Player viewer : List.of(a,b)) {
             if (!viewer.isOnline()) continue;
-            Inventory inv = viewer.getOpenInventory().getTopInventory();
-            inv.clear();
+            // Never clear an unrelated inventory if a participant closed or replaced the animation GUI.
+            Inventory inv = Bukkit.createInventory(null, 27, Component.text(ANIMATION, NamedTextColor.GOLD));
             inv.setItem(4, item(Material.DIAMOND_BLOCK, "WINNING POSITION", List.of("Server-side result locked")));
             inv.setItem(13, playerHead(c.winner, c.winner.equals(c.creator) ? c.creatorName : c.opponentName));
             inv.setItem(22, item(Material.GOLD_INGOT, (c.winner.equals(viewer.getUniqueId()) ? "YOU WIN" : "YOU LOSE"),
                 List.of("Winner: " + (c.winner.equals(c.creator) ? c.creatorName : c.opponentName), "Wager each: $" + fmt(c.amount), "Total pot: $" + fmt(c.pot))));
+            viewer.openInventory(inv);
             viewer.playSound(viewer.getLocation(), c.winner.equals(viewer.getUniqueId()) ? Sound.UI_TOAST_CHALLENGE_COMPLETE : Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 1f);
         }
         settle(c, winner, loser);
@@ -262,7 +271,13 @@ final class CoinflipManager implements Listener {
         if (paid) {
             if (winner != null) winner.sendMessage(Component.text("Coinflip won! You received $" + fmt(c.pot) + ".", NamedTextColor.GREEN));
             if (loser != null) loser.sendMessage(Component.text("Coinflip lost. $" + fmt(c.amount) + " wager was lost.", NamedTextColor.RED));
-        } else plugin.getLogger().severe("Coinflip payout requires staff review for match " + c.id + " winner=" + winnerName + " pot=" + c.pot);
+        } else {
+            // Keep the paid-claim and escrow record durable for staff review; never silently erase it.
+            c.status = "PAYOUT_PENDING";
+            challenges.put(c.id, c);
+            save();
+            plugin.getLogger().severe("Coinflip payout requires staff review for match " + c.id + " winner=" + winnerName + " pot=" + c.pot);
+        }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (winner != null && winner.isOnline()) openMain(winner);
             if (loser != null && loser.isOnline()) openMain(loser);
@@ -309,11 +324,16 @@ final class CoinflipManager implements Listener {
         UUID id = e.getPlayer().getUniqueId();
         Challenge c = challenges.values().stream().filter(x -> x.status.equals("OPEN") && x.creator.equals(id)).findFirst().orElse(null);
         if (c != null) {
-            challenges.remove(c.id); save();
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                Player p = Bukkit.getPlayer(id);
-                if (p != null && !money(p, c.amount, false)) plugin.getLogger().severe("Coinflip refund failed for " + id + " amount " + c.amount);
-            });
+            c.status = "REFUND_PENDING";
+            challenges.put(c.id, c);
+            save();
+            // Vault accepts OfflinePlayer; don't depend on Bukkit.getPlayer after quit (it is normally null).
+            if (money(Bukkit.getOfflinePlayer(id), c.amount, false)) {
+                challenges.remove(c.id);
+                save();
+            } else {
+                plugin.getLogger().severe("Coinflip refund pending for " + id + " amount " + c.amount + "; escrow record preserved.");
+            }
         }
     }
 
@@ -335,11 +355,23 @@ final class CoinflipManager implements Listener {
                     if (money(Bukkit.getOfflinePlayer(c.creator),c.amount,false)) continue;
                     c.status = "REFUND_PENDING"; challenges.put(c.id,c);
                 } else if (status.equals("RUNNING") && c.winner != null) {
-                    c.status = "PAID"; c.paid = true;
-                    Player winner = Bukkit.getPlayer(c.winner);
-                    if (winner != null && money(winner,c.pot,false)) plugin.getLogger().info("Recovered interrupted coinflip payout " + c.id);
-                    else plugin.getLogger().severe("Interrupted coinflip needs manual payout review: " + c.id);
-                } else if (status.equals("REFUND_PENDING")) challenges.put(c.id,c);
+                    // Outcome was already locked before the crash. Mark payout claimed before contacting Vault,
+                    // and preserve the record if the provider cannot confirm the deposit.
+                    c.paid = true;
+                    if (money(Bukkit.getOfflinePlayer(c.winner), c.pot, false)) {
+                        plugin.getLogger().info("Recovered interrupted coinflip payout " + c.id);
+                    } else {
+                        c.status = "PAYOUT_PENDING";
+                        challenges.put(c.id, c);
+                        plugin.getLogger().severe("Interrupted coinflip payout needs staff review; durable record preserved: " + c.id);
+                    }
+                } else if (status.equals("REFUND_PENDING")) {
+                    if (!money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) challenges.put(c.id, c);
+                    else plugin.getLogger().info("Recovered pending coinflip refund " + c.id);
+                } else if (status.equals("PAYOUT_PENDING")) {
+                    c.paid = true;
+                    challenges.put(c.id, c);
+                }
             } catch (Exception ex) { plugin.getLogger().warning("Skipping malformed coinflip record " + key); }
         }
         history.addAll(data.getStringList("history"));
