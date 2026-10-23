@@ -204,7 +204,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         inv.setItem(4,button(Material.CHEST,"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
         inv.setItem(13,button(Material.TRIPWIRE_HOOK,"&eYour Keys: &f"+keys(p,type),List.of("&7Digital keys only","&7One key per successful opening")));
         List<String> rewards=plugin.getConfig().getStringList("crates.types."+type+".rewards");
-        int slot=9;for(String entry:rewards){String[] bits=entry.split(":");Material mat=bits.length>0?Material.matchMaterial(bits[0]):null;if(mat==null||mat.isAir()||!mat.isItem())continue;inv.setItem(slot++,button(mat,"&f"+titleCase(mat.name().toLowerCase(Locale.ROOT).replace('_',' ')),List.of("&7Possible reward","&8Tier: "+(bits.length>3?bits[3]:"Common"))));if(slot>=18)break;}
+        int slot=9;for(String entry:rewards){String[] bits=entry.split(":",4);if(bits.length<4)continue;String kind=bits[0].toUpperCase(Locale.ROOT);Material mat=Material.matchMaterial(bits[0]);if(kind.equals("KELVORAS")){inv.setItem(slot++,button(Material.AMETHYST_SHARD,"&b"+bits[1]+" Kelvoras",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("MONEY")){inv.setItem(slot++,button(Material.GOLD_INGOT,"&6$"+bits[1]+" Money",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("COMMAND")){inv.setItem(slot++,button(Material.COMMAND_BLOCK,"&dSpecial reward",List.of("&7Server reward","&8Tier: "+bits[3])));}else if(mat!=null&&isAllowedReward(mat)){inv.setItem(slot++,button(mat,"&f"+titleCase(mat.name().toLowerCase(Locale.ROOT).replace('_',' ')),List.of("&7Possible reward","&8Tier: "+bits[3])));}if(slot>=18)break;}
         inv.setItem(22,button(Material.LIME_DYE,"&a&lOPEN CRATE",List.of("&7Consume one "+titleCase(type)+" key","&7Rewards are randomly selected")));
         inv.setItem(26,button(Material.BARRIER,"&cClose",List.of()));
         p.openInventory(inv);
@@ -385,14 +385,25 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             List<String> entries = plugin.getConfig().getStringList("crates.types." + type + ".rewards");
             if (entries.isEmpty()) plugin.getLogger().warning("Crate '" + type + "' has no configured rewards.");
             for (String entry : entries) {
-                String[] b = entry.split(":");
-                Material material = b.length > 0 ? Material.matchMaterial(b[0]) : null;
-                boolean valid = b.length >= 4 && isAllowedReward(material);
-                try {
-                    int amount = Integer.parseInt(b[1]);
-                    double weight = Double.parseDouble(b[2]);
-                    valid &= amount > 0 && material != null && amount <= material.getMaxStackSize() && Double.isFinite(weight) && weight > 0;
-                } catch (Exception ex) { valid = false; }
+                String[] b = entry.split(":", 4);
+                boolean valid = false;
+                if (b.length >= 4) {
+                    String kind = b[0].toUpperCase(Locale.ROOT);
+                    try {
+                        double weight = Double.parseDouble(b[2]);
+                        valid = Double.isFinite(weight) && weight > 0;
+                        if (kind.equals("KELVORAS") || kind.equals("MONEY")) {
+                            double amount = Double.parseDouble(b[1]);
+                            valid &= Double.isFinite(amount) && amount > 0;
+                        } else if (kind.equals("COMMAND")) {
+                            valid &= !b[1].isBlank();
+                        } else {
+                            Material material = Material.matchMaterial(b[0]);
+                            int amount = Integer.parseInt(b[1]);
+                            valid &= isAllowedReward(material) && amount > 0 && amount <= material.getMaxStackSize();
+                        }
+                    } catch (Exception ex) { valid = false; }
+                }
                 if (!valid) plugin.getLogger().warning("Invalid or disallowed reward in crates.types." + type + ": " + entry);
             }
         }
@@ -401,7 +412,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private String chooseReward(String type) {
         List<String> entries=plugin.getConfig().getStringList("crates.types."+type+".rewards");
         List<String> valid=new ArrayList<>();double total=0;
-        for(String entry:entries){String[] b=entry.split(":");if(b.length<3)continue;Material m=Material.matchMaterial(b[0]);double w;try{w=Double.parseDouble(b[2]);}catch(Exception ex){continue;}int a;try{a=Integer.parseInt(b[1]);}catch(Exception ex){continue;}if(!isAllowedReward(m)||a<1||a>m.getMaxStackSize()||!Double.isFinite(w)||w<=0)continue;total+=w;valid.add(entry);}
+        for(String entry:entries){String[] b=entry.split(":",4);if(b.length<4)continue;double w;try{w=Double.parseDouble(b[2]);}catch(Exception ex){continue;}if(!Double.isFinite(w)||w<=0)continue;String kind=b[0].toUpperCase(Locale.ROOT);boolean ok=false;try{if(kind.equals("KELVORAS")||kind.equals("MONEY")){double amount=Double.parseDouble(b[1]);ok=Double.isFinite(amount)&&amount>0;}else if(kind.equals("COMMAND")){ok=!b[1].isBlank();}else{Material m=Material.matchMaterial(b[0]);int a=Integer.parseInt(b[1]);ok=isAllowedReward(m)&&a>0&&a<=m.getMaxStackSize();}}catch(Exception ignored){}if(!ok)continue;total+=w;valid.add(entry);}
         if(total<=0)return null;double pick=random.nextDouble()*total;for(String e:valid){pick-=Double.parseDouble(e.split(":")[2]);if(pick<=0)return e;}return valid.get(valid.size()-1);
     }
     private boolean save(){try{data.save(dataFile);return true;}catch(IOException e){plugin.getLogger().severe("Could not save crate data: "+e.getMessage());return false;}}
