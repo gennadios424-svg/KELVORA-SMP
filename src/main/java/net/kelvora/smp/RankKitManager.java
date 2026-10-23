@@ -126,7 +126,7 @@ final class RankKitManager implements Listener {
 
     private boolean rankCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length > 0 && args[0].equalsIgnoreCase("set")) {
-            if (!(sender.isOp() || sender.hasPermission("kelvora.rank.admin"))) {
+            if (!sender.isOp()) {
                 sender.sendMessage(Component.text("You do not have permission to assign ranks.", NamedTextColor.RED));
                 return true;
             }
@@ -253,11 +253,26 @@ final class RankKitManager implements Listener {
             ConfigurationSection kit=plugin.getConfig().getConfigurationSection("kits."+key);
             List<ItemStack> items=buildItems(kit);
             if (items.isEmpty()) { player.sendMessage(Component.text("This kit has no valid items configured.", NamedTextColor.RED)); return; }
-            // Preflight delivery capacity. Do not grant or start cooldown if there is not room.
-            int empty=0; for (ItemStack item:player.getInventory().getStorageContents()) if (item==null || item.getType().isAir()) empty++;
-            int needed=0; for(ItemStack item:items) needed += (item.getAmount()+item.getMaxStackSize()-1)/item.getMaxStackSize();
-            if (empty<needed) { player.sendMessage(Component.text("Please empty at least "+(needed-empty)+" inventory slot(s) before claiming this kit. No items were given.", NamedTextColor.RED)); return; }
-            for(ItemStack item:items) player.getInventory().addItem(item).values().forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(),left));
+            // Simulate the complete delivery first, including available stack space.
+            // If any item would overflow, cancel the claim without changing the player's inventory.
+            Inventory simulation = Bukkit.createInventory(null, player.getInventory().getStorageContents().length);
+            simulation.setContents(player.getInventory().getStorageContents());
+            for (ItemStack item : items) {
+                if (!simulation.addItem(item.clone()).isEmpty()) {
+                    player.sendMessage(Component.text("Your inventory needs more space for this entire kit. No items were given.", NamedTextColor.RED));
+                    player.sendActionBar(Component.text("Clear inventory space before claiming this kit.", NamedTextColor.RED));
+                    return;
+                }
+            }
+            for (ItemStack item : items) {
+                if (!player.getInventory().addItem(item).isEmpty()) {
+                    // Defensive rollback is intentionally avoided here: preflight simulation should
+                    // make overflow impossible in normal server-thread execution.
+                    plugin.getLogger().severe("Kit inventory preflight mismatch for " + player.getName() + " / " + key);
+                    player.sendMessage(Component.text("Kit delivery was interrupted. Contact an administrator.", NamedTextColor.RED));
+                    return;
+                }
+            }
             long cooldown=plugin.getConfig().getLong("kits."+key+".cooldown-seconds",86400);
             cooldowns.set(player.getUniqueId()+"."+key, now+Math.max(0,cooldown)*1000L);
             saveYaml(cooldowns,cooldownFile);
