@@ -274,7 +274,16 @@ final class AuctionHouseManager implements Listener {
             lore.add(Component.empty());
             lore.add(Component.text("Seller: " + l.sellerName, NamedTextColor.GRAY));
             lore.add(Component.text("Price: $" + compact(l.price), NamedTextColor.GREEN));
-            lore.add(Component.text("Expires: " + remaining(l.expiresAt), NamedTextColor.GRAY));
+            lore.add(Component.text("Quantity: " + l.item.getAmount(), NamedTextColor.GRAY));
+            lore.add(Component.text("Remaining: " + remaining(l.expiresAt), NamedTextColor.GRAY));
+            if (meta.hasDisplayName()) lore.add(Component.text("Custom item name", NamedTextColor.AQUA));
+            if (!meta.getEnchants().isEmpty()) {
+                StringJoiner enchants = new StringJoiner(", ");
+                meta.getEnchants().forEach((enchantment, level) -> enchants.add(
+                    enchantment.getKey().getKey().replace('_', ' ') + " " + roman(level)));
+                lore.add(Component.text("Enchantments: " + enchants, NamedTextColor.LIGHT_PURPLE));
+            }
+            lore.add(Component.text("Click to inspect and purchase", NamedTextColor.YELLOW));
             lore.add(Component.text("ID: " + l.id, NamedTextColor.DARK_GRAY));
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -491,6 +500,18 @@ final class AuctionHouseManager implements Listener {
         long hours = millis / 3_600_000L;
         long minutes = (millis % 3_600_000L) / 60_000L;
         return hours + "h " + minutes + "m";
+    }
+
+    private String roman(int level) {
+        if (level <= 0) return Integer.toString(level);
+        String[] numerals = {"X", "IX", "V", "IV", "I"};
+        int[] values = {10, 9, 5, 4, 1};
+        StringBuilder result = new StringBuilder();
+        int remaining = level;
+        for (int i = 0; i < values.length; i++) while (remaining >= values[i]) {
+            result.append(numerals[i]); remaining -= values[i];
+        }
+        return result.toString();
     }
 
     private String compact(double value) {
