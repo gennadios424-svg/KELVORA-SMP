@@ -153,9 +153,9 @@ final class BaltopManager implements Listener, TabCompleter {
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             meta.setOwningPlayer(Bukkit.getOfflinePlayer(entry.id()));
-            NamedTextColor color = rank == 1 ? NamedTextColor.GOLD
+            net.kyori.adventure.text.format.TextColor color = rank == 1 ? NamedTextColor.GOLD
                 : rank == 2 ? NamedTextColor.GRAY
-                : rank == 3 ? NamedTextColor.DARK_RED : NamedTextColor.GREEN;
+                : rank == 3 ? net.kyori.adventure.text.format.TextColor.color(205, 127, 50) : NamedTextColor.GREEN;
             meta.displayName(Component.text("#" + rank + " " + entry.name(), color));
             meta.lore(List.of(
                 Component.text("Money: " + compact(entry.balance()), NamedTextColor.WHITE),
