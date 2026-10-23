@@ -115,7 +115,7 @@ final class RankKitManager implements Listener {
     private String defaultColor(String key) {
         return switch (key) {
             case "i_sprout" -> "&7"; case "verdant", "helper" -> "&a";
-            case "emerald" -> "&3"; case "sovereign" -> "& dark_aqua".replace(" ", "");
+            case "emerald" -> "&3"; case "sovereign" -> "&3";
             case "ascendant" -> "&6"; case "moderator" -> "&9";
             case "admin" -> "&5"; case "owner" -> "&c"; case "creator" -> "&d"; default -> "&7";
         };
@@ -222,7 +222,7 @@ final class RankKitManager implements Listener {
         if (kit==null) return;
         player.sendMessage(Component.text("Kit preview: "+kit.getString("display",LABELS.getOrDefault(key,key)), NamedTextColor.GREEN));
         for (Map<?,?> item : kit.getMapList("items")) {
-            player.sendMessage(Component.text("- "+item.getOrDefault("material","STONE")+" x"+item.getOrDefault("amount",1), NamedTextColor.GRAY));
+            player.sendMessage(Component.text("- "+(item.containsKey("material") ? item.get("material") : "STONE")+" x"+(item.containsKey("amount") ? item.get("amount") : 1), NamedTextColor.GRAY));
         }
     }
 
@@ -261,7 +261,7 @@ final class RankKitManager implements Listener {
             Material material=Material.matchMaterial(String.valueOf(raw));
             if(material==null || !material.isItem()) { plugin.getLogger().warning("Invalid kit material: "+raw); continue; }
             int amount=1;
-            try { amount=Integer.parseInt(String.valueOf(row.getOrDefault("amount",1))); } catch(NumberFormatException ignored) {}
+            try { amount=Integer.parseInt(String.valueOf((row.containsKey("amount") ? row.get("amount") : 1))); } catch(NumberFormatException ignored) {}
             if(amount<1) continue;
             int remaining=amount;
             while(remaining>0) {
