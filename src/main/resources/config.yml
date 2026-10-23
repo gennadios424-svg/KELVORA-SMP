@@ -6,11 +6,21 @@ server-address: "kelvorasmp.mcsh.gg"
 scoreboard:
   title: "&a&lKELVORA SMP"
 ranks:
-  owner: { label: "OWNER", color: "&6" }
-  admin: { label: "ADMIN", color: "&c" }
-  mod: { label: "MOD", color: "&b" }
-  vip: { label: "VIP", color: "&e" }
-  member: { label: "MEMBER", color: "&a" }
+  i_sprout: { label: "I. Sprout", color: "&7", description: "Starting rank · New players" }
+  verdant: { label: "Verdant", color: "&a", description: "Early progression · Growing your wealth" }
+  emerald: { label: "Emerald", color: "&3", description: "Mid progression · Established players" }
+  sovereign: { label: "Sovereign", color: "&3", description: "High rank · Powerful and respected" }
+  ascendant: { label: "Ascendant", color: "&6", description: "Top rank · The elite of Kelvora" }
+  helper: { label: "Helper", color: "&a", description: "Answers questions and helps players" }
+  moderator: { label: "Moderator", color: "&9", description: "Handles chat and rule enforcement" }
+  admin: { label: "Admin", color: "&5", description: "Manages server operations" }
+  owner: { label: "Owner", color: "&c", description: "Server leadership" }
+  creator: { label: "Creator", color: "&d", description: "Content creators for Kelvora" }
+  # Compatibility aliases for existing groups
+  mod: { label: "Moderator", color: "&9" }
+  vip: { label: "Verdant", color: "&a" }
+  member: { label: "I. Sprout", color: "&7" }
+  bootstrap-groups: true
 kelvoras:
   placeholder: "%kelvoras_balance%"
 
