@@ -40,6 +40,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.types.InheritanceNode;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -287,7 +288,12 @@ implements Listener {
             return "member";
         }
         group = group.toLowerCase(Locale.ROOT);
-        if (group.equals("default") || group.equals("member")) return "i_sprout";
+        if (group.equals("default") || group.equals("member")) {
+            for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "i_sprout"}) {
+                if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(progression))) return progression;
+            }
+            return "i_sprout";
+        }
         if (group.equals("mod")) return "moderator";
         if (group.equals("vip")) return "verdant";
         ConfigurationSection ranks = this.getConfig().getConfigurationSection("ranks");
