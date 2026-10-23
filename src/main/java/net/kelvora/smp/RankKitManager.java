@@ -404,7 +404,7 @@ final class RankKitManager implements Listener {
 
     private void put(Inventory inv,int slot,Material material,String title,List<String> lore,String action) {
         ItemStack item=new ItemStack(material); ItemMeta meta=item.getItemMeta();
-        meta.displayName(Component.text(ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',title))));
+        meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(title));
         List<Component> lines=new ArrayList<>(); for(String line:lore) lines.add(Component.text(line,NamedTextColor.GRAY));
         meta.lore(lines); meta.getPersistentDataContainer().set(actionKey,PersistentDataType.STRING,action); item.setItemMeta(meta); inv.setItem(slot,item);
     }
