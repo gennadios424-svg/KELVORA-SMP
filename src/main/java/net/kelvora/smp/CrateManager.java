@@ -115,16 +115,18 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             String type=validType(args[0]); int amount=parseAmount(args[1]);
             if (type==null || amount<1) { sender.sendMessage("Invalid crate type or amount."); return true; }
             List<Player> recipients = new ArrayList<>(Bukkit.getOnlinePlayers());
+            int granted = 0;
             for (Player p : recipients) {
                 if (!addKeys(p, type, amount)) {
                     p.sendMessage(Component.text("Could not save your key balance. Please contact staff; no keys were granted.", NamedTextColor.RED));
                     continue;
                 }
+                granted++;
                 p.sendMessage(Component.text("You received " + amount + " digital " + titleCase(type) + " key(s) from the server.", NamedTextColor.GOLD));
                 startKeyallAnimation(p, type, amount);
             }
-            Bukkit.broadcast(Component.text("🎁 " + titleCase(type) + " keys for everyone! Each online player received " + amount + " digital key(s).", NamedTextColor.LIGHT_PURPLE));
-            sender.sendMessage("Granted "+amount+" digital "+titleCase(type)+" key(s) to "+recipients.size()+" online players.");
+            if (granted > 0) Bukkit.broadcast(Component.text("🎁 " + titleCase(type) + " keys distributed to " + granted + " online player(s).", NamedTextColor.LIGHT_PURPLE));
+            sender.sendMessage("Granted "+amount+" digital "+titleCase(type)+" key(s) to "+granted+" player(s).");
             return true;
         }
         if (args.length==0) {
