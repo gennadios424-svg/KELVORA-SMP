@@ -1,4 +1,5 @@
 name: Build and verify KelvoraSMP
+# Build the current main branch source, including the latest leaderboard UI.
 
 on:
   push:
