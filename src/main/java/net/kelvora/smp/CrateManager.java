@@ -225,6 +225,10 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if(!overflow.isEmpty()){data.set(path,keys(p,type)+1);save();p.sendMessage(Component.text("Reward delivery failed; key refunded.",NamedTextColor.RED));return;}
             p.playSound(p.getLocation(),Sound.ENTITY_PLAYER_LEVELUP,0.6f,1.2f);
             p.sendMessage(Component.text("Crate reward: "+amount+"x "+mat.name().toLowerCase(Locale.ROOT).replace('_',' '),NamedTextColor.GOLD));
+            String rarity=bits.length>3?bits[3]:"Common";
+            if(plugin.getConfig().getBoolean("crates.broadcast-rare-rewards",true) && (rarity.equalsIgnoreCase("Legendary")||rarity.equalsIgnoreCase("Mythic"))) {
+                Bukkit.broadcast(Component.text(p.getName()+" won "+mat.name().toLowerCase(Locale.ROOT).replace('_',' ')+" from a "+titleCase(type)+" Crate!",NamedTextColor.GOLD));
+            }
             p.closeInventory();
         } finally {opening.remove(p.getUniqueId());}
     }
