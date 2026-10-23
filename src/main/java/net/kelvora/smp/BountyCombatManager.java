@@ -272,8 +272,8 @@ final class BountyCombatManager implements Listener {
         combat.put(attacker.getUniqueId(), new Combat(now + COMBAT_MS, victim.getUniqueId(), now));
         combat.put(victim.getUniqueId(), new Combat(now + COMBAT_MS, attacker.getUniqueId(), now));
         lastAttackers.put(victim.getUniqueId(), new TimedOwner(attacker.getUniqueId(), now + COMBAT_MS));
-        if (freshA) { attacker.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(attacker, Sound.UI_BUTTON_CLICK); }
-        if (freshV) { victim.sendMessage(Component.text("Combat tagged for 20 seconds!", NamedTextColor.RED)); sound(victim, Sound.UI_BUTTON_CLICK); }
+        if (freshA) attacker.sendActionBar(Component.text("⚔ COMBAT TAG: ", NamedTextColor.RED).append(Component.text("20s", NamedTextColor.YELLOW)));
+        if (freshV) victim.sendActionBar(Component.text("⚔ COMBAT TAG: ", NamedTextColor.RED).append(Component.text("20s", NamedTextColor.YELLOW)));
     }
 
     private boolean active(UUID id, long now) { Combat c = combat.get(id); return c != null && c.until > now; }
@@ -289,16 +289,13 @@ final class BountyCombatManager implements Listener {
             Player p = Bukkit.getPlayer(id);
             if (c.until <= now || p == null || !p.isOnline() || p.isDead()) {
                 if (p != null && p.isOnline() && c.until <= now && !p.isDead()) {
-                    p.sendMessage(Component.text("You are no longer in combat.", NamedTextColor.GREEN));
-                    sound(p, Sound.UI_BUTTON_CLICK);
+                    p.sendActionBar(Component.text("✓ Combat ended", NamedTextColor.GREEN));
                 }
                 it.remove(); continue;
             }
             long seconds = Math.max(1, (c.until - now + 999) / 1000);
-            if (seconds == 10 || seconds == 5 || seconds == 3 || seconds == 2 || seconds == 1) {
-                p.sendMessage(Component.text("Combat ends in " + seconds + "s.", NamedTextColor.RED));
-                if (seconds == 5 || seconds == 1) sound(p, Sound.UI_BUTTON_CLICK);
-            }
+            p.sendActionBar(Component.text("⚔ COMBAT TAG: ", NamedTextColor.RED)
+                .append(Component.text(seconds + "s", NamedTextColor.YELLOW)));
         }
     }
 
