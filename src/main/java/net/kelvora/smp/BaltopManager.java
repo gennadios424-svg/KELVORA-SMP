@@ -38,6 +38,7 @@ final class BaltopManager implements Listener, TabCompleter {
     private final NamespacedKey actionKey;
     private final Map<UUID, Integer> openPages = new HashMap<>();
     private Object economy;
+    private Class<?> economyApi;
     private List<Entry> cached = List.of();
     private long lastRefreshMillis;
     private static final DecimalFormat MONEY = new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US));
@@ -97,6 +98,7 @@ final class BaltopManager implements Listener, TabCompleter {
             Class<?> type = Class.forName("net.milkbowl.vault.economy.Economy", true,
                 Bukkit.getPluginManager().getPlugin("Vault").getClass().getClassLoader());
             RegisteredServiceProvider<?> registration = Bukkit.getServicesManager().getRegistration((Class) type);
+            economyApi = type;
             economy = registration == null ? null : registration.getProvider();
         } catch (ReflectiveOperationException | LinkageError ex) {
             plugin.getLogger().warning("Baltop could not load the Vault Money economy API.");
@@ -117,7 +119,7 @@ final class BaltopManager implements Listener, TabCompleter {
             String name = player.getName();
             if (id == null || name == null || name.isBlank()) continue;
             try {
-                Object value = economy.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(economy, player);
+                Object value = economyApi.getMethod("getBalance", OfflinePlayer.class).invoke(economy, player);
                 if (!(value instanceof Number number)) continue;
                 double balance = number.doubleValue();
                 if (!Double.isFinite(balance) || balance < 0) continue;
@@ -151,7 +153,7 @@ final class BaltopManager implements Listener, TabCompleter {
             meta.setOwningPlayer(Bukkit.getOfflinePlayer(entry.id()));
             NamedTextColor color = rank == 1 ? NamedTextColor.GOLD
                 : rank == 2 ? NamedTextColor.GRAY
-                : rank == 3 ? NamedTextColor.RED : NamedTextColor.GREEN;
+                : rank == 3 ? NamedTextColor.DARK_RED : NamedTextColor.GREEN;
             meta.displayName(Component.text("#" + rank + " " + entry.name(), color));
             meta.lore(List.of(
                 Component.text("Money: " + compact(entry.balance()), NamedTextColor.WHITE),
