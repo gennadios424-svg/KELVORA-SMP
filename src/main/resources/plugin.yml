@@ -61,6 +61,9 @@ commands:
     description: Browse configured item values
     usage: /worth [search]
     aliases: [itemworth]
+  meta:
+    description: Showcase configured values for Kelp, Pink Petals and Sea Pickle
+    usage: /meta
   ah:
     description: Open and manage the Kelvora Auction House
     usage: /ah [sell <price>|listings|cancel <id>|help]
