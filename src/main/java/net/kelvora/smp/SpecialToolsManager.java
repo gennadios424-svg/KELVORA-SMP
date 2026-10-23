@@ -151,7 +151,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
             event.setCancelled(true);
             String token="ability:"+blockKey(event.getBlock());
             if(!processing.add(token))return;
-            try{int broken=0;for(Block b:blocks){if(broken>=maxBlocks(type))break;if(b.getType().isAir()||!eligible(b))continue;if(breakProtectedAware(p,b,tool,type)){broken++;if(tool.getType().getMaxDurability()>0)damage(tool,p);}}
+            try{int broken=0;for(Block b:blocks){if(broken>=maxBlocks(type))break;if(!type.equals(id(p.getInventory().getItemInMainHand())))break;if(b.getType().isAir()||!eligible(b))continue;if(breakProtectedAware(p,b,tool,type)){broken++;if(tool.getType().getMaxDurability()>0)damage(tool,p);}}
                 p.sendActionBar(Component.text((type.equals("drill")?"Drill mined ":"Tree Trooper chopped ")+broken+" blocks",NamedTextColor.GREEN));
             }finally{processing.remove(token);}
         }
