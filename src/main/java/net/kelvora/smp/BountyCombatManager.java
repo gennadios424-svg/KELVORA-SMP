@@ -368,7 +368,7 @@ final class BountyCombatManager implements Listener {
         RecentExplosion source = recentExplosions.stream()
                 .filter(x -> x.location.getWorld().equals(victim.getWorld()))
                 .filter(x -> x.location.distanceSquared(victim.getLocation()) <= 64)
-                .max(Comparator.comparingLong(x -> x.expires)).orElse(null);
+                .min(Comparator.comparingDouble(x -> x.location.distanceSquared(victim.getLocation()))).orElse(null);
         if (source == null) return;
         Player attacker = Bukkit.getPlayer(source.owner);
         if (attacker != null && !attacker.equals(victim)) tag(attacker, victim);
