@@ -38,6 +38,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private YamlConfiguration data;
     private final Map<String, Location> crates = new LinkedHashMap<>();
     private final Map<UUID, String> openCrate = new HashMap<>();
+    private final Map<UUID, String> editingCrate = new HashMap<>();
+    private final Map<UUID, List<String>> editingRewards = new HashMap<>();
     private final Set<Inventory> protectedInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> pendingRemoval = new HashMap<>();
@@ -196,6 +198,13 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             return true;
         }
         if (!admin(sender)) { sender.sendMessage("You do not have permission."); return true; }
+        if (sub.equals("edit")) {
+            if (!(sender instanceof Player p) || args.length != 2) { sender.sendMessage("Usage: /crate edit <type> (in-game, operator only)"); return true; }
+            String type = validType(args[1]);
+            if (type == null) { sender.sendMessage("Types: " + String.join(", ", TYPES)); return true; }
+            openRewardEditor(p, type);
+            return true;
+        }
         if (sub.equals("reload")) {
             plugin.reloadConfig();
             validateConfiguredRewards();
@@ -256,6 +265,76 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private String playerPath(Player p,String type){return "players."+p.getUniqueId()+"."+type;}
     private int keys(Player p,String type){return data.getInt(playerPath(p,type),0);}
     private boolean addKeys(Player p,String type,int amount){String path=playerPath(p,type);int old=data.getInt(path,0);data.set(path,Math.min(2_000_000_000L,(long)old+amount));if(!save()){data.set(path,old);return false;}return true;}
+
+    private void openRewardEditor(Player player, String type) {
+        List<String> rewards = configuredRewards(type);
+        editingCrate.put(player.getUniqueId(), type);
+        editingRewards.put(player.getUniqueId(), new ArrayList<>(rewards));
+        Inventory inv = Bukkit.createInventory(null, 54, Component.text("KELVORA | EDIT " + type.toUpperCase(Locale.ROOT), NamedTextColor.GREEN));
+        protectedInventories.add(inv);
+        for (int i = 0; i < 45; i++) {
+            if (i >= rewards.size()) continue;
+            String entry = rewards.get(i);
+            String[] bits = entry.split(":", 4);
+            if (bits.length < 4) continue;
+            Material material = Material.matchMaterial(bits[0]);
+            String kind = bits[0].toUpperCase(Locale.ROOT);
+            if (kind.equals("MONEY")) material = Material.GOLD_INGOT;
+            else if (kind.equals("KELVORAS")) material = Material.AMETHYST_SHARD;
+            else if (kind.equals("COMMAND")) material = Material.COMMAND_BLOCK;
+            if (material == null || !material.isItem()) continue;
+            ItemStack icon = new ItemStack(material, 1);
+            ItemMeta meta = icon.getItemMeta();
+            meta.displayName(Component.text(bits[0] + " x" + bits[1], NamedTextColor.AQUA));
+            meta.lore(List.of(Component.text("Weight: " + bits[2], NamedTextColor.GRAY), Component.text("Rarity: " + bits[3], NamedTextColor.GRAY), Component.text("Click to remove this reward", NamedTextColor.RED)));
+            icon.setItemMeta(meta);
+            inv.setItem(i, icon);
+        }
+        inv.setItem(45, button(Material.BARRIER, "&cCancel", List.of("&7Discard unsaved edits")));
+        inv.setItem(49, button(Material.EMERALD, "&a&lSAVE REWARDS", List.of("&7Save reward list safely", "&7New inventory items use weight 1 / Common")));
+        inv.setItem(53, button(Material.HOPPER, "&eAdd from inventory", List.of("&7Click an item in your inventory", "&7to add a copy as a reward", "&7Enchantments/custom metadata are not yet supported by this editor")));
+        player.openInventory(inv);
+    }
+
+    private boolean saveEditedRewards(String type, List<String> rewards) {
+        for (String entry : rewards) {
+            String[] bits = entry.split(":", 4);
+            if (bits.length < 4) return false;
+            try {
+                double weight = Double.parseDouble(bits[2]);
+                if (!Double.isFinite(weight) || weight <= 0) return false;
+                String kind = bits[0].toUpperCase(Locale.ROOT);
+                if (kind.equals("MONEY") || kind.equals("KELVORAS")) {
+                    double value = Double.parseDouble(bits[1]);
+                    if (!Double.isFinite(value) || value <= 0) return false;
+                } else if (kind.equals("COMMAND")) {
+                    if (bits[1].isBlank()) return false;
+                } else {
+                    Material material = Material.matchMaterial(bits[0]);
+                    int amount = Integer.parseInt(bits[1]);
+                    if (!isAllowedReward(material) || amount <= 0 || amount > material.getMaxStackSize()) return false;
+                }
+            } catch (RuntimeException ex) { return false; }
+        }
+        File target = new File(crateConfigDirectory, type.toLowerCase(Locale.ROOT) + ".yml");
+        File temp = new File(crateConfigDirectory, type.toLowerCase(Locale.ROOT) + ".yml.tmp");
+        YamlConfiguration cfg = crateConfig(type);
+        cfg.set("rewards", rewards);
+        try {
+            cfg.save(temp);
+            try {
+                java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            validateConfiguredRewards();
+            return true;
+        } catch (Exception ex) {
+            try { java.nio.file.Files.deleteIfExists(temp.toPath()); } catch (IOException ignored) {}
+            plugin.getLogger().severe("Could not save " + type + " crate rewards; previous config was retained: " + ex.getMessage());
+            return false;
+        }
+    }
 
     private void openAdmin(Player p) {
         Inventory inv=Bukkit.createInventory(null,27,Component.text(ADMIN,NamedTextColor.DARK_GREEN));
