@@ -433,11 +433,15 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
 
     private List<String> configuredRewards(String type) {
         List<String> entries = new ArrayList<>(plugin.getConfig().getStringList("crates.types." + type + ".rewards"));
-        if (!type.equals("gambling") || !plugin.getConfig().getBoolean("crates.types.gambling.include-eligible-catalogue", true)) return entries;
+        if (!type.equals("gambling")) return entries;
+        Set<String> disabled = new HashSet<>();
+        for (String item : plugin.getConfig().getStringList("crates.types.gambling.disabled-items")) disabled.add(item.toUpperCase(Locale.ROOT));
+        entries.removeIf(entry -> { String[] bits = entry.split(":", 4); return bits.length > 0 && disabled.contains(bits[0].toUpperCase(Locale.ROOT)); });
+        if (!plugin.getConfig().getBoolean("crates.types.gambling.include-eligible-catalogue", true)) return entries;
         Set<String> configured = new HashSet<>();
         for (String entry : entries) { String[] bits = entry.split(":", 4); if (bits.length > 0) configured.add(bits[0].toUpperCase(Locale.ROOT)); }
         for (Material material : Material.values()) {
-            if (!isAllowedReward(material) || configured.contains(material.name())) continue;
+            if (!isAllowedReward(material) || configured.contains(material.name()) || disabled.contains(material.name())) continue;
             entries.add(material.name() + ":1:1:Common");
         }
         return entries;
@@ -481,7 +485,9 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 double percent = chanceSection.getDouble(key, -1);
                 if (!Double.isFinite(percent) || percent < 0 || percent >= 100) { plugin.getLogger().warning("Invalid exact crate chance " + type + "." + key + "=" + percent); continue; }
                 Material material = Material.matchMaterial(key);
-                if (!isAllowedReward(material)) { plugin.getLogger().warning("Invalid exact-chance reward material " + type + "." + key); continue; }
+                if (!isAllowedReward(material) || entries.stream().noneMatch(entry -> entry.split(":", 4)[0].equalsIgnoreCase(material.name()))) {
+                    plugin.getLogger().warning("Invalid or disabled exact-chance reward material " + type + "." + key); continue;
+                }
                 totalExact += percent;
                 exactChanceMaterials.add(material.name());
             }
