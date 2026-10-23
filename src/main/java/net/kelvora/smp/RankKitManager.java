@@ -30,6 +30,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -39,14 +40,14 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 final class RankKitManager implements Listener {
-    private static final List<String> PROGRESSION = List.of("i_sprout", "verdant", "emerald", "sovereign", "ascendant");
+    private static final List<String> PROGRESSION = List.of("sprout", "verdant", "emerald", "sovereign", "ascendant");
     private static final Map<String, String> LABELS = Map.ofEntries(
-        Map.entry("i_sprout", "I. Sprout"), Map.entry("verdant", "Verdant"),
+        Map.entry("sprout", "Sprout"), Map.entry("i_sprout", "Sprout"), Map.entry("verdant", "Verdant"),
         Map.entry("emerald", "Emerald"), Map.entry("sovereign", "Sovereign"),
         Map.entry("ascendant", "Ascendant"), Map.entry("helper", "Helper"),
         Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"),
         Map.entry("admin", "Admin"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"),
-        Map.entry("default", "I. Sprout"), Map.entry("member", "I. Sprout")
+        Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
     );
     private final KelvoraSMP plugin;
     private final NamespacedKey actionKey;
@@ -84,7 +85,7 @@ final class RankKitManager implements Listener {
     }
 
     private void bootstrapGroups() {
-        for (String key : List.of("i_sprout","verdant","emerald","sovereign","ascendant","helper","moderator","admin","owner","creator")) {
+        for (String key : List.of("sprout","verdant","emerald","sovereign","ascendant","helper","moderator","admin","owner","creator")) {
             try {
                 Group group = luckPerms.getGroupManager().getGroup(key);
                 if (group == null) {
@@ -116,7 +117,7 @@ final class RankKitManager implements Listener {
 
     private String defaultColor(String key) {
         return switch (key) {
-            case "i_sprout" -> "&7"; case "verdant", "helper" -> "&a";
+            case "sprout", "i_sprout" -> "&7"; case "verdant", "helper" -> "&a";
             case "emerald" -> "&3"; case "sovereign" -> "&3";
             case "ascendant" -> "&6"; case "moderator" -> "&9";
             case "admin" -> "&5"; case "owner" -> "&c"; case "creator" -> "&d"; default -> "&7";
@@ -124,48 +125,54 @@ final class RankKitManager implements Listener {
     }
 
     private boolean rankCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
+        if (args.length > 0 && args[0].equalsIgnoreCase("set")) {
+            if (!(sender.isOp() || sender.hasPermission("kelvora.rank.admin"))) {
+                sender.sendMessage(Component.text("You do not have permission to assign ranks.", NamedTextColor.RED));
+                return true;
+            }
+            if (args.length != 3) {
+                sender.sendMessage(Component.text("Usage: /rank set <player> <sprout|verdant|emerald|sovereign|ascendant>", NamedTextColor.RED));
+                return true;
+            }
+            Player target = Bukkit.getPlayerExact(args[1]);
+            if (target == null) {
+                sender.sendMessage(Component.text("That player must be online.", NamedTextColor.RED));
+                return true;
+            }
+            String targetRank = normalize(args[2]);
+            if (!PROGRESSION.contains(targetRank)) {
+                sender.sendMessage(Component.text("Invalid progression rank. Staff/media roles are managed separately.", NamedTextColor.RED));
+                return true;
+            }
+            String previous = progressionRank(target.getUniqueId());
+            if (!setProgressionRank(target, targetRank)) {
+                sender.sendMessage(Component.text("Rank change failed. Check LuckPerms and server logs.", NamedTextColor.RED));
+                return true;
+            }
+            sender.sendMessage(Component.text("Set " + target.getName() + "'s progression rank to " + LABELS.get(targetRank) + ".", NamedTextColor.GREEN));
+            target.sendMessage(Component.text("Your progression rank is now " + LABELS.get(targetRank) + ".", NamedTextColor.GREEN));
+            plugin.getLogger().info(sender.getName() + " changed " + target.getName() + "'s progression rank from " + previous + " to " + targetRank + ".");
+            return true;
+        }
+        if (!(sender instanceof Player player)) { sender.sendMessage("Use /rank set <player> <rank> from console, or use /rank in-game."); return true; }
         if (!player.hasPermission("kelvora.rank.view")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         openRanks(player);
+        sendDiscordInfo(player);
         return true;
     }
 
+    private void sendDiscordInfo(Player player) {
+        player.sendMessage(Component.text("Want a higher rank?", NamedTextColor.GOLD));
+        player.sendMessage(Component.text("Kelvora ranks are purchased, not earned through gameplay.", NamedTextColor.GRAY));
+        player.sendMessage(Component.text("Visit our Discord to find out how to purchase a rank: ", NamedTextColor.GRAY)
+            .append(Component.text("https://discord.gg/gUt2uGcwe", NamedTextColor.AQUA)
+                .clickEvent(ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"))));
+    }
+
     private boolean rankupCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
-        if (!player.hasPermission("kelvora.rankup")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
-        if (args.length != 0) { player.sendMessage(Component.text("Usage: /rankup", NamedTextColor.RED)); return true; }
-        String current = progressionRank(player.getUniqueId());
-        int index = PROGRESSION.indexOf(current);
-        if (index < 0 || index >= PROGRESSION.size() - 1) {
-            player.sendMessage(Component.text(index < 0 ? "Your progression rank is not configured." : "You have reached the highest progression rank.", NamedTextColor.RED));
-            return true;
-        }
-        String next = PROGRESSION.get(index + 1);
-        double cost = plugin.getConfig().getDouble("rank-up.costs." + next, -1);
-        if (cost < 0) {
-            player.sendMessage(Component.text("Rank-up is not configured yet. Ask an administrator to set rank-up.costs." + next + " in config.yml.", NamedTextColor.RED));
-            return true;
-        }
-        Object economy = economyProvider();
-        if (economy == null) { player.sendMessage(Component.text("Money economy is unavailable; no charge was made.", NamedTextColor.RED)); return true; }
-        try {
-            double balance = ((Number)economy.getClass().getMethod("getBalance", OfflinePlayer.class).invoke(economy, player)).doubleValue();
-            if (balance < cost) { player.sendMessage(Component.text("You need $" + money(cost) + " Money to upgrade.", NamedTextColor.RED)); return true; }
-            // Never charge until LuckPerms confirms that the rank change can be saved.
-            if (!setProgressionRank(player, next)) { player.sendMessage(Component.text("Rank upgrade failed; no Money was charged.", NamedTextColor.RED)); return true; }
-            Object response = economy.getClass().getMethod("withdrawPlayer", OfflinePlayer.class, double.class).invoke(economy, player, cost);
-            boolean success = (boolean) response.getClass().getMethod("transactionSuccess").invoke(response);
-            if (!success) {
-                setProgressionRank(player, current);
-                player.sendMessage(Component.text("Money transaction failed; your previous rank was restored.", NamedTextColor.RED));
-                return true;
-            }
-            player.sendMessage(Component.text("Rank upgraded to " + LABELS.get(next) + "!", NamedTextColor.GREEN));
-            cacheRank(player.getUniqueId(), next);
-        } catch (ReflectiveOperationException ex) {
-            player.sendMessage(Component.text("Money transaction failed safely; contact an administrator.", NamedTextColor.RED));
-            plugin.getLogger().warning("Rank-up economy call failed: " + ex.getMessage());
-        }
+        sender.sendMessage(Component.text("Progression ranks are purchased through the Kelvora Discord, not through gameplay or Money.", NamedTextColor.GOLD));
+        sender.sendMessage(Component.text("https://discord.gg/gUt2uGcwe", NamedTextColor.AQUA)
+            .clickEvent(ClickEvent.openUrl("https://discord.gg/gUt2uGcwe")));
         return true;
     }
 
@@ -190,7 +197,7 @@ final class RankKitManager implements Listener {
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
             String desc=plugin.getConfig().getString("ranks." + key + ".description", "Survival progression rank");
-            put(inv, slots[i], rankMaterial(i), prefixFor(key) + LABELS.get(key), List.of(desc, "Progression " + (i+1) + "/5", "Use /rankup to upgrade"), "rank:" + key);
+            put(inv, slots[i], rankMaterial(i), prefixFor(key) + LABELS.get(key), List.of(desc, "Progression " + (i+1) + "/5", "Ranks are purchased through Discord"), "rank:" + key);
         }
         put(inv, 28, Material.LIME_DYE, "&aHelper", List.of("Answers questions and helps players", "Assigned by authorized staff"), "info");
         put(inv, 29, Material.BLUE_DYE, "&9Moderator", List.of("Handles chat and rule enforcement", "Assigned by authorized staff"), "info");
@@ -301,6 +308,7 @@ final class RankKitManager implements Listener {
             User user=luckPerms.getUserManager().getUser(id);
             if(user!=null) {
                 String primary=user.getPrimaryGroup().toLowerCase(Locale.ROOT);
+                if(primary.equals("i_sprout")) { cacheRank(id,"sprout"); return "sprout"; }
                 if(PROGRESSION.contains(primary)) { cacheRank(id,primary); return primary; }
                 for(int i=PROGRESSION.size()-1;i>=0;i--) {
                     String candidate = PROGRESSION.get(i);
@@ -310,7 +318,7 @@ final class RankKitManager implements Listener {
                 }
             }
         }
-        return cached==null ? "i_sprout" : cached;
+        return cached==null ? "sprout" : (cached.equalsIgnoreCase("i_sprout") ? "sprout" : cached);
     }
 
     private boolean setProgressionRank(Player player,String target) {
@@ -319,6 +327,7 @@ final class RankKitManager implements Listener {
         if(user==null) return false;
         String oldPrimary = user.getPrimaryGroup() == null ? "" : user.getPrimaryGroup().toLowerCase(Locale.ROOT);
         for(String key:PROGRESSION) user.data().remove(InheritanceNode.builder(key).build());
+        user.data().remove(InheritanceNode.builder("i_sprout").build());
         user.data().add(InheritanceNode.builder(target).build());
         if (PROGRESSION.contains(oldPrimary)) user.setPrimaryGroup(target);
         try { luckPerms.getUserManager().saveUser(user).join(); cacheRank(player.getUniqueId(),target); return true; }
@@ -339,9 +348,23 @@ final class RankKitManager implements Listener {
             User user = luckPerms.getUserManager().getUser(event.getPlayer().getUniqueId());
             if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
         }
-        if (prefix == null || prefix.isBlank()) prefix = "&7[I. Sprout] ";
+        if (prefix == null || prefix.isBlank()) prefix = "&7[Sprout] ";
         final Component rankPrefix = LegacyComponentSerializer.legacySection().deserialize(ChatColor.translateAlternateColorCodes('&', prefix));
-        event.renderer((source, displayName, message, viewer) -> rankPrefix.append(displayName).append(Component.text(": ")).append(message));
+        final ShardShopManager cosmetics = plugin.getShardShopManager();
+        String tag = cosmetics == null ? null : cosmetics.equippedTag(event.getPlayer());
+        String title = cosmetics == null ? null : cosmetics.equippedTitle(event.getPlayer());
+        String colour = cosmetics == null ? null : cosmetics.chatColour(event.getPlayer());
+        final Component cosmeticTag = tag == null ? Component.empty() : Component.text(" [" + tag + "]", NamedTextColor.AQUA);
+        final Component cosmeticTitle = title == null ? Component.empty() : Component.text(" {" + title + "}", NamedTextColor.GOLD);
+        final String safeColour = colour == null ? null : ChatColor.translateAlternateColorCodes('&', colour);
+        event.renderer((source, displayName, message, viewer) -> {
+            Component renderedMessage = message;
+            if (safeColour != null) {
+                String serialized = LegacyComponentSerializer.legacySection().serialize(message);
+                renderedMessage = LegacyComponentSerializer.legacySection().deserialize(safeColour + serialized);
+            }
+            return rankPrefix.append(cosmeticTitle).append(displayName).append(cosmeticTag).append(Component.text(": ")).append(renderedMessage);
+        });
     }
 
     @EventHandler public void onClick(InventoryClickEvent event) {
@@ -354,7 +377,7 @@ final class RankKitManager implements Listener {
         if(action==null) return;
         if(action.equals("close")) { p.closeInventory(); return; }
         if(action.startsWith("kit:")) { claimKit(p,action.substring(4)); p.playSound(p.getLocation(),Sound.UI_BUTTON_CLICK,0.2f,1.1f); }
-        else if(action.startsWith("rank:")) { p.sendMessage(Component.text("Use /rankup to see and purchase your next configured progression rank.",NamedTextColor.GREEN)); }
+        else if(action.startsWith("rank:")) { sendDiscordInfo(p); }
     }
     @EventHandler public void onDrag(InventoryDragEvent event) {
         String title=event.getView().title().toString();
@@ -367,7 +390,7 @@ final class RankKitManager implements Listener {
         List<Component> lines=new ArrayList<>(); for(String line:lore) lines.add(Component.text(line,NamedTextColor.GRAY));
         meta.lore(lines); meta.getPersistentDataContainer().set(actionKey,PersistentDataType.STRING,action); item.setItemMeta(meta); inv.setItem(slot,item);
     }
-    private String normalize(String s) { String key = s.toLowerCase(Locale.ROOT).trim().replace(" ","_"); if (key.equals("sprout") || key.equals("i.sprout") || key.equals("i_sprout")) return "i_sprout"; return key; }
+    private String normalize(String s) { String key = s.toLowerCase(Locale.ROOT).trim().replace(" ","_"); if (key.equals("sprout") || key.equals("i.sprout") || key.equals("i_sprout")) return "sprout"; return key; }
     private String duration(long millis) {
         long seconds=Math.max(0,millis/1000); long h=seconds/3600, m=(seconds%3600)/60;
         return h>0 ? h+"h "+m+"m" : m+"m "+(seconds%60)+"s";
