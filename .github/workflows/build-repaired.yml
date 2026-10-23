@@ -45,8 +45,10 @@ jobs:
       - name: Paper 1.21.11 startup smoke test
         run: |
           VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')
-          BUILD=$(curl -fsSL https://api.papermc.io/v2/projects/paper/versions/1.21.11 | python3 -c "import json,sys; print(json.load(sys.stdin)['builds'][-1])")
-          curl -fsSL "https://api.papermc.io/v2/projects/paper/versions/1.21.11/builds/${BUILD}/downloads/paper-1.21.11-${BUILD}.jar" -o paper-smoke.jar
+          USER_AGENT="KelvoraSMP-CI/1.0 (https://github.com/gennadios424-svg/kelvora-smp)"
+          BUILDS=$(curl -fsSL -H "User-Agent: ${USER_AGENT}" "https://fill.papermc.io/v3/projects/paper/versions/1.21.11/builds?channel=STABLE&limit=1")
+          DOWNLOAD_URL=$(printf '%s' "$BUILDS" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['downloads']['server:default']['url'])")
+          curl -fsSL -H "User-Agent: ${USER_AGENT}" "$DOWNLOAD_URL" -o paper-smoke.jar
           mkdir -p smoke/plugins
           cp "target/KelvoraSMP-${VERSION}.jar" smoke/plugins/
           printf 'eula=true\n' > smoke/eula.txt
