@@ -28,6 +28,11 @@ final class PassiveKelvorasManager implements Listener {
     PassiveKelvorasManager(JavaPlugin plugin) { this.plugin = plugin; }
 
     void register() {
+        // Migrate the old built-in five-minute default once; preserve any custom interval other than 300 seconds.
+        if (plugin.getConfig().getLong("passive-kelvoras.interval-seconds", 1200L) == 300L) {
+            plugin.getConfig().set("passive-kelvoras.interval-seconds", 1200L);
+            plugin.saveConfig();
+        }
         if (!plugin.getConfig().getBoolean("passive-kelvoras.enabled", true)) return;
         long interval = Math.max(1L, plugin.getConfig().getLong("passive-kelvoras.interval-seconds", 1200L));
         double amount = plugin.getConfig().getDouble("passive-kelvoras.amount", 1.0);
