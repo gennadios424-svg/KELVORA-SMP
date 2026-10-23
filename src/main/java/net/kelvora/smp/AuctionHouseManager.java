@@ -296,7 +296,7 @@ final class AuctionHouseManager implements Listener {
         String q = query.toLowerCase(Locale.ROOT);
         if (listing.item.getType().name().toLowerCase(Locale.ROOT).contains(q)) return true;
         ItemMeta meta = listing.item.getItemMeta();
-        if (meta != null && meta.hasDisplayName() && plain(meta.displayName()).toLowerCase(Locale.ROOT).contains(q)) return true;
+        if (meta != null && meta.hasDisplayName() && plain(meta.getDisplayName()).toLowerCase(Locale.ROOT).contains(q)) return true;
         String label = listing.item.getType().translationKey().replace("item.minecraft.", "").replace("block.minecraft.", "").replace('_', ' ');
         return label.toLowerCase(Locale.ROOT).contains(q);
     }
