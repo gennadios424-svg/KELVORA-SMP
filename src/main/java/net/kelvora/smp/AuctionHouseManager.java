@@ -320,7 +320,7 @@ final class AuctionHouseManager implements Listener {
         int page = session == null ? 0 : session.page;
         switch (action) {
             case "previous" -> { p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.15f); openBrowse(p, page - 1, own); }
-            case "next" -> { p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, .45f, 1.1f); openBrowse(p, page + 1, own); }
+            case "next" -> { p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.1f); openBrowse(p, page + 1, own); }
             case "refresh" -> { expireListings(); openBrowse(p, page, own); p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.2f); }
             case "close" -> p.closeInventory();
             default -> { }
@@ -368,7 +368,7 @@ final class AuctionHouseManager implements Listener {
             }
             if (!canFit(buyer, current.item)) {
                 msg(buyer, NamedTextColor.RED, "Your inventory is full.");
-                buyer.playSound(buyer.getLocation(), Sound.ENTITY_VILLAGER_NO, .7f, 1f);
+                buyer.playSound(buyer.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .18f, .8f);
                 return;
             }
             // Persist reservation before money moves so another buyer cannot claim this listing.
@@ -377,7 +377,7 @@ final class AuctionHouseManager implements Listener {
             if (!withdraw(buyer, current.price)) {
                 reservedListings.remove(id);
                 msg(buyer, NamedTextColor.RED, "Payment failed. You have not received the item.");
-                buyer.playSound(buyer.getLocation(), Sound.ENTITY_VILLAGER_NO, .7f, 1f);
+                buyer.playSound(buyer.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .18f, .8f);
                 return;
             }
             OfflinePlayer seller = Bukkit.getOfflinePlayer(current.owner);
