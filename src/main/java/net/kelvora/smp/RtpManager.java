@@ -145,7 +145,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
 
     private void beginRtp(Player player, String dimension) {
         if (combat != null && combat.isInCombat(player)) {
-            player.sendMessage(ChatColor.RED + "You cannot use random teleport during combat.");
+            player.sendActionBar(Component.text("You cannot teleport while in combat!", NamedTextColor.RED));
             return;
         }
         World target = dimensions.get(dimension);
@@ -165,7 +165,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
             @Override public void run() {
                 UUID id = player.getUniqueId();
                 if (!player.isOnline() || player.isDead() || !searching.contains(id)) {
-                    countdownOrigins.remove(id); countdowns.remove(id); cancel(); return;
+                    countdownOrigins.remove(id); cancel(); countdowns.remove(id); return;
                 }
                 if (combat != null && combat.isInCombat(player)) {
                     searching.remove(id); countdownOrigins.remove(id); countdowns.remove(id);
