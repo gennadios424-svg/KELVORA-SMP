@@ -240,7 +240,7 @@ implements Listener {
                 team.addEntry(entry);
                 org.bukkit.scoreboard.Score score = created.getScore(entry);
                 score.setScore(5 - i);
-                score.numberFormat(org.bukkit.scoreboard.NumberFormat.blank());
+                score.numberFormat(io.papermc.paper.scoreboard.numbers.NumberFormat.blank());
             }
             this.playerBoards.put(player.getUniqueId(), board);
         }
