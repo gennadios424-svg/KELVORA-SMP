@@ -74,6 +74,7 @@ implements Listener {
     private TeamManager teamManager;
     private int refreshTask;
     private int tabFrame;
+    private int footerFrame;
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<UUID, Scoreboard>();
 
     public void onEnable() {
@@ -125,6 +126,7 @@ implements Listener {
         }, 1L, Math.max(20L, this.getConfig().getLong("refresh-ticks", 40L)));
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             this.tabFrame = (this.tabFrame + 1) % 3;
+            this.footerFrame = (this.footerFrame + 1) % 5;
             for (Player online : Bukkit.getOnlinePlayers()) this.updatePlayer(online);
         }, 60L, 60L);
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -258,7 +260,14 @@ implements Listener {
         } else {
             rotatingMessage = Component.text("🌐 kelvorasmp.mcsh.gg", NamedTextColor.AQUA);
         }
-        player.sendPlayerListHeaderAndFooter(rotatingMessage, Component.empty());
+        Component footerMessage = switch (this.footerFrame) {
+            case 0 -> Component.text("💬 Join our Discord — discord.gg/gUt2uGcwe", NamedTextColor.LIGHT_PURPLE);
+            case 1 -> Component.text("🛡️ Apply for Staff", NamedTextColor.GOLD);
+            case 2 -> Component.text("🎥 Apply for Media", NamedTextColor.AQUA);
+            case 3 -> Component.text("🌿 Join Kelvora SMP", NamedTextColor.GREEN);
+            default -> Component.text("🌐 kelvorasmp.mcsh.gg", NamedTextColor.YELLOW);
+        };
+        player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
