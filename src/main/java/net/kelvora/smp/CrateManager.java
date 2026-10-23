@@ -434,18 +434,20 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             List<String> rewards = editingRewards.get(p.getUniqueId());
             if (type == null || rewards == null) return;
             int raw = e.getRawSlot();
-            if (raw == 45) { editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.closeInventory(); return; }
+            if (raw == 45) { editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.3f, 0.9f); p.closeInventory(); return; }
             if (raw == 49 && e.getClickedInventory() == e.getView().getTopInventory()) {
                 if (saveEditedRewards(type, rewards)) {
                     p.sendMessage(Component.text("Saved " + rewards.size() + " " + titleCase(type) + " rewards.", NamedTextColor.GREEN));
+                    p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.45f, 1.35f);
                     editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.closeInventory();
-                } else p.sendMessage(Component.text("Reward config validation/save failed. The previous reward pool was retained.", NamedTextColor.RED));
+                } else { p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f); p.sendMessage(Component.text("Reward config validation/save failed. The previous reward pool was retained.", NamedTextColor.RED)); }
                 return;
             }
             if (e.getClickedInventory() == e.getView().getTopInventory()) {
-                if (raw >= 0 && raw < 45 && raw < rewards.size()) {
+                if (raw >= 0 && raw < 45 && raw < rewards.size() && e.isShiftClick() && e.isRightClick()) {
                     String removed = rewards.remove(raw);
                     p.sendMessage(Component.text("Removed reward " + removed + ". Click SAVE REWARDS to persist.", NamedTextColor.YELLOW));
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 1.2f);
                     openRewardEditor(p, type);
                 }
                 return;
@@ -455,7 +457,9 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 if (cursorItem == null || cursorItem.getType().isAir() || !isAllowedReward(cursorItem.getType())) return;
                 if (cursorItem.getAmount() > cursorItem.getType().getMaxStackSize()) return;
                 if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
+                if (e.isShiftClick() || e.isRightClick() || e.getClick() != ClickType.LEFT) return;
                 rewards.add(cursorItem.getType().name() + ":" + cursorItem.getAmount() + ":1:Common");
+                p.playSound(p.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.45f, 1.3f);
                 p.sendMessage(Component.text("Added " + cursorItem.getType().name() + " x" + cursorItem.getAmount() + " as a reward template. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
                 openRewardEditor(p, type);
             }
