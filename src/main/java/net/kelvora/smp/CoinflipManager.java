@@ -261,22 +261,29 @@ final class CoinflipManager implements Listener {
     }
 
     private void settle(Challenge c, Player winner, Player loser) {
-        if (c.paid) return;
-        c.paid = true; c.status = "PAID"; save(); // Persist claim before external economy call to prevent duplicate payouts after restart.
-        boolean paid = c.winner != null && money(Bukkit.getOfflinePlayer(c.winner), c.pot, false);
+        if (c.paid || "PAID".equals(c.status) || "PAYOUT_PENDING".equals(c.status)) return;
         String winnerName = c.winner.equals(c.creator) ? c.creatorName : c.opponentName;
-        history.add(0, c.creatorName + " vs " + c.opponentName + " | winner " + winnerName + " | $" + fmt(c.pot));
-        while (history.size() > 10) history.remove(history.size()-1);
+        // Persist a recoverable claim before calling Vault. Since generic Vault providers do not
+        // offer idempotent transaction IDs, a crash during the deposit must be reviewed rather
+        // than automatically paying twice or silently deleting the escrow record.
+        c.status = "PAYOUT_PENDING";
+        challenges.put(c.id, c);
         save();
+        boolean paid = c.winner != null && money(Bukkit.getOfflinePlayer(c.winner), c.pot, false);
         if (paid) {
+            c.paid = true;
+            c.status = "PAID";
+            challenges.remove(c.id);
+            history.add(0, c.creatorName + " vs " + c.opponentName + " | winner " + winnerName + " | $" + fmt(c.pot));
+            while (history.size() > 10) history.remove(history.size()-1);
+            save();
             if (winner != null) winner.sendMessage(Component.text("Coinflip won! You received $" + fmt(c.pot) + ".", NamedTextColor.GREEN));
             if (loser != null) loser.sendMessage(Component.text("Coinflip lost. $" + fmt(c.amount) + " wager was lost.", NamedTextColor.RED));
         } else {
-            // Keep the paid-claim and escrow record durable for staff review; never silently erase it.
-            c.status = "PAYOUT_PENDING";
-            challenges.put(c.id, c);
-            save();
+            // Preserve the unresolved escrow/payout record; never retry automatically because
+            // the provider may have accepted the deposit just before a crash or timeout.
             plugin.getLogger().severe("Coinflip payout requires staff review for match " + c.id + " winner=" + winnerName + " pot=" + c.pot);
+            if (winner != null) winner.sendMessage(Component.text("The result is locked, but payout needs staff review. Your wager has not been silently discarded.", NamedTextColor.RED));
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (winner != null && winner.isOnline()) openMain(winner);
