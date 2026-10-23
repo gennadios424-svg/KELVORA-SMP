@@ -1,6 +1,11 @@
 package net.kelvora.smp;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.Node;
+import net.luckperms.api.node.types.InheritanceNode;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -53,12 +58,85 @@ final class ShardShopManager implements Listener {
 
     void register() {
         data = YamlConfiguration.loadConfiguration(dataFile);
+        migrateLegacyTemporaryRanks();
+        migrateCosmeticCatalogue();
         expireAll();
         Bukkit.getPluginManager().registerEvents(this, plugin);
         if (plugin.getCommand("shardshop") != null) plugin.getCommand("shardshop").setExecutor(this::execute);
         if (plugin.getCommand("shards") != null) plugin.getCommand("shards").setExecutor(this::execute);
         if (plugin.getCommand("shardshopreload") != null) plugin.getCommand("shardshopreload").setExecutor(this::execute);
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
+    }
+
+    /**
+     * One-time migration: old ShardShop temporary ranks were real expiring LuckPerms groups.
+     * Convert active purchases into cosmetic title ownership and remove only expiring nodes
+     * matching those recorded purchases. Permanent inheritance nodes are never removed.
+     */
+    private synchronized void migrateLegacyTemporaryRanks() {
+        if (data.getBoolean("_migration.temporary-ranks-cosmetic", false)) return;
+        LuckPerms lp;
+        try { lp = LuckPermsProvider.get(); }
+        catch (IllegalStateException ex) {
+            plugin.getLogger().warning("Legacy temporary-rank migration deferred because LuckPerms is unavailable.");
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (String uuidText : new ArrayList<>(data.getKeys(false))) {
+            UUID uuid;
+            try { uuid = UUID.fromString(uuidText); }
+            catch (IllegalArgumentException ignored) { continue; }
+            ConfigurationSection legacy = data.getConfigurationSection(uuidText + ".temporary-ranks");
+            if (legacy == null) continue;
+            try {
+                User user = lp.getUserManager().getUser(uuid);
+                if (user == null) user = lp.getUserManager().loadUser(uuid).join();
+                boolean changed = false;
+                for (String rank : legacy.getKeys(false)) {
+                    long expires = legacy.getLong(rank + ".expires", 0);
+                    String product = legacy.getString(rank + ".last-product", "");
+                    if (expires > now && !product.isBlank()
+                            && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) {
+                        data.set(uuidText + ".owned.ranks." + product, expires);
+                        data.set(uuidText + ".equipped.ranks", product);
+                    }
+                    for (Node node : new ArrayList<>(user.getNodes())) {
+                        if (node instanceof InheritanceNode inherited
+                                && inherited.getGroupName().equalsIgnoreCase(rank)
+                                && !node.getExpiry().equals(java.time.Instant.MAX)) {
+                            user.data().remove(node);
+                            changed = true;
+                        }
+                    }
+                }
+                if (changed) lp.getUserManager().saveUser(user).join();
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Could not migrate temporary cosmetic rank for " + uuidText + ": " + ex.getMessage());
+                return;
+            }
+        }
+        data.set("_migration.temporary-ranks-cosmetic", true);
+        saveData();
+    }
+
+    /**
+     * Existing servers keep their old config.yml when the JAR is replaced. Enable the
+     * newly implemented cosmetic catalog once while preserving all configured prices.
+     */
+    private synchronized void migrateCosmeticCatalogue() {
+        if (plugin.getConfig().getInt("shardshop.schema-version", 0) >= 2) return;
+        for (String category : List.of("tags", "glows", "chat")) {
+            ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
+            if (entries == null) continue;
+            for (String id : entries.getKeys(false)) {
+                ConfigurationSection entry = entries.getConfigurationSection(id);
+                if (entry != null && entry.contains("price") && entry.getDouble("price", -1) > 0) {
+                    entry.set("available", true);
+                }
+            }
+        }
+        plugin.getConfig().set("shardshop.schema-version", 2);
+        plugin.saveConfig();
     }
 
     private boolean execute(CommandSender sender, Command command, String label, String[] args) {
