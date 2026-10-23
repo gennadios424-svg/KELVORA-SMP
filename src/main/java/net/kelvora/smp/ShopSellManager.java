@@ -234,6 +234,11 @@ final class ShopSellManager implements Listener {
         if (!title.equals(SELL)) return;
         int raw = e.getRawSlot();
         Inventory top = e.getView().getTopInventory();
+
+        // The deposit area (0-44) deliberately uses Bukkit's normal inventory
+        // mechanics. Cancelling these clicks and simulating them manually broke
+        // number-key swaps, double-clicks, drag placement, and client prediction.
+        // Only the bottom control row is protected.
         if (raw >= SELL_SLOTS && raw < 54) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p)) return;
@@ -244,14 +249,9 @@ final class ShopSellManager implements Listener {
             return;
         }
 
-        if (raw >= 0 && raw < SELL_SLOTS && e.getClickedInventory() == top) {
-            // Handle sell slots ourselves so other inventory listeners/client prediction
-            // cannot immediately bounce a deposited item back into the player's inventory.
-            e.setCancelled(true);
-            if (e.getWhoClicked() instanceof Player p) {
-                handleSellSlotClick(p, top, raw, e.getClick());
-            }
-        } else if (e.getClickedInventory() == e.getView().getBottomInventory() && e.isShiftClick()) {
+        // Shift-click from the player's inventory is routed only into the
+        // 45 deposit slots, never into the control row.
+        if (e.getClickedInventory() == e.getView().getBottomInventory() && e.isShiftClick()) {
             e.setCancelled(true);
             ItemStack stack = e.getCurrentItem();
             if (stack != null && !stack.getType().isAir()) {
@@ -271,12 +271,15 @@ final class ShopSellManager implements Listener {
                     }
                 }
                 if (remaining <= 0) e.getClickedInventory().setItem(e.getSlot(), null);
-                else if (remaining < stack.getAmount()) stack.setAmount(remaining);
+                else if (remaining < stack.getAmount()) {
+                    stack.setAmount(remaining);
+                    e.getClickedInventory().setItem(e.getSlot(), stack);
+                }
             }
-        } else if (raw >= 0 && raw < 54 && e.getClickedInventory() == top) {
-            e.setCancelled(true);
         }
 
+        // For ordinary clicks in deposit slots, do not cancel the event. Bukkit
+        // handles pickup/place/split/swap/double-click and keeps cursor state synced.
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (pStillViewingSell(e.getWhoClicked(), top)) updateSellButton(top);
         });
