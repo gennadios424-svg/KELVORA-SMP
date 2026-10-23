@@ -89,6 +89,7 @@ implements Listener {
         new AuctionHouseManager(this).register();
         BountyCombatManager combatManager = new BountyCombatManager(this);
         combatManager.register();
+        new RtqManager(this, combatManager).register();
         new BaltopManager(this).register();
         new CoinflipManager(this, combatManager).register();
         new RtpManager(this, combatManager).register();
