@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.*;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -25,10 +26,12 @@ import org.bukkit.potion.PotionType;
 
 final class ShopSellManager implements Listener {
     private static final String MAIN = "KELVORA  /  SHOP";
-    private static final String SELL = "KELVORA  /  SELL VAULT";
+    private static final String SELL = "KELVORA // SELL VAULT";
     private static final String QUANTITY = "KELVORA  /  QUANTITY";
     private static final String CATEGORY = "KELVORA  /  ";
-    private static final int SELL_SLOTS = 45;
+    // Slots 9-44 are deposit slots; row 0 is the instruction header and row 5 is protected controls.
+    private static final int SELL_START = 9;
+    private static final int SELL_END = 45;
     private static final DecimalFormat MONEY = new DecimalFormat("#,##0.##");
     private final JavaPlugin plugin;
     private final NamespacedKey actionKey;
@@ -172,15 +175,38 @@ final class ShopSellManager implements Listener {
         return 1000;
     }
 
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST, ignoreCancelled = true)
+    public void forceKelvoraSellCommand(PlayerCommandPreprocessEvent e) {
+        String message = e.getMessage();
+        if (message == null || !message.startsWith("/")) return;
+        String[] parts = message.substring(1).trim().split("\\s+", 2);
+        if (parts.length == 0) return;
+        String label = parts[0].toLowerCase(Locale.ROOT);
+        // Force /sell to this GUI even when another plugin registered /sell first.
+        if (!label.equals("sell") && !label.endsWith(":sell")) return;
+        e.setCancelled(true);
+        Player p = e.getPlayer();
+        if (!p.hasPermission("kelvora.sell")) {
+            p.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED));
+            return;
+        }
+        p.sendMessage(Component.text("Opened Kelvora Sell Vault v2.1.6.", NamedTextColor.GRAY));
+        openSell(p);
+    }
+
     private void openSell(Player p) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL, NamedTextColor.DARK_GREEN));
-        // New Sell Vault layout: all 45 storage slots are usable; only the final row is controls.
-        for (int i = 45; i < 54; i++) {
-            inv.setItem(i, createSellFrame());
-        }
+        // New layout: dedicated instruction header, four rows of real deposit slots, and protected controls.
+        for (int i = 0; i < SELL_START; i++) inv.setItem(i, createSellHeaderFrame());
+        put(inv, 4, Material.BOOK, "SELL VAULT  |  DROP ITEMS BELOW", "info",
+            "Place items in the four rows below; only /worth-priced items sell.");
+        for (int i = SELL_END; i < 54; i++) inv.setItem(i, createSellFrame());
         put(inv, 45, Material.BARRIER, "Cancel & Return", "cancel", "Close safely and return every unsold item");
-        put(inv, 49, Material.GOLD_INGOT, "Sell Value: $0", "total", "Click to calculate the current sell value");
-        put(inv, 53, Material.LIME_DYE, "Confirm Sale", "confirm", "Sell priced items for Money");
+        put(inv, 47, Material.HOPPER, "UNPRICED ITEMS", "info", "Items without a /worth price are returned to you");
+        put(inv, 49, Material.GOLD_INGOT, "Sell Value: $0", "total", "Click to announce the current sell value");
+        put(inv, 51, Material.CHEST, "QUICK DEPOSIT", "info", "Shift-click items in your inventory to deposit them");
+        put(inv, 53, Material.LIME_DYE, "CONFIRM SALE", "confirm", "Sell priced items for Money");
+        updateSellButton(inv);
         p.openInventory(inv);
     }
 
@@ -246,7 +272,7 @@ final class ShopSellManager implements Listener {
         // mechanics. Cancelling these clicks and simulating them manually broke
         // number-key swaps, double-clicks, drag placement, and client prediction.
         // Only the bottom control row is protected.
-        if (raw >= SELL_SLOTS && raw < 54) {
+        if (raw >= SELL_END && raw < 54) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p)) return;
             String action = action(e.getCurrentItem());
@@ -260,14 +286,19 @@ final class ShopSellManager implements Listener {
             return;
         }
 
+        if (raw >= 0 && raw < SELL_START) {
+            e.setCancelled(true);
+            return;
+        }
+
         // Shift-click from the player's inventory is routed only into the
-        // 45 deposit slots, never into the control row.
+        // four deposit rows, never into the header or control row.
         if (e.getClickedInventory() == e.getView().getBottomInventory() && e.isShiftClick()) {
             e.setCancelled(true);
             ItemStack stack = e.getCurrentItem();
             if (stack != null && !stack.getType().isAir()) {
                 int remaining = stack.getAmount();
-                for (int i = 0; i < SELL_SLOTS && remaining > 0; i++) {
+                for (int i = SELL_START; i < SELL_END && remaining > 0; i++) {
                     ItemStack existing = top.getItem(i);
                     if (existing == null || existing.getType().isAir()) {
                         int moved = Math.min(remaining, stack.getMaxStackSize());
@@ -305,7 +336,7 @@ final class ShopSellManager implements Listener {
         String title = stripColor(e.getView().getTitle());
         if (title.equals(MAIN) || title.startsWith(CATEGORY)) { e.setCancelled(true); return; }
         if (title.equals(SELL)) {
-            if (e.getRawSlots().stream().anyMatch(s -> s >= SELL_SLOTS && s < 54)) { e.setCancelled(true); return; }
+            if (e.getRawSlots().stream().anyMatch(s -> s < SELL_START || (s >= SELL_END && s < 54))) { e.setCancelled(true); return; }
             Inventory top = e.getView().getTopInventory();
             Bukkit.getScheduler().runTask(plugin, () -> updateSellButton(top));
         }
@@ -321,7 +352,7 @@ final class ShopSellManager implements Listener {
         if (!title.equals(SELL)) return;
         Inventory top = e.getView().getTopInventory();
         Player p = (Player)e.getPlayer();
-        for (int i = 0; i < SELL_SLOTS; i++) {
+        for (int i = SELL_START; i < SELL_END; i++) {
             ItemStack item = top.getItem(i);
             if (item == null || item.getType().isAir()) continue;
             Map<Integer, ItemStack> leftovers = p.getInventory().addItem(item.clone());
@@ -509,7 +540,7 @@ final class ShopSellManager implements Listener {
             double total = 0;
             int soldCount = 0;
             Set<Integer> sellSlots = new LinkedHashSet<>();
-            for (int i = 0; i < SELL_SLOTS; i++) {
+            for (int i = SELL_START; i < SELL_END; i++) {
                 ItemStack item = inv.getItem(i);
                 if (item == null || item.getType().isAir()) continue;
                 Valuation valuation = valuation(item);
@@ -559,7 +590,7 @@ final class ShopSellManager implements Listener {
 
     private void tellSellTotal(Player p, Inventory inv) {
         double total = 0; int count = 0; boolean invalidShulker = false;
-        for (int i = 0; i < SELL_SLOTS; i++) {
+        for (int i = SELL_START; i < SELL_END; i++) {
             ItemStack item = inv.getItem(i);
             if (item == null || item.getType().isAir()) continue;
             Valuation value = valuation(item);
@@ -573,7 +604,7 @@ final class ShopSellManager implements Listener {
     private void updateSellButton(Inventory inv) {
         if (inv == null || inv.getSize() < 54) return;
         double total = 0; boolean invalidShulker = false;
-        for (int i = 0; i < SELL_SLOTS; i++) {
+        for (int i = SELL_START; i < SELL_END; i++) {
             ItemStack item = inv.getItem(i);
             if (item == null || item.getType().isAir()) continue;
             Valuation v = valuation(item);
@@ -618,6 +649,14 @@ final class ShopSellManager implements Listener {
         ItemStack item = new ItemStack(Material.GREEN_STAINED_GLASS_PANE);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(" ", NamedTextColor.DARK_GREEN));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createSellHeaderFrame() {
+        ItemStack item = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(" ", NamedTextColor.DARK_GRAY));
         item.setItemMeta(meta);
         return item;
     }
