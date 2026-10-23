@@ -217,7 +217,7 @@ final class AuctionHouseManager implements Listener {
         p.getInventory().setItemInMainHand(null);
         p.updateInventory();
         msg(p, NamedTextColor.GREEN, "Listed " + itemName(listed) + " for $" + exact(price) + " • ID " + id + " • 24h.");
-        p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, 1.25f);
+        p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.2f)
     }
 
     private boolean listable(ItemStack item) {
