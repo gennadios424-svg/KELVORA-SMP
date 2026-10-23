@@ -206,7 +206,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         protectedInventories.add(inv);
         inv.setItem(4,button(Material.CHEST,"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
         inv.setItem(13,button(Material.TRIPWIRE_HOOK,"&eYour Keys: &f"+keys(p,type),List.of("&7Digital keys only","&7One key per successful opening")));
-        List<String> rewards=plugin.getConfig().getStringList("crates.types."+type+".rewards");
+        List<String> rewards=configuredRewards(type);
         int slot=9;for(String entry:rewards){String[] bits=entry.split(":",4);if(bits.length<4)continue;String kind=bits[0].toUpperCase(Locale.ROOT);Material mat=Material.matchMaterial(bits[0]);if(kind.equals("KELVORAS")){inv.setItem(slot++,button(Material.AMETHYST_SHARD,"&b"+bits[1]+" Kelvoras",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("MONEY")){inv.setItem(slot++,button(Material.GOLD_INGOT,"&6$"+bits[1]+" Money",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("COMMAND")){inv.setItem(slot++,button(Material.COMMAND_BLOCK,"&dSpecial reward",List.of("&7Server reward","&8Tier: "+bits[3])));}else if(mat!=null&&isAllowedReward(mat)){inv.setItem(slot++,button(mat,"&f"+titleCase(mat.name().toLowerCase(Locale.ROOT).replace('_',' ')),List.of("&7Possible reward","&8Tier: "+bits[3])));}if(slot>=18)break;}
         inv.setItem(22,button(Material.LIME_DYE,"&a&lOPEN CRATE",List.of("&7Consume one "+titleCase(type)+" key","&7Rewards are randomly selected")));
         inv.setItem(26,button(Material.BARRIER,"&cClose",List.of()));
@@ -332,7 +332,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             public void run() {
                 Player current = Bukkit.getPlayer(id);
                 if (step < 8 && current != null && current.isOnline()) {
-                    List<String> entries = plugin.getConfig().getStringList("crates.types." + type + ".rewards");
+                    List<String> entries = configuredRewards(type);
                     List<String> valid = entries.stream().filter(x -> {
                         String[] q = x.split(":");
                         Material m = q.length > 0 ? Material.matchMaterial(q[0]) : null;
@@ -428,9 +428,20 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             "REINFORCED_DEEPSLATE","COMMAND_BLOCK_MINECART").contains(name);
     }
 
+    private List<String> configuredRewards(String type) {
+        List<String> entries = new ArrayList<>(configuredRewards(type));
+        if (!type.equals("gambling") || !plugin.getConfig().getBoolean("crates.types.gambling.include-eligible-catalogue", true)) return entries;
+        Set<String> configured = new HashSet<>();
+        for (String entry : entries) { String[] bits = entry.split(":", 4); if (bits.length > 0) configured.add(bits[0].toUpperCase(Locale.ROOT)); }
+        for (Material material : Material.values()) {
+            if (!isAllowedReward(material) || configured.contains(material.name())) continue;
+            entries.add(material.name() + ":1:1:Common");
+        }
+        return entries;
+    }
     private void validateConfiguredRewards() {
         for (String type : TYPES) {
-            List<String> entries = plugin.getConfig().getStringList("crates.types." + type + ".rewards");
+            List<String> entries = configuredRewards(type);
             if (entries.isEmpty()) plugin.getLogger().warning("Crate '" + type + "' has no configured rewards.");
             for (String entry : entries) {
                 String[] b = entry.split(":", 4);
