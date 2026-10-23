@@ -56,6 +56,7 @@ final class BaltopManager implements Listener, TabCompleter {
         plugin.getCommand("baltop").setExecutor(this::execute);
         plugin.getCommand("baltop").setTabCompleter(this);
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        // Refresh periodically so opening the GUI does not rescan every offline account.
         Bukkit.getScheduler().runTaskTimer(plugin, this::refreshCache, 20L, 1200L);
     }
 
