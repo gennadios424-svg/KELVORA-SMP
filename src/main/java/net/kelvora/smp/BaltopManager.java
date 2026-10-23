@@ -29,9 +29,6 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.configuration.file.YamlConfiguration;
-import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.model.user.User;
-import net.luckperms.api.node.types.InheritanceNode;
 import java.io.File;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -244,28 +241,51 @@ final class BaltopManager implements Listener, TabCompleter {
             YamlConfiguration cache = YamlConfiguration.loadConfiguration(cacheFile);
             String cachedRank = cache.getString(id.toString());
             if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
-                User user = LuckPermsProvider.get().getUserManager().getUser(id);
-                if (user != null && user.getPrimaryGroup() != null) {
-                    String group = user.getPrimaryGroup().toLowerCase(Locale.ROOT);
-                    if (group.equals("default") || group.equals("member")) {
-                        for (String progression : List.of("ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout")) {
-                            String candidate = progression;
-                            if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(candidate))) { group = progression; break; }
+                try {
+                    // Use reflection so this optional integration does not prevent the plugin from
+                    // registering its inventory listeners when LuckPerms is not installed.
+                    Class<?> providerClass = Class.forName("net.luckperms.api.LuckPermsProvider");
+                    Object luckPerms = providerClass.getMethod("get").invoke(null);
+                    Class<?> apiClass = Class.forName("net.luckperms.api.LuckPerms");
+                    Object userManager = apiClass.getMethod("getUserManager").invoke(luckPerms);
+                    Class<?> managerClass = Class.forName("net.luckperms.api.model.user.UserManager");
+                    Object user = managerClass.getMethod("getUser", UUID.class).invoke(userManager, id);
+                    if (user != null) {
+                        Class<?> userClass = Class.forName("net.luckperms.api.model.user.User");
+                        String primary = (String) userClass.getMethod("getPrimaryGroup").invoke(user);
+                        if (primary != null) {
+                            String group = primary.toLowerCase(Locale.ROOT);
+                            if (group.equals("default") || group.equals("member")) {
+                                Iterable<?> nodes = (Iterable<?>) userClass.getMethod("getNodes").invoke(user);
+                                Class<?> inheritanceClass = Class.forName("net.luckperms.api.node.types.InheritanceNode");
+                                for (String progression : List.of("ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout")) {
+                                    for (Object node : nodes) {
+                                        if (inheritanceClass.isInstance(node)) {
+                                            String inherited = (String) inheritanceClass.getMethod("getGroupName").invoke(node);
+                                            if (inherited != null && inherited.equalsIgnoreCase(progression)) {
+                                                group = progression;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (!group.equals(primary.toLowerCase(Locale.ROOT))) break;
+                                }
+                            }
+                            if (group.equals("mod")) group = "moderator";
+                            if (group.equals("vip")) group = "verdant";
+                            if (group.equals("sprout") || group.equals("i_sprout")) return "Sprout";
+                            if (group.equals("verdant")) return "Verdant";
+                            if (group.equals("emerald")) return "Emerald";
+                            if (group.equals("sovereign")) return "Sovereign";
+                            if (group.equals("ascendant")) return "Ascendant";
+                            if (group.equals("helper")) return "Helper";
+                            if (group.equals("moderator")) return "Moderator";
+                            if (group.equals("admin")) return "Admin";
+                            if (group.equals("owner")) return "Owner";
+                            if (group.equals("creator")) return "Creator";
                         }
                     }
-                    if (group.equals("mod")) group = "moderator";
-                    if (group.equals("vip")) group = "verdant";
-                    if (group.equals("sprout") || group.equals("i_sprout")) return "Sprout";
-                    if (group.equals("verdant")) return "Verdant";
-                    if (group.equals("emerald")) return "Emerald";
-                    if (group.equals("sovereign")) return "Sovereign";
-                    if (group.equals("ascendant")) return "Ascendant";
-                    if (group.equals("helper")) return "Helper";
-                    if (group.equals("moderator")) return "Moderator";
-                    if (group.equals("admin")) return "Admin";
-                    if (group.equals("owner")) return "Owner";
-                    if (group.equals("creator")) return "Creator";
-                }
+                } catch (ReflectiveOperationException | LinkageError ignored) { }
             }
             if (cachedRank != null) {
                 return switch (cachedRank.toLowerCase(Locale.ROOT)) {
