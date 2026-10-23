@@ -15,6 +15,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.world.WorldLoadEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -192,6 +195,9 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
     @EventHandler public void protectBreak(BlockBreakEvent e){if(crates.containsKey(locKey(e.getBlock().getLocation()))){e.setCancelled(true);e.getPlayer().sendMessage(Component.text("This crate is protected.",NamedTextColor.RED));}}
     @EventHandler public void protectPlace(BlockPlaceEvent e){if(crates.containsKey(locKey(e.getBlockPlaced().getLocation()))){e.setCancelled(true);}}
+    @EventHandler public void worldLoad(WorldLoadEvent e){Bukkit.getScheduler().runTask(plugin,()->{loadLocations();rebuildHolograms();});}
+    @EventHandler public void protectEntityExplosion(EntityExplodeEvent e){e.blockList().removeIf(b->crates.containsKey(locKey(b.getLocation())));}
+    @EventHandler public void protectBlockExplosion(BlockExplodeEvent e){e.blockList().removeIf(b->crates.containsKey(locKey(b.getLocation())));}
     @EventHandler public void protectPiston(org.bukkit.event.block.BlockPistonExtendEvent e){for(Block b:e.getBlocks())if(crates.containsKey(locKey(b.getLocation()))){e.setCancelled(true);return;}}
     @EventHandler public void protectPiston(org.bukkit.event.block.BlockPistonRetractEvent e){for(Block b:e.getBlocks())if(crates.containsKey(locKey(b.getLocation()))){e.setCancelled(true);return;}}
 
