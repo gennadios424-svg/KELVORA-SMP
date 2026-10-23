@@ -111,7 +111,10 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if (type==null || amount<1) { sender.sendMessage("Invalid crate type or amount."); return true; }
             List<Player> recipients = new ArrayList<>(Bukkit.getOnlinePlayers());
             for (Player p : recipients) {
-                addKeys(p, type, amount);
+                if (!addKeys(p, type, amount)) {
+                    p.sendMessage(Component.text("Could not save your key balance. Please contact staff; no keys were granted.", NamedTextColor.RED));
+                    continue;
+                }
                 p.sendMessage(Component.text("You received " + amount + " digital " + titleCase(type) + " key(s) from the server.", NamedTextColor.GOLD));
                 startKeyallAnimation(p, type, amount);
             }
@@ -167,14 +170,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if(args.length!=4){sender.sendMessage("Usage: /crate givekey <player> <type> <amount>");return true;}
             Player target=Bukkit.getPlayerExact(args[1]);String type=validType(args[2]);int amount=parseAmount(args[3]);
             if(target==null||type==null||amount<1){sender.sendMessage("Target must be online; check type and amount.");return true;}
-            addKeys(target,type,amount);sender.sendMessage("Granted "+amount+" digital "+titleCase(type)+" key(s) to "+target.getName());return true;
+            if(!addKeys(target,type,amount)){sender.sendMessage("Could not save the key balance; the grant was rolled back.");return true;}sender.sendMessage("Granted "+amount+" digital "+titleCase(type)+" key(s) to "+target.getName());return true;
         }
         sender.sendMessage("Usage: /crate <spawn <type>|remove|list|keys|givekey <player> <type> <amount>>");return true;
     }
     private int parseAmount(String s){try{int n=Integer.parseInt(s);return n>0&&n<=100000?n:-1;}catch(Exception e){return -1;}}
     private String playerPath(Player p,String type){return "players."+p.getUniqueId()+"."+type;}
     private int keys(Player p,String type){return data.getInt(playerPath(p,type),0);}
-    private void addKeys(Player p,String type,int amount){String path=playerPath(p,type);data.set(path,Math.min(2_000_000_000L,(long)data.getInt(path,0)+amount));save();}
+    private boolean addKeys(Player p,String type,int amount){String path=playerPath(p,type);int old=data.getInt(path,0);data.set(path,Math.min(2_000_000_000L,(long)old+amount));if(!save()){data.set(path,old);return false;}return true;}
 
     private void openAdmin(Player p) {
         Inventory inv=Bukkit.createInventory(null,27,Component.text(ADMIN,NamedTextColor.DARK_GREEN));
@@ -314,8 +317,10 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                     opening.remove(id);
                     return;
                 }
+                ItemStack[] inventoryBefore = current.getInventory().getStorageContents();
                 Map<Integer, ItemStack> overflow = current.getInventory().addItem(rewardItem.clone());
                 if (!overflow.isEmpty()) {
+                    current.getInventory().setStorageContents(inventoryBefore);
                     data.set(path, keys(current, type) + 1);
                     save();
                     current.sendMessage(Component.text("Reward delivery failed; your key was refunded.", NamedTextColor.RED));
