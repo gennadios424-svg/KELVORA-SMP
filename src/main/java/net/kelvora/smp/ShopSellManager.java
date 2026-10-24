@@ -240,6 +240,7 @@ final class ShopSellManager implements Listener {
     @EventHandler
     public void onClick(InventoryClickEvent e) {
         String title = stripColor(e.getView().getTitle());
+        if (!activeInventories.contains(e.getView().getTopInventory())) return;
         if (title.equals(MAIN)) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
@@ -361,6 +362,7 @@ final class ShopSellManager implements Listener {
     @EventHandler
     public void onDrag(InventoryDragEvent e) {
         String title = stripColor(e.getView().getTitle());
+        if (!activeInventories.contains(e.getView().getTopInventory())) return;
         if (title.equals(MAIN) || title.startsWith(CATEGORY)) { e.setCancelled(true); return; }
         if (title.equals(SELL)) {
             if (e.getRawSlots().stream().anyMatch(s -> s < SELL_START || (s >= SELL_END && s < 54))) { e.setCancelled(true); return; }
@@ -371,6 +373,7 @@ final class ShopSellManager implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
+        activeInventories.remove(e.getInventory());
         String title = stripColor(e.getView().getTitle());
         if (title.equals(QUANTITY)) {
             quantitySessions.remove(e.getPlayer().getUniqueId());
