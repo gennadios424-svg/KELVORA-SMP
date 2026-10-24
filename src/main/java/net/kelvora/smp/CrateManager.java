@@ -159,7 +159,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private String locKey(Location l) { return l.getWorld().getName() + "," + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ(); }
     private String titleCase(String s) { return s.substring(0,1).toUpperCase(Locale.ROOT) + s.substring(1).toLowerCase(Locale.ROOT); }
     private Component color(String s) { return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand().deserialize(s); }
-    private boolean admin(CommandSender sender) { return sender.isOp(); }
+    private boolean admin(CommandSender sender) { return sender.isOp() || sender.hasPermission("kelvora.crate.admin"); }
     private String validType(String s) { if (s == null) return null; String v=s.toLowerCase(Locale.ROOT); return TYPES.contains(v)?v:null; }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -177,6 +177,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 }
                 granted++;
                 p.sendMessage(Component.text("You received " + amount + " digital " + titleCase(type) + " key(s) from the server.", NamedTextColor.GOLD));
+                p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.45f, 1.05f);
                 startKeyallAnimation(p, type, amount);
             }
             if (granted > 0) Bukkit.broadcast(Component.text("🎁 " + titleCase(type) + " keys distributed to " + granted + " online player(s).", NamedTextColor.LIGHT_PURPLE));
@@ -316,7 +317,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             ItemStack icon = new ItemStack(material, 1);
             ItemMeta meta = icon.getItemMeta();
             meta.displayName(Component.text(bits[0] + " x" + bits[1], NamedTextColor.AQUA));
-            meta.lore(List.of(Component.text("Weight: " + bits[2], NamedTextColor.GRAY), Component.text("Rarity: " + bits[3], NamedTextColor.GRAY), Component.text("Click to remove this reward", NamedTextColor.RED)));
+            meta.lore(List.of(Component.text("Weight: " + bits[2], NamedTextColor.GRAY), Component.text("Rarity: " + bits[3], NamedTextColor.GRAY), Component.text("Shift + right-click to remove", NamedTextColor.RED)));
             icon.setItemMeta(meta);
             inv.setItem(i, icon);
         }
@@ -386,10 +387,28 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
     private ItemStack button(Material m,String name,List<String> lore){ItemStack i=new ItemStack(m);ItemMeta meta=i.getItemMeta();meta.displayName(color(name));meta.lore(lore.stream().map(this::color).toList());i.setItemMeta(meta);return i;}
 
-    @EventHandler public void interact(PlayerInteractEvent e) {
-        if(e.getAction()!=Action.RIGHT_CLICK_BLOCK||e.getClickedBlock()==null)return;
-        String key=locKey(e.getClickedBlock().getLocation());if(!crates.containsKey(key))return;
-        e.setCancelled(true);Player p=e.getPlayer();String type=data.getString(key+".type","common");if(type.equalsIgnoreCase("gambling"))type="crimson";openCrate(p,type);
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void interact(PlayerInteractEvent e) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK || e.getClickedBlock() == null) return;
+        String key = locKey(e.getClickedBlock().getLocation());
+        if (!crates.containsKey(key)) return;
+        e.setCancelled(true);
+        Player p = e.getPlayer();
+        String type = data.getString(key + ".type", "common");
+        if (type.equalsIgnoreCase("gambling")) type = "crimson";
+        type = validType(type);
+        if (type == null) {
+            p.sendMessage(Component.text("This crate has an invalid type. Please contact staff.", NamedTextColor.RED));
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f);
+            return;
+        }
+        openCrate(p, type);
+        if (keys(p, type) <= 0) {
+            p.sendMessage(Component.text("You need a " + titleCase(type) + " key to open this crate. Use /crate keys to check your balance.", NamedTextColor.YELLOW));
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f);
+        } else {
+            p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, .3f, 1.1f);
+        }
     }
     @EventHandler public void protectBreak(BlockBreakEvent e){if(crates.containsKey(locKey(e.getBlock().getLocation()))){e.setCancelled(true);e.getPlayer().sendMessage(Component.text("This crate is protected.",NamedTextColor.RED));}}
     @EventHandler public void protectPlace(BlockPlaceEvent e){if(crates.containsKey(locKey(e.getBlockPlaced().getLocation()))){e.setCancelled(true);}}
@@ -434,18 +453,20 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             List<String> rewards = editingRewards.get(p.getUniqueId());
             if (type == null || rewards == null) return;
             int raw = e.getRawSlot();
-            if (raw == 45) { editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.closeInventory(); return; }
+            if (raw == 45) { editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.3f, 0.9f); p.closeInventory(); return; }
             if (raw == 49 && e.getClickedInventory() == e.getView().getTopInventory()) {
                 if (saveEditedRewards(type, rewards)) {
                     p.sendMessage(Component.text("Saved " + rewards.size() + " " + titleCase(type) + " rewards.", NamedTextColor.GREEN));
+                    p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.45f, 1.35f);
                     editingCrate.remove(p.getUniqueId()); editingRewards.remove(p.getUniqueId()); p.closeInventory();
-                } else p.sendMessage(Component.text("Reward config validation/save failed. The previous reward pool was retained.", NamedTextColor.RED));
+                } else { p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f); p.sendMessage(Component.text("Reward config validation/save failed. The previous reward pool was retained.", NamedTextColor.RED)); }
                 return;
             }
             if (e.getClickedInventory() == e.getView().getTopInventory()) {
-                if (raw >= 0 && raw < 45 && raw < rewards.size()) {
+                if (raw >= 0 && raw < 45 && raw < rewards.size() && e.isShiftClick() && e.isRightClick()) {
                     String removed = rewards.remove(raw);
                     p.sendMessage(Component.text("Removed reward " + removed + ". Click SAVE REWARDS to persist.", NamedTextColor.YELLOW));
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 1.2f);
                     openRewardEditor(p, type);
                 }
                 return;
@@ -455,7 +476,9 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 if (cursorItem == null || cursorItem.getType().isAir() || !isAllowedReward(cursorItem.getType())) return;
                 if (cursorItem.getAmount() > cursorItem.getType().getMaxStackSize()) return;
                 if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
+                if (e.isShiftClick() || e.isRightClick() || e.getClick() != org.bukkit.event.inventory.ClickType.LEFT) return;
                 rewards.add(cursorItem.getType().name() + ":" + cursorItem.getAmount() + ":1:Common");
+                p.playSound(p.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.45f, 1.3f);
                 p.sendMessage(Component.text("Added " + cursorItem.getType().name() + " x" + cursorItem.getAmount() + " as a reward template. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
                 openRewardEditor(p, type);
             }
@@ -619,7 +642,22 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
-    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){protectedInventories.remove(e.getInventory()); if(e.getPlayer() instanceof Player p && e.getView().getTitle().startsWith("KELVORA | EDIT ") && !e.getView().getTitle().equals("KELVORA | EDIT ")) { /* edits remain in memory until save/cancel; reconnecting cannot persist them */ }}
+    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e) {
+        protectedInventories.remove(e.getInventory());
+        if (!(e.getPlayer() instanceof Player player)) return;
+        String closedTitle = e.getView().getTitle();
+        if (!closedTitle.startsWith("KELVORA | EDIT ")) return;
+        UUID id = player.getUniqueId();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            String currentTitle = player.getOpenInventory().getTitle();
+            // Rebuilding the editor after an add/remove action opens another editor immediately.
+            // Only discard the working copy when the operator actually leaves the editor.
+            if (!currentTitle.startsWith("KELVORA | EDIT ")) {
+                editingCrate.remove(id);
+                editingRewards.remove(id);
+            }
+        });
+    }
     @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
         openCrate.remove(e.getPlayer().getUniqueId());
         // A consumed key is refunded by the pending completion if the player disconnects.

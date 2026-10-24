@@ -30,9 +30,18 @@ jobs:
           cache: maven
       - name: Compile plugin and validate JAR
         run: |
-          mvn -B -ntp clean package
-          test -s target/KelvoraSMP-2.1.4.jar
-          jar tf target/KelvoraSMP-2.1.4.jar | grep -q 'net/kelvora/smp/ShopSellManager.class'
-          jar tf target/KelvoraSMP-2.1.4.jar | grep -q 'net/kelvora/smp/KelvoraSMP.class'
-          jar tf target/KelvoraSMP-2.1.4.jar | grep -q 'plugin.yml'
-          unzip -p target/KelvoraSMP-2.1.4.jar plugin.yml | grep -q 'version: 2.1.4'
+          BUILD_OK=0
+          for attempt in 1 2 3; do
+            if mvn -B -ntp -Dmaven.wagon.http.retryHandler.count=5 clean package; then BUILD_OK=1; break; fi
+            if [ "$attempt" -lt 3 ]; then echo "Maven build failed; retrying in 10 seconds ($attempt/3)..."; sleep 10; fi
+          done
+          if [ "$BUILD_OK" -ne 1 ]; then exit 1; fi
+          VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')
+          JAR="target/KelvoraSMP-${VERSION}.jar"
+          test -s "$JAR"
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/KelvoraSMP.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/MetaManager.class'
+          jar tf "$JAR" | grep -q 'plugin.yml'
+          unzip -p "$JAR" plugin.yml | grep -q "version: ${VERSION}"
+          unzip -p "$JAR" plugin.yml | grep -q 'meta:'

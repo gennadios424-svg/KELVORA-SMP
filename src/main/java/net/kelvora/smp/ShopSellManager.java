@@ -37,6 +37,7 @@ final class ShopSellManager implements Listener {
     private final NamespacedKey actionKey;
     private final NamespacedKey kelvoraToolIdKey;
     private final Set<UUID> transactions = ConcurrentHashMap.newKeySet();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, QuantitySession> quantitySessions = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> currentCategoryPages = new ConcurrentHashMap<>();
     private Object economy;
@@ -83,6 +84,7 @@ final class ShopSellManager implements Listener {
 
     private void openShop(Player p) {
         Inventory inv = Bukkit.createInventory(null, 36, Component.text(MAIN, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         put(inv, 10, Material.BRICKS, "Blocks", "cat:blocks:0", "Building blocks, wood and shulker boxes");
         put(inv, 11, Material.COOKED_BEEF, "Food", "cat:food:0", "Ready-to-eat food");
         put(inv, 12, Material.END_CRYSTAL, "Crystal PvP", "cat:pvp:0", "Crystals and combat supplies");
@@ -92,6 +94,7 @@ final class ShopSellManager implements Listener {
         put(inv, 16, Material.END_STONE, "End", "cat:end:0", "End blocks and materials");
         put(inv, 31, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.3f, 1.15f);
 
     }
 
@@ -105,6 +108,7 @@ final class ShopSellManager implements Listener {
         page = Math.max(0, Math.min(page, pages - 1));
         int controls = guiSize - 9;
         Inventory inv = Bukkit.createInventory(null, guiSize, Component.text(CATEGORY + (cat.equals("pvp") ? "CRYSTAL PVP" : cat.toUpperCase(Locale.ROOT)), NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         for (int i = 0; i < pageSize; i++) {
             int index = page * pageSize + i;
             if (index >= entries.size()) break;
@@ -114,9 +118,9 @@ final class ShopSellManager implements Listener {
         if (page > 0) put(inv, controls + 2, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
         put(inv, controls + 3, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
         if (page + 1 < pages) put(inv, controls + 4, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
-        put(inv, controls + 5, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.25f);
     }
 
     private List<ShopEntry> categoryEntries(String cat) {
@@ -220,6 +224,7 @@ final class ShopSellManager implements Listener {
 
     private void openSell(Player p) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         // New layout: dedicated instruction header, four rows of real deposit slots, and protected controls.
         for (int i = 0; i < SELL_START; i++) inv.setItem(i, createSellHeaderFrame());
         for (int i = SELL_END; i < 54; i++) inv.setItem(i, createSellFrame());
@@ -234,6 +239,7 @@ final class ShopSellManager implements Listener {
     @EventHandler
     public void onClick(InventoryClickEvent e) {
         String title = stripColor(e.getView().getTitle());
+        if (!activeInventories.contains(e.getView().getTopInventory())) return;
         if (title.equals(MAIN)) {
             e.setCancelled(true);
             if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
@@ -255,12 +261,11 @@ final class ShopSellManager implements Listener {
             if (action == null || session == null) return;
             if (action.startsWith("qty:")) {
                 int qty = parsePage(action.substring(4));
-                if (qty <= session.prototype.getMaxStackSize() && validQuantity(qty, session.prototype.getMaxStackSize())) {
+                if (validQuantity(qty, session.prototype.getMaxStackSize())) {
                     session.quantity = qty;
-                    refreshQuantityView(p, e.getView().getTopInventory(), session);
+                    confirmPurchase(p, session);
                 }
-            } else if (action.equals("confirm")) confirmPurchase(p, session);
-            else if (action.equals("back")) {
+            } else if (action.equals("back")) {
                 quantitySessions.remove(p.getUniqueId());
                 openCategory(p, session.category, session.page);
             } else if (action.equals("cancel")) {
@@ -355,6 +360,7 @@ final class ShopSellManager implements Listener {
     @EventHandler
     public void onDrag(InventoryDragEvent e) {
         String title = stripColor(e.getView().getTitle());
+        if (!activeInventories.contains(e.getView().getTopInventory())) return;
         if (title.equals(MAIN) || title.startsWith(CATEGORY)) { e.setCancelled(true); return; }
         if (title.equals(SELL)) {
             if (e.getRawSlots().stream().anyMatch(s -> s < SELL_START || (s >= SELL_END && s < 54))) { e.setCancelled(true); return; }
@@ -365,6 +371,7 @@ final class ShopSellManager implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
+        activeInventories.remove(e.getInventory());
         String title = stripColor(e.getView().getTitle());
         if (title.equals(QUANTITY)) {
             quantitySessions.remove(e.getPlayer().getUniqueId());
@@ -449,20 +456,21 @@ final class ShopSellManager implements Listener {
     }
 
     private boolean validQuantity(int quantity, int maxStack) {
-        return quantity == 1 || (quantity == 8 && maxStack >= 8) || (quantity == 16 && maxStack >= 16);
+        return quantity == 1 || quantity == 32 || quantity == 64;
     }
 
     private void openQuantity(Player p, QuantitySession session) {
-        Inventory inv = Bukkit.createInventory(null, 45, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         refreshQuantityView(p, inv, session);
-        put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
-        if (session.prototype.getMaxStackSize() >= 8) put(inv, 21, Material.LIME_CONCRETE, "Buy 8", "qty:8", "Total: $" + MONEY.format(session.unitPrice * 8));
-        if (session.prototype.getMaxStackSize() >= 16) put(inv, 22, Material.LIME_CONCRETE, "Buy 16", "qty:16", "Total: $" + MONEY.format(session.unitPrice * 16));
-        put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
-        put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
-        put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
+        put(inv, 11, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Price: $" + MONEY.format(session.unitPrice));
+        put(inv, 13, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
+        put(inv, 15, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
+        put(inv, 18, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
+        put(inv, 26, Material.BARRIER, "Cancel", "cancel", "Close without buying");
         p.openInventory(inv);
+        p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.2f);
     }
 
     private void refreshQuantityView(Player p, Inventory inv, QuantitySession session) {
@@ -470,19 +478,10 @@ final class ShopSellManager implements Listener {
         display.setAmount(1);
         ItemMeta dm = display.getItemMeta();
         dm.displayName(Component.text(session.name, NamedTextColor.WHITE));
-        dm.lore(List.of(Component.text("Unit price: $" + MONEY.format(session.unitPrice), NamedTextColor.GREEN),
-            Component.text("Selected quantity: " + session.quantity, NamedTextColor.AQUA),
-            Component.text("Total: $" + MONEY.format(session.unitPrice * session.quantity), NamedTextColor.GOLD),
-            Component.text("Current Money: $" + MONEY.format(balance(p)), NamedTextColor.GRAY)));
+        dm.lore(List.of(Component.text("Price: $" + MONEY.format(session.unitPrice) + " each", NamedTextColor.GREEN),
+            Component.text("Choose Buy 1, Buy 32 or Buy 64", NamedTextColor.GRAY)));
         display.setItemMeta(dm);
-        inv.setItem(13, display);
-        ItemStack confirm = inv.getItem(31);
-        if (confirm != null) {
-            ItemMeta meta = confirm.getItemMeta();
-            meta.lore(List.of(Component.text("Pay $" + MONEY.format(session.unitPrice * session.quantity), NamedTextColor.GREEN)));
-            confirm.setItemMeta(meta);
-            inv.setItem(31, confirm);
-        }
+        inv.setItem(4, display);
     }
 
     private void confirmPurchase(Player p, QuantitySession session) {
@@ -496,33 +495,40 @@ final class ShopSellManager implements Listener {
             } else {
                 unit = shopPrice(type);
                 if (!Double.isFinite(unit) || unit <= 0) {
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                     p.sendMessage(Component.text("This item no longer has a valid shop price. No charge was made.", NamedTextColor.RED));
                     return;
                 }
             }
             int qty = session.quantity;
             if (!validQuantity(qty, session.prototype.getMaxStackSize())) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Invalid quantity. No charge was made.", NamedTextColor.RED)); return;
             }
             double cost = unit * qty;
             if (!Double.isFinite(cost) || cost <= 0) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Invalid price. No charge was made.", NamedTextColor.RED)); return;
             }
             if (economy == null) connectEconomy();
             if (economy == null) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Money is not connected. The server needs Vault and its existing Money economy provider.", NamedTextColor.RED)); return;
             }
             double available = balance(p);
             if (available + 0.000001 < cost) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Not enough Money. Need $" + MONEY.format(cost) + "; your balance is $" + MONEY.format(available) + ".", NamedTextColor.RED)); return;
             }
             ItemStack grant = session.prototype.clone();
             grant.setAmount(qty);
             if (!simulateAdd(p.getInventory(), grant).isEmpty()) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Not enough inventory space for that quantity. No charge was made.", NamedTextColor.RED)); return;
             }
             Object response = economyCall("withdrawPlayer", p, cost);
             if (!transactionSucceeded(response)) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.45f, 0.8f);
                 p.sendMessage(Component.text("Money transaction failed. No items were given.", NamedTextColor.RED)); return;
             }
             Map<Integer, ItemStack> failed = p.getInventory().addItem(grant);
@@ -534,11 +540,10 @@ final class ShopSellManager implements Listener {
                     : "Inventory changed; leftover items were dropped safely. Contact staff to verify the refund.", NamedTextColor.RED));
                 return;
             }
-            quantitySessions.remove(p.getUniqueId(), session);
-            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.25f);
+            p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.45f, 1.4f);
             p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
                 + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
-            openCategory(p, session.category, session.page);
+            refreshQuantityView(p, p.getOpenInventory().getTopInventory(), session);
         } finally {
             transactions.remove(p.getUniqueId());
         }

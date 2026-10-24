@@ -42,6 +42,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     private final BountyCombatManager combat;
     private final NamespacedKey actionKey;
     private final Set<UUID> searching = new HashSet<>();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, BukkitTask> countdowns = new HashMap<>();
     private final Map<UUID, Location> countdownOrigins = new HashMap<>();
     private final Map<String, World> dimensions = new HashMap<>();
@@ -99,6 +100,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
 
     private void openMenu(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(GUI_TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         ItemStack frame = guiItem(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, frame);
         addDimension(inv, 11, "overworld", Material.GRASS_BLOCK, "Overworld", "Random surface location");
@@ -127,7 +129,7 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
 
     @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
     public void onGuiClick(InventoryClickEvent event) {
-        if (!GUI_TITLE.equals(ChatColor.stripColor(event.getView().getTitle()))) return;
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player) || event.getClickedInventory() != event.getView().getTopInventory()) return;
         ItemStack clicked = event.getCurrentItem();
@@ -141,8 +143,10 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void onGuiDrag(InventoryDragEvent event) {
-        if (GUI_TITLE.equals(ChatColor.stripColor(event.getView().getTitle()))) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+
+    @EventHandler public void onGuiInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
 
     private void beginRtp(Player player, String dimension) {
         if (combat != null && combat.isInCombat(player)) {

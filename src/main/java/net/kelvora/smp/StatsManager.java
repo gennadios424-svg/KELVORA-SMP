@@ -21,6 +21,7 @@ final class StatsManager implements Listener, CommandExecutor, TabCompleter {
     private final JavaPlugin plugin;
     private final KelvorasManager kelvoras;
     private final DecimalFormat fmt = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US));
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
 
     StatsManager(JavaPlugin plugin, KelvorasManager k) { this.plugin = plugin; this.kelvoras = k; }
 
@@ -54,6 +55,7 @@ final class StatsManager implements Listener, CommandExecutor, TabCompleter {
     private void open(Player viewer, OfflinePlayer target) {
         String name = target.getName() == null ? "Unknown" : target.getName();
         Inventory inv = Bukkit.createInventory(null, 27, TITLE_PREFIX + name);
+        activeInventories.add(inv);
         ItemStack pane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta paneMeta = pane.getItemMeta();
         paneMeta.displayName(Component.text(" "));
@@ -83,14 +85,16 @@ final class StatsManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void click(InventoryClickEvent event) {
-        if (event.getView().getTitle() == null || !event.getView().getTitle().startsWith(TITLE_PREFIX)) return;
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         event.setCancelled(true);
         if (event.getClickedInventory() == event.getView().getTopInventory() && event.getRawSlot() == 22) event.getWhoClicked().closeInventory();
     }
 
     @EventHandler public void drag(InventoryDragEvent event) {
-        if (event.getView().getTitle() != null && event.getView().getTitle().startsWith(TITLE_PREFIX)) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+
+    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
 
     private int stat(OfflinePlayer player, Statistic statistic) {
         try { return Math.max(0, player.getStatistic(statistic)); } catch (Exception ex) { return 0; }

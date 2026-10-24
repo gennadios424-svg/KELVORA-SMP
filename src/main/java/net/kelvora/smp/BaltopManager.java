@@ -9,6 +9,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -38,6 +41,7 @@ final class BaltopManager implements Listener, TabCompleter {
     private static final int PAGE_SIZE = 45;
     private final KelvoraSMP plugin;
     private final NamespacedKey actionKey;
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, Integer> openPages = new HashMap<>();
     private Object economy;
     private Class<?> economyApi;
@@ -148,6 +152,7 @@ final class BaltopManager implements Listener, TabCompleter {
         openPages.put(player.getUniqueId(), page);
         Inventory inventory = Bukkit.createInventory(null, 54,
             Component.text(TITLE + " " + (page + 1) + "/" + pages, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inventory);
         int start = page * PAGE_SIZE;
         for (int slot = 0; slot < PAGE_SIZE && start + slot < cached.size(); slot++) {
             Entry entry = cached.get(start + slot);
@@ -186,7 +191,7 @@ final class BaltopManager implements Listener, TabCompleter {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!event.getView().title().toString().contains(TITLE)) return;
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)
             || event.getClickedInventory() != event.getView().getTopInventory()) return;
@@ -213,8 +218,10 @@ final class BaltopManager implements Listener, TabCompleter {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (event.getView().title().toString().contains(TITLE)) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+
+    @EventHandler public void onClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {

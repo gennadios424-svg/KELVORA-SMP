@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.17.0
+version: 2.18.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -61,6 +61,32 @@ commands:
     description: Browse configured item values
     usage: /worth [search]
     aliases: [itemworth]
+  meta:
+    description: Showcase configured values for Kelp, Pink Petals and Sea Pickle
+    usage: /meta
+  live:
+    description: Mark a Media member live with a Twitch or YouTube link
+    usage: /live <link|off>
+  tpa:
+    description: Request to teleport to another player
+    usage: /tpa <player>
+    permission: kelvora.tpa
+  tpahere:
+    description: Request another player to teleport to you
+    usage: /tpahere <player>
+    permission: kelvora.tpa
+  tpaccept:
+    description: Accept a teleport request
+    usage: /tpaccept
+    permission: kelvora.tpa
+  tpdeny:
+    description: Deny a teleport request
+    usage: /tpdeny
+    permission: kelvora.tpa
+  tpacancel:
+    description: Cancel a teleport request you sent
+    usage: /tpacancel
+    permission: kelvora.tpa
   ah:
     description: Open and manage the Kelvora Auction House
     usage: /ah [sell <price>|listings|cancel <id>|help]
@@ -80,6 +106,12 @@ commands:
   shardshopreload:
     description: Reload cosmetic configuration without resetting ownership
     usage: /shardshopreload
+  glow:
+    description: Open and manage owned glow cosmetics
+    usage: /glow
+  tags:
+    description: Open and manage owned tag cosmetics
+    usage: /tags
   rank:
     description: Open the Kelvora rank guide or administer progression ranks
     usage: /rank [set <player> <rank>]
@@ -122,6 +154,12 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 permissions:
+  kelvora.media:
+    description: Use /live as an approved Media member
+    default: false
+  kelvora.tpa:
+    description: Use player teleport requests
+    default: true
   kelvora.crate.admin:
     description: Administer physical crates and digital keys
     default: op

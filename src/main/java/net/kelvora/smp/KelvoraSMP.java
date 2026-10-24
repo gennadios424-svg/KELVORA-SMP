@@ -87,10 +87,13 @@ implements Listener {
         new Phase32Commands(this, this.kelvorasManager).register();
         this.worthManager = new WorthManager(this);
         this.worthManager.register();
+        new MetaManager(this, this.worthManager).register();
         new ShopSellManager(this).register();
         new AuctionHouseManager(this).register();
         BountyCombatManager combatManager = new BountyCombatManager(this);
         combatManager.register();
+        new TpaManager(this, combatManager).register();
+        new LiveManager(this).register();
         new RtqManager(this, combatManager).register();
         new BaltopManager(this).register();
         new CoinflipManager(this, combatManager).register();
@@ -240,7 +243,14 @@ implements Listener {
             User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
             if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
         }
-        if (prefix == null || prefix.isBlank()) prefix = rankColor + "[" + rankLabel + "] ";
+        String staffRole = this.staffRoleKey(player);
+        if (staffRole != null) {
+            String staffLabel = this.getConfig().getString("ranks." + staffRole + ".label", staffRole.toUpperCase(Locale.ROOT));
+            String staffColor = this.getConfig().getString("ranks." + staffRole + ".color", "&b");
+            prefix = staffColor + "[" + staffLabel + "] ";
+        } else if (this.hasLuckPermsGroup(player, "booster")) {
+            prefix = this.getConfig().getString("ranks.booster.color", "&5") + "[Booster] ";
+        } else if (prefix == null || prefix.isBlank()) prefix = rankColor + "[" + rankLabel + "] ";
         ShardShopManager cosmetics = this.shardShopManager;
         String cosmeticTitle = cosmetics == null ? null : cosmetics.equippedTitle(player);
         String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
@@ -300,7 +310,7 @@ implements Listener {
         // Keep the two authoritative currencies immediately under the server title.
         String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
-            this.color("&6&l⭐ RANK: &e&l" + rankDisplay),
+            this.color("&6&l⭐ RANK: " + rankColor + "&l" + rankDisplay),
             this.color("&a&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
             this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
             this.color("&3🛡 Team: &b" + teamName),
@@ -315,9 +325,35 @@ implements Listener {
             if (team != null) team.setPrefix(this.trimLegacy(lines[i], 64));
         }
         Scoreboard current = player.getScoreboard();
+        // Remove below-name score objectives (often wired to Vault balance placeholders); the sidebar remains untouched.
+        this.removeBelowNameObjectives(Bukkit.getScoreboardManager().getMainScoreboard());
+        if (current != Bukkit.getScoreboardManager().getMainScoreboard()) this.removeBelowNameObjectives(current);
         if (current == Bukkit.getScoreboardManager().getMainScoreboard()
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
+        }
+    }
+
+    private boolean hasLuckPermsGroup(Player player, String group) {
+        if (this.luckPerms == null) return false;
+        User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
+        if (user == null) return false;
+        if (group.equalsIgnoreCase(user.getPrimaryGroup())) return true;
+        return user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance
+            && inheritance.getGroupName().equalsIgnoreCase(group));
+    }
+
+    private String staffRoleKey(Player player) {
+        // Check highest staff role first; staff/supporter groups never replace progression rank.
+        for (String role : new String[]{"owner", "admin", "manager", "moderator", "mod", "helper"}) {
+            if (this.hasLuckPermsGroup(player, role)) return role.equals("mod") ? "moderator" : role;
+        }
+        return null;
+    }
+
+    private void removeBelowNameObjectives(Scoreboard scoreboard) {
+        for (Objective objective : new java.util.ArrayList<>(scoreboard.getObjectives())) {
+            if (objective.getDisplaySlot() == DisplaySlot.BELOW_NAME) objective.unregister();
         }
     }
 
@@ -338,7 +374,7 @@ implements Listener {
                 return progression.equals("i_sprout") ? "sprout" : progression;
             }
         }
-        if (Set.of("helper", "moderator", "mod", "admin", "owner", "creator", "default", "member", "i_sprout").contains(group)) return "sprout";
+        if (Set.of("helper", "moderator", "mod", "manager", "admin", "owner", "creator", "media", "booster", "default", "member", "i_sprout").contains(group)) return "sprout";
         if (group.equals("vip")) return "verdant";
         ConfigurationSection ranks = this.getConfig().getConfigurationSection("ranks");
         if (ranks != null && ranks.contains(group) && !Set.of("helper", "moderator", "admin", "owner", "creator").contains(group)) return group;

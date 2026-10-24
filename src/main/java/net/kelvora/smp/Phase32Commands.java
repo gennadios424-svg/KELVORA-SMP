@@ -34,6 +34,7 @@ final class Phase32Commands implements Listener {
     private final File claimsFile;
     private YamlConfiguration claims;
     private final Random random = new Random();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<UUID> rolling = new HashSet<>();
 
     Phase32Commands(JavaPlugin plugin, KelvorasManager kelvoras) {
@@ -146,6 +147,7 @@ final class Phase32Commands implements Listener {
         long cooldown = Math.max(1, plugin.getConfig().getLong("daily.cooldown-hours", 24)) * 3_600_000L;
         long left = last + cooldown - now;
         Inventory inv = Bukkit.createInventory(null, 27, DAILY_TITLE);
+        activeInventories.add(inv);
         ItemStack pane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta paneMeta = pane.getItemMeta();
         paneMeta.displayName(Component.text(" ", NamedTextColor.GRAY));
@@ -157,6 +159,8 @@ final class Phase32Commands implements Listener {
         player.openInventory(inv);
         return true;
     }
+
+    @EventHandler public void onDailyClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
 
     private void set(Inventory inv, int slot, Material type, String name, List<String> lore, String action) {
         ItemStack item = new ItemStack(type);
@@ -170,7 +174,7 @@ final class Phase32Commands implements Listener {
 
     @EventHandler
     public void onDailyClick(InventoryClickEvent event) {
-        if (!DAILY_TITLE.equals(event.getView().getTitle())) return;
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player) || event.getClickedInventory() != event.getView().getTopInventory()) return;
         ItemStack clicked = event.getCurrentItem();
@@ -215,7 +219,7 @@ final class Phase32Commands implements Listener {
 
     @EventHandler
     public void onDailyDrag(InventoryDragEvent event) {
-        if (DAILY_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
 
     private Double rollReward() {

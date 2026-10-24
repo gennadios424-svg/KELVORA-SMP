@@ -48,6 +48,7 @@ final class ShardShopManager implements Listener {
     private YamlConfiguration data;
     private final Set<UUID> processing = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> openCategory = new HashMap<>();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
 
     ShardShopManager(KelvoraSMP plugin, KelvorasManager currency) {
         this.plugin = plugin;
@@ -65,57 +66,80 @@ final class ShardShopManager implements Listener {
         if (plugin.getCommand("shardshop") != null) plugin.getCommand("shardshop").setExecutor(this::execute);
         if (plugin.getCommand("shards") != null) plugin.getCommand("shards").setExecutor(this::execute);
         if (plugin.getCommand("shardshopreload") != null) plugin.getCommand("shardshopreload").setExecutor(this::execute);
+        if (plugin.getCommand("glow") != null) plugin.getCommand("glow").setExecutor(this::execute);
+        if (plugin.getCommand("tags") != null) plugin.getCommand("tags").setExecutor(this::execute);
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
     }
 
-    /**
-     * One-time migration: old ShardShop temporary ranks were real expiring LuckPerms groups.
-     * Convert active purchases into cosmetic title ownership and remove only expiring nodes
-     * matching those recorded purchases. Permanent inheritance nodes are never removed.
-     */
+    /** Safe migration: convert old cosmetic rank purchases into real expiring LuckPerms ranks. */
     private synchronized void migrateLegacyTemporaryRanks() {
-        if (data.getBoolean("_migration.temporary-ranks-cosmetic", false)) return;
+        if (data.getBoolean("_migration.temporary-ranks-authoritative-v2", false)) return;
         LuckPerms lp;
         try { lp = LuckPermsProvider.get(); }
-        catch (IllegalStateException ex) {
-            plugin.getLogger().warning("Legacy temporary-rank migration deferred because LuckPerms is unavailable.");
-            return;
-        }
+        catch (IllegalStateException ex) { plugin.getLogger().warning("Temporary-rank migration deferred: LuckPerms unavailable."); return; }
         long now = System.currentTimeMillis();
         for (String uuidText : new ArrayList<>(data.getKeys(false))) {
             UUID uuid;
-            try { uuid = UUID.fromString(uuidText); }
-            catch (IllegalArgumentException ignored) { continue; }
+            try { uuid = UUID.fromString(uuidText); } catch (IllegalArgumentException ignored) { continue; }
             ConfigurationSection legacy = data.getConfigurationSection(uuidText + ".temporary-ranks");
-            if (legacy == null) continue;
+            ConfigurationSection oldOwned = data.getConfigurationSection(uuidText + ".owned.ranks");
+            Map<String, Long> expiries = new HashMap<>();
+            Map<String, String> products = new HashMap<>();
+            if (oldOwned != null) {
+                for (String product : oldOwned.getKeys(false)) {
+                    ConfigurationSection offer = plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks." + product);
+                    if (offer == null) continue;
+                    String rank = offer.getString("rank", "").toLowerCase(Locale.ROOT);
+                    long expiry = oldOwned.getLong(product, 0L);
+                    if (!Set.of("verdant", "emerald", "sovereign").contains(rank) || expiry <= now) continue;
+                    if (expiry > expiries.getOrDefault(rank, 0L)) {
+                        expiries.put(rank, expiry);
+                        products.put(rank, product);
+                    }
+                }
+            }
+            if (legacy != null) {
+                for (String rankKey : legacy.getKeys(false)) {
+                    long expiry = legacy.getLong(rankKey + ".expires", 0L);
+                    String rank = rankKey.toLowerCase(Locale.ROOT);
+                    String product = legacy.getString(rankKey + ".last-product", "");
+                    if (!Set.of("verdant", "emerald", "sovereign").contains(rank) || expiry <= now) continue;
+                    if (expiry > expiries.getOrDefault(rank, 0L)) {
+                        expiries.put(rank, expiry);
+                        if (!product.isBlank()) products.put(rank, product);
+                    }
+                }
+            }
+            if (expiries.isEmpty()) continue;
             try {
                 User user = lp.getUserManager().getUser(uuid);
                 if (user == null) user = lp.getUserManager().loadUser(uuid).join();
                 boolean changed = false;
-                for (String rank : legacy.getKeys(false)) {
-                    long expires = legacy.getLong(rank + ".expires", 0);
-                    String product = legacy.getString(rank + ".last-product", "");
-                    if (expires > now && !product.isBlank()
-                            && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) {
-                        data.set(uuidText + ".owned.ranks." + product, expires);
-                        data.set(uuidText + ".equipped.ranks", product);
+                for (Map.Entry<String, Long> item : expiries.entrySet()) {
+                    String rank = item.getKey();
+                    long expiry = item.getValue();
+                    String product = products.getOrDefault(rank, "");
+                    data.set(uuidText + ".temporary-ranks." + rank + ".expires", expiry);
+                    if (!product.isBlank() && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) {
+                        data.set(uuidText + ".temporary-ranks." + rank + ".last-product", product);
+                        data.set(uuidText + ".owned.ranks." + product, expiry);
                     }
-                    for (Node node : new ArrayList<>(user.getNodes())) {
-                        if (node instanceof InheritanceNode inherited
-                                && inherited.getGroupName().equalsIgnoreCase(rank)
-                                && !node.getExpiry().equals(java.time.Instant.MAX)) {
-                            user.data().remove(node);
-                            changed = true;
-                        }
+                    boolean timedNode = user.getNodes().stream().anyMatch(node ->
+                        node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(rank)
+                            && !node.getExpiry().equals(java.time.Instant.MAX) && node.getExpiry().toEpochMilli() > now);
+                    if (!timedNode) {
+                        user.data().add(InheritanceNode.builder(rank)
+                            .expiry(java.time.Duration.ofMillis(Math.max(1000L, expiry - now))).build());
+                        changed = true;
                     }
                 }
                 if (changed) lp.getUserManager().saveUser(user).join();
             } catch (Exception ex) {
-                plugin.getLogger().warning("Could not migrate temporary cosmetic rank for " + uuidText + ": " + ex.getMessage());
+                plugin.getLogger().warning("Could not restore temporary rank for " + uuidText + ": " + ex.getMessage());
                 return;
             }
         }
-        data.set("_migration.temporary-ranks-cosmetic", true);
+        data.set("_migration.temporary-ranks-authoritative-v2", true);
         saveData();
     }
 
@@ -151,6 +175,11 @@ final class ShardShopManager implements Listener {
             player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
             return true;
         }
+        if (label.equalsIgnoreCase("glow") || label.equalsIgnoreCase("tags")) {
+            if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
+            openItems(player, label.equalsIgnoreCase("glow") ? "glows" : "tags");
+            return true;
+        }
         if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         openCategories(player);
         return true;
@@ -159,8 +188,9 @@ final class ShardShopManager implements Listener {
     private void openCategories(Player player) {
         openCategory.put(player.getUniqueId(), "categories");
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         add(inv, 10, Material.NAME_TAG, "&aTags", List.of("Decorative labels beside your name"), "category:tags");
-        add(inv, 12, Material.EMERALD, "&eTemporary Ranks", List.of("Cosmetic titles only — no permissions", "Choose a title duration"), "category:ranks");
+        add(inv, 12, Material.EMERALD, "&eTemporary Ranks", List.of("Real LuckPerms ranks and permissions", "Choose a rank and duration"), "category:ranks");
         add(inv, 14, Material.GLOW_INK_SAC, "&bGlows", List.of("Cosmetic player glow colours"), "category:glows");
         add(inv, 16, Material.WRITABLE_BOOK, "&dChat Colours", List.of("Colour your message text"), "category:chat");
         add(inv, 22, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
@@ -171,15 +201,32 @@ final class ShardShopManager implements Listener {
     private void openItems(Player player, String category) {
         openCategory.put(player.getUniqueId(), category);
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(TITLE + " | " + categoryLabel(category), NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
         int slot = 10;
+        int itemIndex = 0;
         if (entries != null) {
             for (String id : entries.getKeys(false)) {
-                if (slot >= 44) break;
                 ConfigurationSection entry = entries.getConfigurationSection(id);
                 if (entry == null) continue;
+                if (category.equals("ranks")) {
+                    String lower = id.toLowerCase(Locale.ROOT);
+                    int column = lower.startsWith("verdant_") ? 0 : lower.startsWith("emerald_") ? 1 : 2;
+                    int row = lower.endsWith("_1d") ? 0 : lower.endsWith("_3d") ? 1 : 2;
+                    slot = 10 + column * 2 + row * 9;
+                } else {
+                    slot = 10 + itemIndex;
+                    if (slot >= 44) break;
+                }
+                itemIndex++;
                 String name = entry.getString("name", id);
                 String desc = entry.getString("description", "Cosmetic");
+                if (category.equals("ranks")) {
+                    String rank = entry.getString("rank", "verdant");
+                    String rankLabel = rank.substring(0, 1).toUpperCase(Locale.ROOT) + rank.substring(1).toLowerCase(Locale.ROOT);
+                    name = rankLabel + " · " + durationLabel(entry.getLong("duration-seconds", 0));
+                    desc = "Temporary " + rankLabel + " rank with LuckPerms permissions";
+                }
                 double price = entry.getDouble("price", -1);
                 long duration = entry.getLong("duration-seconds", 0);
                 boolean available = entry.getBoolean("available", false) && price >= 0 && Double.isFinite(price);
@@ -199,7 +246,6 @@ final class ShardShopManager implements Listener {
             }
         }
         add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
-        add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
         add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
         player.openInventory(inv);
     }
@@ -210,6 +256,10 @@ final class ShardShopManager implements Listener {
         UUID uuid = player.getUniqueId();
         if (!processing.add(uuid)) return;
         try {
+            if (category.equals("ranks")) {
+                handleTemporaryRankPurchase(player, id, entry);
+                return;
+            }
             expire(uuid, category, id);
             boolean owned = owns(uuid, category, id);
             String equipped = data.getString(uuid + ".equipped." + category, "");
@@ -218,11 +268,13 @@ final class ShardShopManager implements Listener {
                     data.set(uuid + ".equipped." + category, null);
                     saveData();
                     applyCosmetic(player, category, null, null);
+                    plugin.refreshSidebar(player);
                     player.sendMessage(Component.text("Cosmetic unequipped.", NamedTextColor.YELLOW));
                 } else {
                     data.set(uuid + ".equipped." + category, id);
                     saveData();
                     applyCosmetic(player, category, id, entry);
+                    plugin.refreshSidebar(player);
                     player.sendMessage(Component.text("Equipped " + entry.getString("name", id) + ".", NamedTextColor.GREEN));
                 }
                 openItems(player, category);
@@ -253,9 +305,163 @@ final class ShardShopManager implements Listener {
                 player.sendMessage(Component.text("Purchase failed; no charge was made.", NamedTextColor.RED)); return;
             }
             applyCosmetic(player, category, id, entry);
-            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
+            plugin.refreshSidebar(player);
+            player.sendMessage(Component.text("Purchased and equipped " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
             openItems(player, category);
         } finally { processing.remove(uuid); }
+    }
+
+    private int rankWeight(String rank) {
+        return switch (rank.toLowerCase(Locale.ROOT)) {
+            case "sprout", "member", "default" -> 1;
+            case "verdant", "vip" -> 2;
+            case "emerald" -> 3;
+            case "sovereign" -> 4;
+            case "ascendant" -> 5;
+            default -> 0;
+        };
+    }
+
+    private void handleTemporaryRankPurchase(Player player, String product, ConfigurationSection entry) {
+        UUID uuid = player.getUniqueId();
+        String group = entry.getString("rank", "").toLowerCase(Locale.ROOT);
+        long duration = entry.getLong("duration-seconds", 0L);
+        double price = entry.getDouble("price", -1.0);
+        if (!Set.of("verdant", "emerald", "sovereign").contains(group) || duration <= 0
+                || !Double.isFinite(price) || price < 0 || !entry.getBoolean("available", false)) {
+            player.sendMessage(Component.text("This rank offer is not configured correctly. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        LuckPerms lp;
+        try { lp = LuckPermsProvider.get(); }
+        catch (IllegalStateException ex) {
+            player.sendMessage(Component.text("LuckPerms is unavailable. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        double balance = currency.balance(player);
+        if (!Double.isFinite(balance) || balance + 0.000001 < price) {
+            player.sendMessage(Component.text("Not enough Kelvoras! Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED));
+            return;
+        }
+        User user;
+        try {
+            user = lp.getUserManager().getUser(uuid);
+            if (user == null) user = lp.getUserManager().loadUser(uuid).join();
+        } catch (Exception ex) {
+            player.sendMessage(Component.text("Could not load your rank data. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        int wantedWeight = rankWeight(group);
+        for (Node node : user.getNodes()) {
+            if (node instanceof InheritanceNode inherited && node.getExpiry().equals(java.time.Instant.MAX)
+                    && rankWeight(inherited.getGroupName()) >= wantedWeight && rankWeight(inherited.getGroupName()) > 0) {
+                player.sendMessage(Component.text("You already have this rank permanently or a higher permanent rank. No Kelvoras were charged.", NamedTextColor.YELLOW));
+                return;
+            }
+        }
+        long now = System.currentTimeMillis();
+        String expiryPath = uuid + ".temporary-ranks." + group + ".expires";
+        long previousExpiry = data.getLong(expiryPath, 0L);
+        long expires = Math.max(now, previousExpiry) + duration * 1000L;
+        if (!currency.withdraw(player, price)) {
+            player.sendMessage(Component.text("Purchase failed. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        List<Node> oldTimedNodes = new ArrayList<>();
+        try {
+            for (Node node : new ArrayList<>(user.getNodes())) {
+                if (node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(group)
+                        && !node.getExpiry().equals(java.time.Instant.MAX)) {
+                    oldTimedNodes.add(node);
+                    user.data().remove(node);
+                }
+            }
+            user.data().add(InheritanceNode.builder(group)
+                .expiry(java.time.Duration.ofMillis(Math.max(1000L, expires - now))).build());
+            lp.getUserManager().saveUser(user).join();
+        } catch (Exception ex) {
+            restoreTimedRankNodes(lp, uuid, group, oldTimedNodes);
+            currency.deposit(player, price);
+            player.sendMessage(Component.text("Rank assignment failed. Your Kelvoras were refunded.", NamedTextColor.RED));
+            return;
+        }
+        String previousLastProduct = data.getString(uuid + ".temporary-ranks." + group + ".last-product");
+        String previousEquippedRank = data.getString(uuid + ".equipped.ranks");
+        Map<String, Object> previousOwned = new HashMap<>();
+        Map<String, Object> previousExpired = new HashMap<>();
+        data.set(expiryPath, expires);
+        data.set(uuid + ".temporary-ranks." + group + ".last-product", product);
+        ConfigurationSection rankOffers = plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks");
+        if (rankOffers != null) {
+            for (String offerId : rankOffers.getKeys(false)) {
+                ConfigurationSection offer = rankOffers.getConfigurationSection(offerId);
+                if (offer != null && group.equalsIgnoreCase(offer.getString("rank", ""))) {
+                    String ownedPath = uuid + ".owned.ranks." + offerId;
+                    String expiredPath = uuid + ".expired.ranks." + offerId;
+                    previousOwned.put(offerId, data.get(ownedPath));
+                    previousExpired.put(offerId, data.get(expiredPath));
+                    data.set(ownedPath, expires);
+                    data.set(expiredPath, null);
+                }
+            }
+        }
+        data.set(uuid + ".equipped.ranks", null);
+        if (!saveData()) {
+            data.set(expiryPath, previousExpiry == 0L ? null : previousExpiry);
+            data.set(uuid + ".temporary-ranks." + group + ".last-product", previousLastProduct);
+            if (rankOffers != null) {
+                for (String offerId : rankOffers.getKeys(false)) {
+                    if (previousOwned.containsKey(offerId)) data.set(uuid + ".owned.ranks." + offerId, previousOwned.get(offerId));
+                    if (previousExpired.containsKey(offerId)) data.set(uuid + ".expired.ranks." + offerId, previousExpired.get(offerId));
+                }
+            }
+            data.set(uuid + ".equipped.ranks", previousEquippedRank);
+            restoreTimedRankNodes(lp, uuid, group, oldTimedNodes);
+            currency.deposit(player, price);
+            player.sendMessage(Component.text("Could not save the rank expiry. Your Kelvoras were refunded.", NamedTextColor.RED));
+            return;
+        }
+        plugin.refreshSidebar(player);
+        String label = group.substring(0, 1).toUpperCase(Locale.ROOT) + group.substring(1);
+        player.sendMessage(Component.text("Purchased " + label + " for " + durationLabel(duration)
+            + ". Rank permissions applied. Expires " + new Date(expires) + ". Paid ✦" + KelvorasManager.format(price) + ".", NamedTextColor.GREEN));
+        openItems(player, "ranks");
+    }
+
+    private void restoreTimedRankNodes(LuckPerms lp, UUID uuid, String group, List<Node> oldNodes) {
+        try {
+            User rollback = lp.getUserManager().getUser(uuid);
+            if (rollback == null) rollback = lp.getUserManager().loadUser(uuid).join();
+            for (Node node : new ArrayList<>(rollback.getNodes())) {
+                if (node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(group)
+                        && !node.getExpiry().equals(java.time.Instant.MAX)) rollback.data().remove(node);
+            }
+            for (Node node : oldNodes) rollback.data().add(node);
+            lp.getUserManager().saveUser(rollback).join();
+        } catch (Exception ex) {
+            plugin.getLogger().severe("Could not restore previous temporary rank for " + uuid + ": " + ex.getMessage());
+        }
+    }
+
+    private void expireTemporaryRank(UUID uuid, String group) {
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(uuid);
+            if (user == null) user = lp.getUserManager().loadUser(uuid).join();
+            boolean changed = false;
+            for (Node node : new ArrayList<>(user.getNodes())) {
+                if (node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(group)
+                        && !node.getExpiry().equals(java.time.Instant.MAX)) {
+                    user.data().remove(node);
+                    changed = true;
+                }
+            }
+            if (changed) lp.getUserManager().saveUser(user).join();
+            Player online = Bukkit.getPlayer(uuid);
+            if (online != null) plugin.refreshSidebar(online);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Could not expire temporary rank " + group + " for " + uuid + ": " + ex.getMessage());
+        }
     }
 
     private void applyCosmetic(Player player, String category, String id, ConfigurationSection entry) {
@@ -311,9 +517,7 @@ final class ShardShopManager implements Listener {
         String id = activeCosmetic(player.getUniqueId(), "titles");
         ConfigurationSection section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.titles." + id);
         if (section != null) return safeLabel(section.getString("name", id), 16);
-        id = activeCosmetic(player.getUniqueId(), "ranks");
-        section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks." + id);
-        return section == null ? null : safeLabel(section.getString("name", id), 16);
+        return null;
     }
 
     private String safeLabel(String value, int maxLength) {
@@ -360,6 +564,18 @@ final class ShardShopManager implements Listener {
         for (String uuidText : data.getKeys(false)) {
             UUID uuid;
             try { uuid = UUID.fromString(uuidText); } catch (IllegalArgumentException ex) { continue; }
+            ConfigurationSection temporaryRanks = data.getConfigurationSection(uuidText + ".temporary-ranks");
+            if (temporaryRanks != null) {
+                for (String rank : temporaryRanks.getKeys(false)) {
+                    long rankExpiry = temporaryRanks.getLong(rank + ".expires", 0L);
+                    if (rankExpiry > 0 && rankExpiry <= System.currentTimeMillis()) {
+                        expireTemporaryRank(uuid, rank);
+                        data.set(uuidText + ".temporary-ranks." + rank + ".expires", null);
+                        data.set(uuidText + ".temporary-ranks." + rank + ".last-product", null);
+                        changed = true;
+                    }
+                }
+            }
             ConfigurationSection owned = data.getConfigurationSection(uuidText + ".owned");
             if (owned == null) continue;
             for (String category : owned.getKeys(false)) {
@@ -394,8 +610,14 @@ final class ShardShopManager implements Listener {
         return switch (category) { case "tags" -> "Tags"; case "titles" -> "Temporary Ranks"; case "ranks" -> "Temporary Ranks"; case "glows" -> "Glows"; default -> "Chat Colours"; };
     }
     private String durationLabel(long seconds) {
-        if (seconds % 86400 == 0) return (seconds / 86400) + " day(s)";
-        if (seconds % 3600 == 0) return (seconds / 3600) + " hour(s)";
+        if (seconds % 86400 == 0) {
+            long days = seconds / 86400;
+            return days + (days == 1 ? " Day" : " Days");
+        }
+        if (seconds % 3600 == 0) {
+            long hours = seconds / 3600;
+            return hours + (hours == 1 ? " Hour" : " Hours");
+        }
         return seconds + " seconds";
     }
     private Material material(String name) {
@@ -419,8 +641,8 @@ final class ShardShopManager implements Listener {
     }
 
     @EventHandler public void onClick(InventoryClickEvent event) {
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         String title = event.getView().title().toString();
-        if (!title.contains(TITLE)) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player) || event.getClickedInventory() != event.getView().getTopInventory()) return;
         ItemStack item = event.getCurrentItem();
@@ -436,8 +658,9 @@ final class ShardShopManager implements Listener {
         }
     }
     @EventHandler public void onDrag(InventoryDragEvent event) {
-        if (event.getView().title().toString().contains(TITLE)) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+    @EventHandler public void onClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
     @EventHandler public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> {
