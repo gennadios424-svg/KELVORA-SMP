@@ -4,6 +4,11 @@ currency-format: compact
 
 server-address: "kelvorasmp.mcsh.gg"
 
+tpa:
+  expiry-seconds: 60
+  cooldown-seconds: 10
+  countdown-seconds: 5
+
 # Passive income uses continuous online seconds; offline time is not paid.
 # AFK eligibility is configurable; without an AFK integration the plugin cannot detect AFK state.
 passive-kelvoras:
