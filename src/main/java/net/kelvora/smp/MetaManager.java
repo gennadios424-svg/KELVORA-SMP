@@ -3,6 +3,9 @@ package net.kelvora.smp;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.List;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -17,6 +20,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -29,6 +33,7 @@ final class MetaManager implements Listener, CommandExecutor {
     private static final DecimalFormat PRICE = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US));
     private final JavaPlugin plugin;
     private final WorthManager worth;
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
 
     MetaManager(JavaPlugin plugin, WorthManager worth) {
         this.plugin = plugin;
@@ -47,6 +52,7 @@ final class MetaManager implements Listener, CommandExecutor {
             return true;
         }
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         for (int i = 0; i < SHOWCASE.size(); i++) {
             Material material = SHOWCASE.get(i);
             double price = worth.priceOf(material);
@@ -75,14 +81,16 @@ final class MetaManager implements Listener, CommandExecutor {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!TITLE.equals(event.getView().getTitle())) return;
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         event.setCancelled(true);
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+
+    @EventHandler public void onClose(InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
 
     private static String pretty(Material material) {
         String[] parts = material.name().toLowerCase(Locale.ROOT).split("_");
