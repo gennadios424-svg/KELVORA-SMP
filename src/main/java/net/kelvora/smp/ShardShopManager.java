@@ -69,24 +69,16 @@ final class ShardShopManager implements Listener {
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
     }
 
-    /**
-     * One-time migration: old ShardShop temporary ranks were real expiring LuckPerms groups.
-     * Convert active purchases into cosmetic title ownership and remove only expiring nodes
-     * matching those recorded purchases. Permanent inheritance nodes are never removed.
-     */
+    /** Safe migration: preserve and restore actual expiring LuckPerms rank nodes. */
     private synchronized void migrateLegacyTemporaryRanks() {
-        if (data.getBoolean("_migration.temporary-ranks-cosmetic", false)) return;
+        if (data.getBoolean("_migration.temporary-ranks-authoritative-v2", false)) return;
         LuckPerms lp;
         try { lp = LuckPermsProvider.get(); }
-        catch (IllegalStateException ex) {
-            plugin.getLogger().warning("Legacy temporary-rank migration deferred because LuckPerms is unavailable.");
-            return;
-        }
+        catch (IllegalStateException ex) { plugin.getLogger().warning("Temporary-rank migration deferred: LuckPerms unavailable."); return; }
         long now = System.currentTimeMillis();
         for (String uuidText : new ArrayList<>(data.getKeys(false))) {
             UUID uuid;
-            try { uuid = UUID.fromString(uuidText); }
-            catch (IllegalArgumentException ignored) { continue; }
+            try { uuid = UUID.fromString(uuidText); } catch (IllegalArgumentException ignored) { continue; }
             ConfigurationSection legacy = data.getConfigurationSection(uuidText + ".temporary-ranks");
             if (legacy == null) continue;
             try {
@@ -94,32 +86,19 @@ final class ShardShopManager implements Listener {
                 if (user == null) user = lp.getUserManager().loadUser(uuid).join();
                 boolean changed = false;
                 for (String rank : legacy.getKeys(false)) {
-                    long expires = legacy.getLong(rank + ".expires", 0);
+                    long expires = legacy.getLong(rank + ".expires", 0L);
                     String product = legacy.getString(rank + ".last-product", "");
-                    if (expires > now && !product.isBlank()
-                            && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) {
-                        data.set(uuidText + ".owned.ranks." + product, expires);
-                        data.set(uuidText + ".equipped.ranks", product);
-                    }
-                    for (Node node : new ArrayList<>(user.getNodes())) {
-                        if (node instanceof InheritanceNode inherited
-                                && inherited.getGroupName().equalsIgnoreCase(rank)
-                                && !node.getExpiry().equals(java.time.Instant.MAX)) {
-                            user.data().remove(node);
-                            changed = true;
-                        }
-                    }
+                    if (expires <= now) continue;
+                    if (!product.isBlank() && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) data.set(uuidText + ".owned.ranks." + product, expires);
+                    boolean timedNode = user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(rank) && !node.getExpiry().equals(java.time.Instant.MAX) && node.getExpiry().toEpochMilli() > now);
+                    if (!timedNode) { user.data().add(InheritanceNode.builder(rank).expiry(java.time.Duration.ofMillis(Math.max(1000L, expires - now))).build()); changed = true; }
                 }
                 if (changed) lp.getUserManager().saveUser(user).join();
-            } catch (Exception ex) {
-                plugin.getLogger().warning("Could not migrate temporary cosmetic rank for " + uuidText + ": " + ex.getMessage());
-                return;
-            }
+            } catch (Exception ex) { plugin.getLogger().warning("Could not restore temporary rank for " + uuidText + ": " + ex.getMessage()); return; }
         }
-        data.set("_migration.temporary-ranks-cosmetic", true);
+        data.set("_migration.temporary-ranks-authoritative-v2", true);
         saveData();
     }
-
     /**
      * Existing servers keep their old config.yml when the JAR is replaced. Enable the
      * newly implemented cosmetic catalog once while preserving all configured prices.
@@ -162,7 +141,7 @@ final class ShardShopManager implements Listener {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
         activeInventories.add(inv);
         add(inv, 10, Material.NAME_TAG, "&aTags", List.of("Decorative labels beside your name"), "category:tags");
-        add(inv, 12, Material.EMERALD, "&eTemporary Ranks", List.of("Cosmetic titles only — no permissions", "Choose a title duration"), "category:ranks");
+        add(inv, 12, Material.EMERALD, "&eTemporary Ranks", List.of("Real LuckPerms ranks and permissions", "Choose a rank and duration"), "category:ranks");
         add(inv, 14, Material.GLOW_INK_SAC, "&bGlows", List.of("Cosmetic player glow colours"), "category:glows");
         add(inv, 16, Material.WRITABLE_BOOK, "&dChat Colours", List.of("Colour your message text"), "category:chat");
         add(inv, 22, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
