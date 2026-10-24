@@ -66,6 +66,8 @@ final class ShardShopManager implements Listener {
         if (plugin.getCommand("shardshop") != null) plugin.getCommand("shardshop").setExecutor(this::execute);
         if (plugin.getCommand("shards") != null) plugin.getCommand("shards").setExecutor(this::execute);
         if (plugin.getCommand("shardshopreload") != null) plugin.getCommand("shardshopreload").setExecutor(this::execute);
+        if (plugin.getCommand("glow") != null) plugin.getCommand("glow").setExecutor(this::execute);
+        if (plugin.getCommand("tags") != null) plugin.getCommand("tags").setExecutor(this::execute);
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
     }
 
@@ -131,6 +133,11 @@ final class ShardShopManager implements Listener {
             player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
             return true;
         }
+        if (label.equalsIgnoreCase("glow") || label.equalsIgnoreCase("tags")) {
+            if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
+            openItems(player, label.equalsIgnoreCase("glow") ? "glows" : "tags");
+            return true;
+        }
         if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         openCategories(player);
         return true;
@@ -155,13 +162,29 @@ final class ShardShopManager implements Listener {
         activeInventories.add(inv);
         ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
         int slot = 10;
+        int itemIndex = 0;
         if (entries != null) {
             for (String id : entries.getKeys(false)) {
-                if (slot >= 44) break;
                 ConfigurationSection entry = entries.getConfigurationSection(id);
                 if (entry == null) continue;
+                if (category.equals("ranks")) {
+                    String lower = id.toLowerCase(Locale.ROOT);
+                    int column = lower.startsWith("verdant_") ? 0 : lower.startsWith("emerald_") ? 1 : 2;
+                    int row = lower.endsWith("_1d") ? 0 : lower.endsWith("_3d") ? 1 : 2;
+                    slot = 10 + column * 2 + row * 9;
+                } else {
+                    slot = 10 + itemIndex;
+                    if (slot >= 44) break;
+                }
+                itemIndex++;
                 String name = entry.getString("name", id);
                 String desc = entry.getString("description", "Cosmetic");
+                if (category.equals("ranks")) {
+                    String rank = entry.getString("rank", "verdant");
+                    String rankLabel = rank.substring(0, 1).toUpperCase(Locale.ROOT) + rank.substring(1).toLowerCase(Locale.ROOT);
+                    name = rankLabel + " · " + durationLabel(entry.getLong("duration-seconds", 0));
+                    desc = "Temporary " + rankLabel + " rank with LuckPerms permissions";
+                }
                 double price = entry.getDouble("price", -1);
                 long duration = entry.getLong("duration-seconds", 0);
                 boolean available = entry.getBoolean("available", false) && price >= 0 && Double.isFinite(price);
@@ -181,7 +204,6 @@ final class ShardShopManager implements Listener {
             }
         }
         add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
-        add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
         add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
         player.openInventory(inv);
     }
@@ -293,9 +315,7 @@ final class ShardShopManager implements Listener {
         String id = activeCosmetic(player.getUniqueId(), "titles");
         ConfigurationSection section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.titles." + id);
         if (section != null) return safeLabel(section.getString("name", id), 16);
-        id = activeCosmetic(player.getUniqueId(), "ranks");
-        section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks." + id);
-        return section == null ? null : safeLabel(section.getString("name", id), 16);
+        return null;
     }
 
     private String safeLabel(String value, int maxLength) {
