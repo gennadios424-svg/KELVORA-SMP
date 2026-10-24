@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.19.0
+version: 2.20.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -135,6 +135,24 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 permissions:
+  kelvora.roles.manage:
+    description: Manage custom server roles
+    default: op
+  kelvora.staff.manager:
+    description: Manage custom server roles
+    default: op
+  kelvora.staff.mod:
+    description: Use moderator investigation tools
+    default: op
+  kelvora.suslist:
+    description: Review suspicious mining flags
+    default: op
+  kelvora.vanish:
+    description: Toggle vanish mode
+    default: op
+  kelvora.live:
+    description: Use Media live status
+    default: false
   kelvora.crate.admin:
     description: Administer physical crates and digital keys
     default: op
@@ -201,3 +219,16 @@ permissions:
   kelvora.homes.limit.unlimited:
     description: Bypass the configured home slot limit
     default: op
+
+  live:
+    description: Set Media live status and optional video/stream link
+    usage: /live [link|on|off]
+  role:
+    description: Manager role creation and assignment
+    usage: /role <list|create|add|remove>
+  suslist:
+    description: Moderator suspicious mining review list
+    usage: /suslist [tp <player>]
+  vanish:
+    description: Toggle staff vanish
+    usage: /vanish
