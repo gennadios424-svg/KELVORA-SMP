@@ -34,9 +34,12 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         for (Player player : Bukkit.getOnlinePlayers()) {
             Inventory top = player.getOpenInventory().getTopInventory();
             if (!activeInventories.contains(top)) continue;
+            if (TITLE.equals(player.getOpenInventory().getTitle())) {
+                openMenu(player);
+                continue;
+            }
             String type = selected.get(player.getUniqueId());
-            if (type == null) openMenu(player);
-            else openBoard(player, type, pages.getOrDefault(player.getUniqueId(), 0));
+            if (type != null) openBoard(player, type, pages.getOrDefault(player.getUniqueId(), 0));
         }
     }
 
