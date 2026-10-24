@@ -423,13 +423,16 @@ final class CoinflipManager implements Listener {
         if (c != null) {
             c.status = "REFUND_PENDING";
             challenges.put(c.id, c);
-            save();
-            // Vault accepts OfflinePlayer; don't depend on Bukkit.getPlayer after quit (it is normally null).
+            if (!save()) {
+                plugin.getLogger().severe("Coinflip refund record could not be persisted for " + id + "; no refund was issued.");
+                return;
+            }
+            // Persist the pending state before touching Money; an ambiguous provider response is never retried automatically.
             if (money(Bukkit.getOfflinePlayer(id), c.amount, false)) {
                 challenges.remove(c.id);
                 save();
             } else {
-                plugin.getLogger().severe("Coinflip refund pending for " + id + " amount " + c.amount + "; escrow record preserved.");
+                plugin.getLogger().severe("Coinflip refund pending for " + id + " amount " + c.amount + "; escrow record preserved for staff review.");
             }
         }
     }
@@ -437,43 +440,55 @@ final class CoinflipManager implements Listener {
     private void load() {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
         data = YamlConfiguration.loadConfiguration(file);
+        List<Challenge> startupRefunds = new ArrayList<>();
         for (String key : data.getKeys(false)) {
             if (key.equals("history")) continue;
             try {
-                UUID id = UUID.fromString(key); String status = data.getString(key+".status","OPEN");
-                Challenge c = new Challenge(id, UUID.fromString(data.getString(key+".creator")), data.getString(key+".creatorName","Player"), data.getDouble(key+".amount"));
-                c.status = status; c.opponentName = data.getString(key+".opponentName",""); c.pot = data.getDouble(key+".pot");
-                if (data.getString(key+".opponent") != null) c.opponent = UUID.fromString(data.getString(key+".opponent"));
-                if (data.getString(key+".winner") != null) c.winner = UUID.fromString(data.getString(key+".winner"));
-                c.paid = data.getBoolean(key+".paid",false);
+                UUID id = UUID.fromString(key);
+                String status = data.getString(key + ".status", "OPEN");
+                Challenge c = new Challenge(id, UUID.fromString(data.getString(key + ".creator")),
+                    data.getString(key + ".creatorName", "Player"), data.getDouble(key + ".amount"));
+                c.status = status;
+                c.opponentName = data.getString(key + ".opponentName", "");
+                c.pot = data.getDouble(key + ".pot");
+                if (data.getString(key + ".opponent") != null) c.opponent = UUID.fromString(data.getString(key + ".opponent"));
+                if (data.getString(key + ".winner") != null) c.winner = UUID.fromString(data.getString(key + ".winner"));
+                c.paid = data.getBoolean(key + ".paid", false);
                 if (status.equals("OPEN")) {
-                    // An open challenge from a prior server session has no valid live opponent; refund escrow on startup.
-                    Player creator = Bukkit.getPlayer(c.creator);
-                    if (money(Bukkit.getOfflinePlayer(c.creator),c.amount,false)) continue;
-                    c.status = "REFUND_PENDING"; challenges.put(c.id,c);
+                    // Convert to a durable pending state before refunding an abandoned creator escrow.
+                    c.status = "REFUND_PENDING";
+                    challenges.put(c.id, c);
+                    startupRefunds.add(c);
                 } else if (status.equals("JOINING")) {
-                    // A crash may have occurred around the opponent's withdrawal. Never auto-pay twice.
                     challenges.put(c.id, c);
                     plugin.getLogger().severe("Coinflip JOINING transaction requires staff reconciliation (no automatic refund/payout): " + c.id);
                 } else if (status.equals("RUNNING") && c.winner != null) {
-                    // Vault has no generic idempotency key. A crash could happen immediately
-                    // after a deposit but before saving PAID, so never auto-deposit on recovery.
                     c.status = "PAYOUT_PENDING";
                     challenges.put(c.id, c);
                     plugin.getLogger().severe("Interrupted coinflip payout preserved for staff reconciliation (no automatic retry): " + c.id);
                 } else if (status.equals("REFUND_PENDING")) {
-                    // The previous provider response may have been lost after accepting the refund.
-                    // Keep a durable claim for staff review rather than risk issuing the refund twice.
                     challenges.put(c.id, c);
                     plugin.getLogger().severe("Coinflip refund preserved for staff reconciliation (no automatic retry): " + c.id);
                 } else if (status.equals("PAYOUT_PENDING")) {
-                    // Do not retry automatically: generic Vault providers cannot guarantee exactly-once deposits.
                     challenges.put(c.id, c);
                 }
-            } catch (Exception ex) { plugin.getLogger().warning("Skipping malformed coinflip record " + key); }
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Skipping malformed coinflip record " + key);
+            }
         }
         history.addAll(data.getStringList("history"));
-        save();
+        if (!save()) {
+            plugin.getLogger().severe("Coinflip startup recovery could not persist escrow state; no startup refunds were issued.");
+            return;
+        }
+        for (Challenge c : startupRefunds) {
+            if (money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) {
+                challenges.remove(c.id);
+                if (!save()) plugin.getLogger().severe("Coinflip refund was sent but record cleanup failed; no automatic retry will occur: " + c.id);
+            } else {
+                plugin.getLogger().severe("Coinflip startup refund requires staff review for challenge " + c.id);
+            }
+        }
     }
 
     private boolean save() {
