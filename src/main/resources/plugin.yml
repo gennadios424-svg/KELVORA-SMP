@@ -112,6 +112,12 @@ commands:
   tags:
     description: Open and manage owned tag cosmetics
     usage: /tags
+  tag:
+    description: Alias for /tags
+    usage: /tag
+  chatcolour:
+    description: Open and manage owned chat colours
+    usage: /chatcolour
   rank:
     description: Open the Kelvora rank guide or administer progression ranks
     usage: /rank [set <player> <rank>]
