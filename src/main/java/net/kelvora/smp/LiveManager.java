@@ -40,6 +40,7 @@ final class LiveManager implements Listener, CommandExecutor {
         }
         if (args.length == 1 && args[0].equalsIgnoreCase("off")) {
             if (LIVE.remove(p.getUniqueId()) == null) { p.sendMessage(Component.text("You are not marked as live.", NamedTextColor.YELLOW)); return true; }
+            LeaderboardManager.refreshLiveStatuses();
             p.sendMessage(Component.text("Your live status has been cleared.", NamedTextColor.GREEN));
             p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .25f, 1.1f);
             Bukkit.broadcast(Component.text("🎥 " + p.getName() + " is no longer marked LIVE.", NamedTextColor.GRAY));
@@ -56,6 +57,7 @@ final class LiveManager implements Listener, CommandExecutor {
             return true;
         }
         LIVE.put(p.getUniqueId(), new LiveSession(normalized, System.currentTimeMillis()));
+        LeaderboardManager.refreshLiveStatuses();
         p.sendMessage(Component.text("Your live status is active. Use /live off when you finish.", NamedTextColor.GREEN));
         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, .35f, 1.2f);
         Component announce = Component.text("🔴 " + p.getName() + " is LIVE! ", NamedTextColor.LIGHT_PURPLE)
@@ -83,6 +85,8 @@ final class LiveManager implements Listener, CommandExecutor {
         } catch (IllegalArgumentException ex) { return null; }
     }
 
-    @EventHandler public void onQuit(PlayerQuitEvent e) { LIVE.remove(e.getPlayer().getUniqueId()); }
+    @EventHandler public void onQuit(PlayerQuitEvent e) {
+        if (LIVE.remove(e.getPlayer().getUniqueId()) != null) LeaderboardManager.refreshLiveStatuses();
+    }
     private record LiveSession(String url, long startedAt) {}
 }
