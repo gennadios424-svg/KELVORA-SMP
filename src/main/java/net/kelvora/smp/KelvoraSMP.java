@@ -325,6 +325,9 @@ implements Listener {
             if (team != null) team.setPrefix(this.trimLegacy(lines[i], 64));
         }
         Scoreboard current = player.getScoreboard();
+        // Remove below-name score objectives (often wired to Vault balance placeholders); the sidebar remains untouched.
+        this.removeBelowNameObjectives(Bukkit.getScoreboardManager().getMainScoreboard());
+        if (current != Bukkit.getScoreboardManager().getMainScoreboard()) this.removeBelowNameObjectives(current);
         if (current == Bukkit.getScoreboardManager().getMainScoreboard()
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
@@ -346,6 +349,12 @@ implements Listener {
             if (this.hasLuckPermsGroup(player, role)) return role.equals("mod") ? "moderator" : role;
         }
         return null;
+    }
+
+    private void removeBelowNameObjectives(Scoreboard scoreboard) {
+        for (Objective objective : new java.util.ArrayList<>(scoreboard.getObjectives())) {
+            if (objective.getDisplaySlot() == DisplaySlot.BELOW_NAME) objective.unregister();
+        }
     }
 
     private String rankKey(Player player) {
