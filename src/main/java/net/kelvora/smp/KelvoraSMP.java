@@ -92,6 +92,8 @@ implements Listener {
         new AuctionHouseManager(this).register();
         BountyCombatManager combatManager = new BountyCombatManager(this);
         combatManager.register();
+        new TpaManager(this, combatManager).register();
+        new LiveManager(this).register();
         new RtqManager(this, combatManager).register();
         new BaltopManager(this).register();
         new CoinflipManager(this, combatManager).register();
@@ -339,7 +341,7 @@ implements Listener {
                 return progression.equals("i_sprout") ? "sprout" : progression;
             }
         }
-        if (Set.of("helper", "moderator", "mod", "admin", "owner", "creator", "default", "member", "i_sprout").contains(group)) return "sprout";
+        if (Set.of("helper", "moderator", "mod", "manager", "admin", "owner", "creator", "media", "booster", "default", "member", "i_sprout").contains(group)) return "sprout";
         if (group.equals("vip")) return "verdant";
         ConfigurationSection ranks = this.getConfig().getConfigurationSection("ranks");
         if (ranks != null && ranks.contains(group) && !Set.of("helper", "moderator", "admin", "owner", "creator").contains(group)) return group;
