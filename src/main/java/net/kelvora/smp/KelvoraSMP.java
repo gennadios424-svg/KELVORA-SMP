@@ -310,7 +310,7 @@ implements Listener {
         // Keep the two authoritative currencies immediately under the server title.
         String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
-            this.color("&6&l⭐ RANK: &e&l" + rankDisplay),
+            this.color("&6&l⭐ RANK: " + rankColor + "&l" + rankDisplay),
             this.color("&a&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
             this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
             this.color("&3🛡 Team: &b" + teamName),
