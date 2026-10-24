@@ -73,6 +73,7 @@ implements Listener {
     private WorthManager worthManager;
     private ShardShopManager shardShopManager;
     private TeamManager teamManager;
+    private StaffFeaturesManager staffFeaturesManager;
     private int refreshTask;
     private int tabFrame;
     private int footerFrame;
@@ -102,6 +103,8 @@ implements Listener {
         new RankKitManager(this).register();
         this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
         this.shardShopManager.register();
+        this.staffFeaturesManager = new StaffFeaturesManager(this);
+        this.staffFeaturesManager.register();
         CrateManager crateManager = new CrateManager(this);
         crateManager.register();
         new RankDailyKeysManager(this, crateManager).register();
@@ -252,7 +255,9 @@ implements Listener {
         boolean prefixShowsProgression = plainPrefix != null && plainPrefix.toLowerCase(Locale.ROOT).contains(rankLabel.toLowerCase(Locale.ROOT));
         String progressionPrefix = this.color(rankColor + "[" + rankLabel + "] ");
         // Temporary ShardShop ranks are cosmetics, never actual TAB ranks. Keep the player list clean.
-        player.setPlayerListName(progressionPrefix + player.getName() + cosmeticSuffix);
+        String extraRoles = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
+        String liveLabel = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.liveTabLabel(player);
+        player.setPlayerListName(progressionPrefix + (extraRoles.isBlank() ? "" : extraRoles + " ") + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
@@ -369,7 +374,9 @@ implements Listener {
         String defaultLabel = key.equals("staff") ? "Staff" : key.equals("media") ? "Media" : key.toUpperCase(Locale.ROOT);
         String label = this.getConfig().getString("ranks." + key + ".label", defaultLabel);
         String colour = this.getConfig().getString("ranks." + key + ".color", key.equals("staff") ? "&c" : key.equals("media") ? "&d" : "&a");
-        return LegacyComponentSerializer.legacyAmpersand().deserialize(colour + "[" + label + "] ");
+        String roleLabels = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
+        String combined = colour + "[" + label + "] " + (roleLabels.isBlank() ? "" : roleLabels.replace(ChatColor.RESET.toString(), ChatColor.RESET.toString()) + " ");
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(combined);
     }
 
     private String getKelvoras(Player player) {
