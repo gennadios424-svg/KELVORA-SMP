@@ -211,9 +211,16 @@ final class ShardShopManager implements Listener {
                 if (entry == null) continue;
                 if (category.equals("ranks")) {
                     String lower = id.toLowerCase(Locale.ROOT);
-                    int column = lower.startsWith("verdant_") ? 0 : lower.startsWith("emerald_") ? 1 : 2;
-                    int row = lower.endsWith("_1d") ? 0 : lower.endsWith("_3d") ? 1 : 2;
-                    slot = 10 + column * 2 + row * 9;
+                    int rankRow = lower.startsWith("verdant_") ? 0 : lower.startsWith("emerald_") ? 1 : lower.startsWith("sovereign_") ? 2 : -1;
+                    int durationColumn = lower.endsWith("_1d") ? 0 : lower.endsWith("_3d") ? 1 : lower.endsWith("_7d") ? 2 : -1;
+                    if (rankRow < 0 || durationColumn < 0) continue;
+                    int rowBase = 10 + rankRow * 9;
+                    slot = rowBase + 2 + durationColumn;
+                    if (inv.getItem(rowBase) == null) {
+                        String rankName = rankRow == 0 ? "Verdant" : rankRow == 1 ? "Emerald" : "Sovereign";
+                        Material rankIcon = rankRow == 2 ? Material.NETHER_STAR : Material.EMERALD;
+                        add(inv, rowBase, rankIcon, "&a" + rankName, List.of("Choose a duration to purchase", "Rank permissions apply immediately"), "noop");
+                    }
                 } else {
                     slot = 10 + itemIndex;
                     if (slot >= 44) break;
@@ -316,13 +323,13 @@ final class ShardShopManager implements Listener {
      * replacing a higher permanent purchase rank. Staff/media groups are
      * deliberately outside this ladder and are therefore never removed.
      *
-     * Member -> Sprout -> Booster -> Verdant -> Emerald -> Sovereign -> Ascendant.
+     * Member -> Booster -> Sprout -> Verdant -> Emerald -> Sovereign -> Ascendant.
      */
     private int rankWeight(String rank) {
         return switch (rank.toLowerCase(Locale.ROOT)) {
             case "member", "default" -> 1;
-            case "sprout", "i_sprout" -> 2;
-            case "booster" -> 3;
+            case "booster" -> 2;
+            case "sprout", "i_sprout" -> 3;
             case "verdant", "vip" -> 4;
             case "emerald" -> 5;
             case "sovereign" -> 6;
@@ -452,7 +459,7 @@ final class ShardShopManager implements Listener {
         }
     }
 
-    private void expireTemporaryRank(UUID uuid, String group) {
+    private boolean expireTemporaryRank(UUID uuid, String group) {
         try {
             LuckPerms lp = LuckPermsProvider.get();
             User user = lp.getUserManager().getUser(uuid);
@@ -468,8 +475,10 @@ final class ShardShopManager implements Listener {
             if (changed) lp.getUserManager().saveUser(user).join();
             Player online = Bukkit.getPlayer(uuid);
             if (online != null) plugin.refreshSidebar(online);
+            return true;
         } catch (Exception ex) {
             plugin.getLogger().warning("Could not expire temporary rank " + group + " for " + uuid + ": " + ex.getMessage());
+            return false;
         }
     }
 
@@ -578,10 +587,11 @@ final class ShardShopManager implements Listener {
                 for (String rank : temporaryRanks.getKeys(false)) {
                     long rankExpiry = temporaryRanks.getLong(rank + ".expires", 0L);
                     if (rankExpiry > 0 && rankExpiry <= System.currentTimeMillis()) {
-                        expireTemporaryRank(uuid, rank);
-                        data.set(uuidText + ".temporary-ranks." + rank + ".expires", null);
-                        data.set(uuidText + ".temporary-ranks." + rank + ".last-product", null);
-                        changed = true;
+                        if (expireTemporaryRank(uuid, rank)) {
+                            data.set(uuidText + ".temporary-ranks." + rank + ".expires", null);
+                            data.set(uuidText + ".temporary-ranks." + rank + ".last-product", null);
+                            changed = true;
+                        }
                     }
                 }
             }
