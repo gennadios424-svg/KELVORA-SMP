@@ -62,6 +62,10 @@ jobs:
           unzip -p "$JAR" plugin.yml | grep -q 'kelvoras:'
           unzip -p "$JAR" plugin.yml | grep -q 'shardshop:'
           unzip -p "$JAR" plugin.yml | grep -q 'shards:'
+          unzip -p "$JAR" plugin.yml | grep -q 'glow:'
+          unzip -p "$JAR" plugin.yml | grep -q 'tags:'
+          grep -q '"Buy 32"' src/main/java/net/kelvora/smp/ShopSellManager.java
+          grep -q '"Buy 64"' src/main/java/net/kelvora/smp/ShopSellManager.java
           unzip -p "$JAR" plugin.yml | grep -q 'crate:'
           unzip -p "$JAR" plugin.yml | grep -q 'keyall:'
           unzip -p "$JAR" plugin.yml | grep -q 'kelvoratools:'
