@@ -63,7 +63,10 @@ final class TpaManager implements Listener {
         if (now - previous < cooldown * 1000L) { fail(sender, "Wait " + Math.max(1, (cooldown * 1000L - (now - previous) + 999) / 1000) + "s before sending another request."); return true; }
         UUID prior = bySender.get(sender.getUniqueId());
         if (prior != null) { fail(sender, "You already have a pending teleport request. Use /tpacancel first."); return true; }
-        if (byTarget.containsKey(target.getUniqueId())) { fail(sender, "That player already has a pending teleport request."); return true; }
+        if (byTarget.containsKey(sender.getUniqueId())) { fail(sender, "You have an incoming request. Accept or deny it before sending another."); return true; }
+        if (byTarget.containsKey(target.getUniqueId()) || bySender.containsKey(target.getUniqueId())) {
+            fail(sender, "That player already has a pending teleport request or is waiting on another request."); return true;
+        }
 
         Request request = new Request(UUID.randomUUID(), sender.getUniqueId(), target.getUniqueId(), sender.getName(), target.getName(), here, now);
         byTarget.put(target.getUniqueId(), request);
