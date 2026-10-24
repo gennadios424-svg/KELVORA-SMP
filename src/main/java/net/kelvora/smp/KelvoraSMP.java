@@ -232,9 +232,10 @@ implements Listener {
     private void updatePlayer(Player player) {
         if (this.economy == null) this.economy = this.resolveEconomyProvider();
         String serverAddress = this.getConfig().getString("server-address", "kelvorasmp.mcsh.gg");
-        String rank = this.rankKey(player);
-        String rankLabel = this.getConfig().getString("ranks." + rank + ".label", rank.toUpperCase(Locale.ROOT));
-        String rankColor = this.getConfig().getString("ranks." + rank + ".color", "&a");
+        String rank = this.displayRankKey(player);
+        String defaultRankLabel = rank.equals("staff") ? "Staff" : rank.equals("media") ? "Media" : rank.toUpperCase(Locale.ROOT);
+        String rankLabel = this.getConfig().getString("ranks." + rank + ".label", defaultRankLabel);
+        String rankColor = this.getConfig().getString("ranks." + rank + ".color", rank.equals("staff") ? "&c" : rank.equals("media") ? "&d" : "&a");
         String prefix = null;
         if (this.luckPerms != null) {
             User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
@@ -348,8 +349,27 @@ implements Listener {
 
     KelvorasManager passiveKelvorasManager() { return this.kelvorasManager; }
     ShardShopManager getShardShopManager() { return this.shardShopManager; }
+
+    private String displayRankKey(Player player) {
+        if (this.luckPerms != null) {
+            User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
+            if (user != null) {
+                String primary = user.getPrimaryGroup();
+                if (primary != null && Set.of("staff", "media").contains(primary.toLowerCase(Locale.ROOT))) return primary.toLowerCase(Locale.ROOT);
+            }
+        }
+        return this.rankKey(player);
+    }
     TeamManager getTeamManager() { return this.teamManager; }
     void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
+
+    Component chatRankPrefix(Player player) {
+        String key = this.displayRankKey(player);
+        String defaultLabel = key.equals("staff") ? "Staff" : key.equals("media") ? "Media" : key.toUpperCase(Locale.ROOT);
+        String label = this.getConfig().getString("ranks." + key + ".label", defaultLabel);
+        String colour = this.getConfig().getString("ranks." + key + ".color", key.equals("staff") ? "&c" : key.equals("media") ? "&d" : "&a");
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(colour + "[" + label + "] ");
+    }
 
     private String getKelvoras(Player player) {
         if (this.kelvorasManager == null) return "✦0";

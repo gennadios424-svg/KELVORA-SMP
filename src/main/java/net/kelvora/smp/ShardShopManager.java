@@ -23,6 +23,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -38,6 +39,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 final class ShardShopManager implements Listener {
     private static final String TITLE = "Kelvora | ShardShop";
@@ -67,6 +69,7 @@ final class ShardShopManager implements Listener {
         if (plugin.getCommand("shardshopreload") != null) plugin.getCommand("shardshopreload").setExecutor(this::execute);
         if (plugin.getCommand("glow") != null) plugin.getCommand("glow").setExecutor(this::execute);
         if (plugin.getCommand("tags") != null) plugin.getCommand("tags").setExecutor(this::execute);
+        if (plugin.getCommand("chatcolour") != null) plugin.getCommand("chatcolour").setExecutor(this::execute);
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
     }
 
@@ -153,8 +156,10 @@ final class ShardShopManager implements Listener {
             player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
             return true;
         }
-        if (label.equalsIgnoreCase("glow") || label.equalsIgnoreCase("tags")) {
-            toggleCosmetic(player, label.equalsIgnoreCase("glow") ? "glows" : "tags");
+        if (label.equalsIgnoreCase("glow") || label.equalsIgnoreCase("tags") || label.equalsIgnoreCase("chatcolour")) {
+            String category = label.equalsIgnoreCase("glow") ? "glows" : label.equalsIgnoreCase("tags") ? "tags" : "chat";
+            if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
+            openOwnedItems(player, category);
             return true;
         }
         if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
@@ -213,7 +218,11 @@ final class ShardShopManager implements Listener {
         player.openInventory(inv);
     }
 
-    private void openItems(Player player, String category) {
+    private void openItems(Player player, String category) { openItems(player, category, false); }
+
+    private void openOwnedItems(Player player, String category) { openItems(player, category, true); }
+
+    private void openItems(Player player, String category, boolean ownedOnly) {
         openCategory.put(player.getUniqueId(), category);
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(TITLE + " | " + categoryLabel(category), NamedTextColor.DARK_GREEN));
         ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
@@ -229,6 +238,7 @@ final class ShardShopManager implements Listener {
                 long duration = entry.getLong("duration-seconds", 0);
                 boolean available = entry.getBoolean("available", false) && price >= 0 && Double.isFinite(price);
                 boolean owned = owns(player.getUniqueId(), category, id);
+                if (ownedOnly && !owned) continue;
                 boolean equipped = id.equals(data.getString(player.getUniqueId() + ".equipped." + category, ""));
                 long expires = data.getLong(player.getUniqueId() + ".owned." + category + "." + id, 0);
                 boolean expired = data.getBoolean(player.getUniqueId() + ".expired." + category + "." + id, false);
@@ -243,6 +253,7 @@ final class ShardShopManager implements Listener {
                 add(inv, slot++, icon, (equipped ? "&a" : "&f") + name, lore, "item:" + category + ":" + id);
             }
         }
+        if (ownedOnly && slot == 10) add(inv, 22, Material.PAPER, "&7No owned cosmetics", List.of("Purchase cosmetics in /shardshop"), "info");
         add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
         add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
         add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
@@ -297,10 +308,30 @@ final class ShardShopManager implements Listener {
                 saveData();
                 player.sendMessage(Component.text("Purchase failed; no charge was made.", NamedTextColor.RED)); return;
             }
+            if (category.equals("ranks")) grantTimedRank(player, entry, duration);
             applyCosmetic(player, category, id, entry);
             player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
             openItems(player, category);
         } finally { processing.remove(uuid); }
+    }
+
+    /** Apply the actual LuckPerms rank group for the purchased duration. */
+    private void grantTimedRank(Player player, ConfigurationSection entry, long durationSeconds) {
+        String rank = entry.getString("rank", "").trim().toLowerCase(Locale.ROOT);
+        if (rank.isBlank() || durationSeconds <= 0) return;
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(player.getUniqueId());
+            if (user == null) user = lp.getUserManager().loadUser(player.getUniqueId()).join();
+            InheritanceNode timedRank = InheritanceNode.builder(rank).expiry(durationSeconds, TimeUnit.SECONDS).build();
+            user.data().add(timedRank);
+            lp.getUserManager().saveUser(user).join();
+            plugin.getLogger().info("Granted temporary " + rank + " group to " + player.getName() + " for " + durationSeconds + " seconds.");
+            plugin.refreshSidebar(player);
+        } catch (Exception ex) {
+            plugin.getLogger().severe("Could not grant purchased temporary rank to " + player.getName() + ": " + ex.getMessage());
+            player.sendMessage(Component.text("Your purchase was saved, but rank permissions could not be applied. Contact staff.", NamedTextColor.RED));
+        }
     }
 
     private void applyCosmetic(Player player, String category, String id, ConfigurationSection entry) {
@@ -368,7 +399,10 @@ final class ShardShopManager implements Listener {
         if (section != null) return safeLabel(section.getString("name", id), 16);
         id = activeCosmetic(player.getUniqueId(), "ranks");
         section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks." + id);
-        return section == null ? null : safeLabel(section.getString("name", id), 16);
+        if (section == null) return null;
+        String rank = section.getString("rank", "");
+        String label = plugin.getConfig().getString("ranks." + rank + ".label", rank.isBlank() ? section.getString("name", id) : rank);
+        return safeLabel(label, 16);
     }
 
     private String safeLabel(String value, int maxLength) {
@@ -471,6 +505,26 @@ final class ShardShopManager implements Listener {
     private synchronized boolean saveData() {
         try { if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs(); data.save(dataFile); return true; }
         catch (IOException ex) { plugin.getLogger().severe("Could not save ShardShop ownership: " + ex.getMessage()); return false; }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onChat(AsyncChatEvent event) {
+        Player source = event.getPlayer();
+        String colour = chatColour(source);
+        Component message = event.message();
+        if (colour != null && !colour.isBlank()) {
+            String legacyMessage = LegacyComponentSerializer.legacySection().serialize(message);
+            String prefixColour = ChatColor.translateAlternateColorCodes('&', colour);
+            message = LegacyComponentSerializer.legacySection().deserialize(prefixColour + legacyMessage);
+        }
+        Component chatMessage = message;
+        event.renderer((player, displayName, renderedMessage, viewer) -> {
+            Component prefix = plugin.chatRankPrefix(player);
+            String tag = equippedTag(player);
+            if (tag != null && !tag.isBlank()) prefix = prefix.append(Component.text(" [" + tag + "]", NamedTextColor.AQUA));
+            return prefix.append(Component.text(player.getName(), NamedTextColor.WHITE))
+                    .append(Component.text(": ", NamedTextColor.GRAY)).append(chatMessage);
+        });
     }
 
     @EventHandler public void onClick(InventoryClickEvent event) {
