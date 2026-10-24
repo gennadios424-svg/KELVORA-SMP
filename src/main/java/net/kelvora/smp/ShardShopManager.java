@@ -71,7 +71,7 @@ final class ShardShopManager implements Listener {
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
     }
 
-    /** Safe migration: preserve and restore actual expiring LuckPerms rank nodes. */
+    /** Safe migration: convert old cosmetic rank purchases into real expiring LuckPerms ranks. */
     private synchronized void migrateLegacyTemporaryRanks() {
         if (data.getBoolean("_migration.temporary-ranks-authoritative-v2", false)) return;
         LuckPerms lp;
@@ -82,25 +82,67 @@ final class ShardShopManager implements Listener {
             UUID uuid;
             try { uuid = UUID.fromString(uuidText); } catch (IllegalArgumentException ignored) { continue; }
             ConfigurationSection legacy = data.getConfigurationSection(uuidText + ".temporary-ranks");
-            if (legacy == null) continue;
+            ConfigurationSection oldOwned = data.getConfigurationSection(uuidText + ".owned.ranks");
+            Map<String, Long> expiries = new HashMap<>();
+            Map<String, String> products = new HashMap<>();
+            if (oldOwned != null) {
+                for (String product : oldOwned.getKeys(false)) {
+                    ConfigurationSection offer = plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks." + product);
+                    if (offer == null) continue;
+                    String rank = offer.getString("rank", "").toLowerCase(Locale.ROOT);
+                    long expiry = oldOwned.getLong(product, 0L);
+                    if (!Set.of("verdant", "emerald", "sovereign").contains(rank) || expiry <= now) continue;
+                    if (expiry > expiries.getOrDefault(rank, 0L)) {
+                        expiries.put(rank, expiry);
+                        products.put(rank, product);
+                    }
+                }
+            }
+            if (legacy != null) {
+                for (String rankKey : legacy.getKeys(false)) {
+                    long expiry = legacy.getLong(rankKey + ".expires", 0L);
+                    String rank = rankKey.toLowerCase(Locale.ROOT);
+                    String product = legacy.getString(rankKey + ".last-product", "");
+                    if (!Set.of("verdant", "emerald", "sovereign").contains(rank) || expiry <= now) continue;
+                    if (expiry > expiries.getOrDefault(rank, 0L)) {
+                        expiries.put(rank, expiry);
+                        if (!product.isBlank()) products.put(rank, product);
+                    }
+                }
+            }
+            if (expiries.isEmpty()) continue;
             try {
                 User user = lp.getUserManager().getUser(uuid);
                 if (user == null) user = lp.getUserManager().loadUser(uuid).join();
                 boolean changed = false;
-                for (String rank : legacy.getKeys(false)) {
-                    long expires = legacy.getLong(rank + ".expires", 0L);
-                    String product = legacy.getString(rank + ".last-product", "");
-                    if (expires <= now) continue;
-                    if (!product.isBlank() && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) data.set(uuidText + ".owned.ranks." + product, expires);
-                    boolean timedNode = user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(rank) && !node.getExpiry().equals(java.time.Instant.MAX) && node.getExpiry().toEpochMilli() > now);
-                    if (!timedNode) { user.data().add(InheritanceNode.builder(rank).expiry(java.time.Duration.ofMillis(Math.max(1000L, expires - now))).build()); changed = true; }
+                for (Map.Entry<String, Long> item : expiries.entrySet()) {
+                    String rank = item.getKey();
+                    long expiry = item.getValue();
+                    String product = products.getOrDefault(rank, "");
+                    data.set(uuidText + ".temporary-ranks." + rank + ".expires", expiry);
+                    if (!product.isBlank() && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) {
+                        data.set(uuidText + ".temporary-ranks." + rank + ".last-product", product);
+                        data.set(uuidText + ".owned.ranks." + product, expiry);
+                    }
+                    boolean timedNode = user.getNodes().stream().anyMatch(node ->
+                        node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(rank)
+                            && !node.getExpiry().equals(java.time.Instant.MAX) && node.getExpiry().toEpochMilli() > now);
+                    if (!timedNode) {
+                        user.data().add(InheritanceNode.builder(rank)
+                            .expiry(java.time.Duration.ofMillis(Math.max(1000L, expiry - now))).build());
+                        changed = true;
+                    }
                 }
                 if (changed) lp.getUserManager().saveUser(user).join();
-            } catch (Exception ex) { plugin.getLogger().warning("Could not restore temporary rank for " + uuidText + ": " + ex.getMessage()); return; }
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Could not restore temporary rank for " + uuidText + ": " + ex.getMessage());
+                return;
+            }
         }
         data.set("_migration.temporary-ranks-authoritative-v2", true);
         saveData();
     }
+
     /**
      * Existing servers keep their old config.yml when the JAR is replaced. Enable the
      * newly implemented cosmetic catalog once while preserving all configured prices.
