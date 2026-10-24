@@ -449,6 +449,10 @@ final class CoinflipManager implements Listener {
                     Player creator = Bukkit.getPlayer(c.creator);
                     if (money(Bukkit.getOfflinePlayer(c.creator),c.amount,false)) continue;
                     c.status = "REFUND_PENDING"; challenges.put(c.id,c);
+                } else if (status.equals("JOINING")) {
+                    // A crash may have occurred around the opponent's withdrawal. Never auto-pay twice.
+                    challenges.put(c.id, c);
+                    plugin.getLogger().severe("Coinflip JOINING transaction requires staff reconciliation (no automatic refund/payout): " + c.id);
                 } else if (status.equals("RUNNING") && c.winner != null) {
                     // Vault has no generic idempotency key. A crash could happen immediately
                     // after a deposit but before saving PAID, so never auto-deposit on recovery.
@@ -470,18 +474,39 @@ final class CoinflipManager implements Listener {
         save();
     }
 
-    private void save() {
+    private boolean save() {
         if (data == null) data = new YamlConfiguration();
-        for (String key : new HashSet<>(data.getKeys(false))) if (!key.equals("history")) data.set(key,null);
+        for (String key : new HashSet<>(data.getKeys(false))) if (!key.equals("history")) data.set(key, null);
         for (Challenge c : challenges.values()) {
-            String k=c.id.toString(); data.set(k+".creator",c.creator.toString()); data.set(k+".creatorName",c.creatorName);
-            data.set(k+".amount",c.amount); data.set(k+".status",c.status); data.set(k+".opponentName",c.opponentName);
-            data.set(k+".pot",c.pot); data.set(k+".paid",c.paid);
-            if (c.opponent != null) data.set(k+".opponent",c.opponent.toString());
-            if (c.winner != null) data.set(k+".winner",c.winner.toString());
+            String k = c.id.toString();
+            data.set(k + ".creator", c.creator.toString());
+            data.set(k + ".creatorName", c.creatorName);
+            data.set(k + ".amount", c.amount);
+            data.set(k + ".status", c.status);
+            data.set(k + ".opponentName", c.opponentName);
+            data.set(k + ".pot", c.pot);
+            data.set(k + ".paid", c.paid);
+            if (c.opponent != null) data.set(k + ".opponent", c.opponent.toString());
+            else data.set(k + ".opponent", null);
+            if (c.winner != null) data.set(k + ".winner", c.winner.toString());
+            else data.set(k + ".winner", null);
         }
-        data.set("history",new ArrayList<>(history));
-        try { data.save(file); } catch (Exception ex) { plugin.getLogger().severe("Could not save coinflip escrow file: "+ex.getMessage()); }
+        data.set("history", new ArrayList<>(history));
+        File temp = new File(plugin.getDataFolder(), "coinflip.yml.tmp");
+        try {
+            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) throw new IOException("Could not create plugin data directory");
+            data.save(temp);
+            try {
+                java.nio.file.Files.move(temp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                java.nio.file.Files.move(temp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (Exception ex) {
+            try { java.nio.file.Files.deleteIfExists(temp.toPath()); } catch (Exception ignored) {}
+            plugin.getLogger().severe("Could not save coinflip escrow file: " + ex.getMessage());
+            return false;
+        }
     }
 
     private void showHistory(Player p) {
