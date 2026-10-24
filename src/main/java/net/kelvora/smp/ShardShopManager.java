@@ -393,6 +393,22 @@ final class ShardShopManager implements Listener {
         return section == null ? null : safeLabel(section.getString("name", id), 12);
     }
 
+    synchronized String equippedTagFormatted(Player player) {
+        String id = activeCosmetic(player.getUniqueId(), "tags");
+        if (id == null) return null;
+        ConfigurationSection section = plugin.getConfig().getConfigurationSection("shardshop.catalogue.tags." + id);
+        if (section == null) return null;
+        String name = section.getString("name", id);
+        String colour = section.getString("color", "");
+        String style = section.getString("style", "");
+        if (colour.isBlank()) {
+            String[] palette = {"&b", "&d", "&6", "&a", "&e", "&9", "&5", "&c"};
+            colour = palette[Math.floorMod(id.toLowerCase(Locale.ROOT).hashCode(), palette.length)];
+        }
+        if (section.getBoolean("bold", true) || style.equalsIgnoreCase("bold")) colour += "&l";
+        return colour + "[" + name + "]";
+    }
+
     synchronized String equippedTitle(Player player) {
         String id = activeCosmetic(player.getUniqueId(), "titles");
         ConfigurationSection section = id == null ? null : plugin.getConfig().getConfigurationSection("shardshop.catalogue.titles." + id);
@@ -520,8 +536,12 @@ final class ShardShopManager implements Listener {
         Component chatMessage = message;
         event.renderer((player, displayName, renderedMessage, viewer) -> {
             Component prefix = plugin.chatRankPrefix(player);
-            String tag = equippedTag(player);
-            if (tag != null && !tag.isBlank()) prefix = prefix.append(Component.text(" [" + tag + "]", NamedTextColor.AQUA));
+            String cosmeticRank = equippedTitle(player);
+            if (cosmeticRank != null && !cosmeticRank.isBlank()) {
+                prefix = prefix.append(LegacyComponentSerializer.legacyAmpersand().deserialize("&7[" + cosmeticRank + "] "));
+            }
+            String tag = equippedTagFormatted(player);
+            if (tag != null && !tag.isBlank()) prefix = prefix.append(LegacyComponentSerializer.legacyAmpersand().deserialize(" " + tag + " "));
             return prefix.append(Component.text(player.getName(), NamedTextColor.WHITE))
                     .append(Component.text(": ", NamedTextColor.GRAY)).append(chatMessage);
         });
