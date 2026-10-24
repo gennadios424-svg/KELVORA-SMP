@@ -1,4 +1,5 @@
 name: Build Kelvora SMP plugin
+# Smoke-test the current Paper 1.21.11 plugin, including staff tools and clean nameplates.
 
 on:
   workflow_dispatch:
