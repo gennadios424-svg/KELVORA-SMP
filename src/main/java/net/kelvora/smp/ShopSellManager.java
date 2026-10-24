@@ -481,14 +481,7 @@ final class ShopSellManager implements Listener {
         dm.lore(List.of(Component.text("Price: $" + MONEY.format(session.unitPrice) + " each", NamedTextColor.GREEN),
             Component.text("Choose Buy 1, Buy 32 or Buy 64", NamedTextColor.GRAY)));
         display.setItemMeta(dm);
-        inv.setItem(13, display);
-        ItemStack confirm = inv.getItem(31);
-        if (confirm != null) {
-            ItemMeta meta = confirm.getItemMeta();
-            meta.lore(List.of(Component.text("Pay $" + MONEY.format(session.unitPrice * session.quantity), NamedTextColor.GREEN)));
-            confirm.setItemMeta(meta);
-            inv.setItem(31, confirm);
-        }
+        inv.setItem(4, display);
     }
 
     private void confirmPurchase(Player p, QuantitySession session) {
