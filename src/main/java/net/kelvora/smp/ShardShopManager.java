@@ -309,8 +309,10 @@ final class ShardShopManager implements Listener {
                 // Colorized glowing uses scoreboard teams; teams are added to each viewer's current scoreboard.
                 ChatColor color = ChatColor.valueOf(entry.getString("color", "GREEN").toUpperCase(Locale.ROOT));
                 String glowStatePath = player.getUniqueId() + ".glow.previous-state";
-                if (!data.contains(glowStatePath)) data.set(glowStatePath, player.isGlowing());
-                saveData();
+                if (!data.contains(glowStatePath)) {
+                    data.set(glowStatePath, player.isGlowing());
+                    saveData();
+                }
                 player.setGlowing(true);
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
                     Scoreboard board = viewer.getScoreboard();
