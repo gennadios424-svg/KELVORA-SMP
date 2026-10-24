@@ -17,7 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 final class LeaderboardManager implements Listener, CommandExecutor, TabCompleter {
-    private static final String TITLE = "KELVORA | LEADERBOARDS";
+    private static final String TITLE = "KELVORA  |  LEADERBOARDS";
     private static final List<String> TYPES = List.of("kills", "deaths", "playtime", "money", "kelvoras", "rank");
     private static final DecimalFormat EXACT = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US));
     private final JavaPlugin plugin;
