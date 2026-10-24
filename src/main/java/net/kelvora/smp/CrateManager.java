@@ -177,6 +177,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 }
                 granted++;
                 p.sendMessage(Component.text("You received " + amount + " digital " + titleCase(type) + " key(s) from the server.", NamedTextColor.GOLD));
+                p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.45f, 1.05f);
                 startKeyallAnimation(p, type, amount);
             }
             if (granted > 0) Bukkit.broadcast(Component.text("🎁 " + titleCase(type) + " keys distributed to " + granted + " online player(s).", NamedTextColor.LIGHT_PURPLE));
@@ -316,7 +317,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             ItemStack icon = new ItemStack(material, 1);
             ItemMeta meta = icon.getItemMeta();
             meta.displayName(Component.text(bits[0] + " x" + bits[1], NamedTextColor.AQUA));
-            meta.lore(List.of(Component.text("Weight: " + bits[2], NamedTextColor.GRAY), Component.text("Rarity: " + bits[3], NamedTextColor.GRAY), Component.text("Click to remove this reward", NamedTextColor.RED)));
+            meta.lore(List.of(Component.text("Weight: " + bits[2], NamedTextColor.GRAY), Component.text("Rarity: " + bits[3], NamedTextColor.GRAY), Component.text("Shift + right-click to remove", NamedTextColor.RED)));
             icon.setItemMeta(meta);
             inv.setItem(i, icon);
         }
@@ -386,10 +387,28 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
     private ItemStack button(Material m,String name,List<String> lore){ItemStack i=new ItemStack(m);ItemMeta meta=i.getItemMeta();meta.displayName(color(name));meta.lore(lore.stream().map(this::color).toList());i.setItemMeta(meta);return i;}
 
-    @EventHandler public void interact(PlayerInteractEvent e) {
-        if(e.getAction()!=Action.RIGHT_CLICK_BLOCK||e.getClickedBlock()==null)return;
-        String key=locKey(e.getClickedBlock().getLocation());if(!crates.containsKey(key))return;
-        e.setCancelled(true);Player p=e.getPlayer();String type=data.getString(key+".type","common");if(type.equalsIgnoreCase("gambling"))type="crimson";openCrate(p,type);
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void interact(PlayerInteractEvent e) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK || e.getClickedBlock() == null) return;
+        String key = locKey(e.getClickedBlock().getLocation());
+        if (!crates.containsKey(key)) return;
+        e.setCancelled(true);
+        Player p = e.getPlayer();
+        String type = data.getString(key + ".type", "common");
+        if (type.equalsIgnoreCase("gambling")) type = "crimson";
+        type = validType(type);
+        if (type == null) {
+            p.sendMessage(Component.text("This crate has an invalid type. Please contact staff.", NamedTextColor.RED));
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f);
+            return;
+        }
+        openCrate(p, type);
+        if (keys(p, type) <= 0) {
+            p.sendMessage(Component.text("You need a " + titleCase(type) + " key to open this crate. Use /crate keys to check your balance.", NamedTextColor.YELLOW));
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f);
+        } else {
+            p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, .3f, 1.1f);
+        }
     }
     @EventHandler public void protectBreak(BlockBreakEvent e){if(crates.containsKey(locKey(e.getBlock().getLocation()))){e.setCancelled(true);e.getPlayer().sendMessage(Component.text("This crate is protected.",NamedTextColor.RED));}}
     @EventHandler public void protectPlace(BlockPlaceEvent e){if(crates.containsKey(locKey(e.getBlockPlaced().getLocation()))){e.setCancelled(true);}}
