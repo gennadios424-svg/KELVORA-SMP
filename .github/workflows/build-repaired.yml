@@ -19,7 +19,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: kelvora-smoke-${{ github.ref }}
+  group: kelvora-build-publish-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
