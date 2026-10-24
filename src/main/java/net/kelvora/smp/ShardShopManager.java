@@ -386,7 +386,7 @@ final class ShardShopManager implements Listener {
                 if (node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(group)
                         && !node.getExpiry().equals(java.time.Instant.MAX)) rollback.data().remove(node);
             }
-            oldNodes.forEach(node -> rollback.data().add(node));
+            for (Node node : oldNodes) rollback.data().add(node);
             lp.getUserManager().saveUser(rollback).join();
         } catch (Exception ex) {
             plugin.getLogger().severe("Could not restore previous temporary rank for " + uuid + ": " + ex.getMessage());
