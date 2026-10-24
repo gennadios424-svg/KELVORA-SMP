@@ -216,34 +216,77 @@ final class CoinflipManager implements Listener {
     }
 
     private void join(Player p, UUID id) {
-        if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot join a coinflip during combat.", NamedTextColor.RED)); return; }
+        if (combatManager.isInCombat(p)) { fail(p, "You cannot join a coinflip during combat."); return; }
         Challenge c = challenges.get(id);
-        if (c == null || !c.status.equals("OPEN")) { p.sendMessage(Component.text("That coinflip is no longer available.", NamedTextColor.RED)); openMain(p); return; }
-        if (c.creator.equals(p.getUniqueId())) { p.sendMessage(Component.text("You cannot join your own coinflip.", NamedTextColor.RED)); openMain(p); return; }
-        if (p.getWorld().getName().isBlank()) return;
-        Player creator = Bukkit.getPlayer(c.creator);
-        if (creator == null) {
-            // The creator's escrow is still owed even if their challenge owner disconnected.
-            if (money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) {
-                challenges.remove(c.id);
-            } else {
+        if (c == null || !c.status.equals("OPEN")) { fail(p, "That coinflip is no longer available."); openMain(p); return; }
+        if (c.creator.equals(p.getUniqueId())) { fail(p, "You cannot join your own coinflip."); openMain(p); return; }
+        if (!joining.add(id)) { fail(p, "That coinflip is already being joined."); return; }
+        try {
+            Player creator = Bukkit.getPlayer(c.creator);
+            if (creator == null) {
                 c.status = "REFUND_PENDING";
                 challenges.put(c.id, c);
+                if (!save()) { fail(p, "Creator disconnected and the refund record could not be saved; staff review is required."); return; }
+                if (money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) {
+                    challenges.remove(c.id);
+                    save();
+                } else {
+                    plugin.getLogger().severe("Coinflip creator refund requires staff review for challenge " + c.id);
+                }
+                fail(p, "Creator disconnected; the challenge was cancelled.");
+                return;
             }
-            save();
-            p.sendMessage(Component.text("Creator disconnected; the challenge was cancelled.", NamedTextColor.YELLOW));
-            return;
+            if (combatManager.isInCombat(creator)) { fail(p, "The creator is in combat; you cannot join right now."); return; }
+            if (balance(p) + 0.000001 < c.amount) { fail(p, "You do not have enough Money."); return; }
+
+            // Persist a JOINING reservation before the opponent's balance changes.
+            c.status = "JOINING";
+            c.opponent = p.getUniqueId();
+            c.opponentName = p.getName();
+            c.pot = c.amount * 2;
+            c.winner = null;
+            if (!save()) {
+                c.status = "OPEN"; c.opponent = null; c.opponentName = ""; c.pot = 0;
+                challenges.put(c.id, c);
+                fail(p, "Could not reserve this challenge safely. No wager was taken.");
+                return;
+            }
+            if (!money(p, c.amount, true)) {
+                c.status = "OPEN"; c.opponent = null; c.opponentName = ""; c.pot = 0;
+                challenges.put(c.id, c);
+                save();
+                fail(p, "Your wager could not be reserved.");
+                return;
+            }
+
+            c.status = "RUNNING";
+            c.winner = ThreadLocalRandom.current().nextBoolean() ? c.creator : p.getUniqueId();
+            challenges.put(c.id, c);
+            if (!save()) {
+                // Do not start the animation unless the locked result is persisted.
+                boolean opponentRefunded = money(p, c.amount, false);
+                boolean creatorRefunded = money(creator, c.amount, false);
+                if (opponentRefunded && creatorRefunded) {
+                    challenges.remove(c.id);
+                    save();
+                    fail(p, "The match could not be saved. Both wagers were returned.");
+                    creator.sendMessage(Component.text("The match could not be saved. Your wager was returned.", NamedTextColor.YELLOW));
+                } else {
+                    c.status = "PAYOUT_PENDING";
+                    challenges.put(c.id, c);
+                    save();
+                    plugin.getLogger().severe("Coinflip match reservation needs staff reconciliation: " + c.id + "; opponentRefunded=" + opponentRefunded + "; creatorRefunded=" + creatorRefunded);
+                    fail(p, "The match could not be saved safely. Staff must reconcile the wagers; do not retry.");
+                    creator.sendMessage(Component.text("Coinflip requires staff reconciliation. Do not create another match; contact staff.", NamedTextColor.RED));
+                }
+                return;
+            }
+            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
+            creator.playSound(creator.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
+            animate(c, creator, p, 0);
+        } finally {
+            joining.remove(id);
         }
-        if (balance(p) + 0.000001 < c.amount) { p.sendMessage(Component.text("You do not have enough Money.", NamedTextColor.RED)); return; }
-        if (!money(p, c.amount, true)) { p.sendMessage(Component.text("Your wager could not be reserved.", NamedTextColor.RED)); p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f); return; }
-        // Lock and persist the match and fair server-side result before starting any animation.
-        c.status = "RUNNING"; c.opponent = p.getUniqueId(); c.opponentName = p.getName();
-        c.winner = ThreadLocalRandom.current().nextBoolean() ? c.creator : p.getUniqueId();
-        c.pot = c.amount * 2;
-        save();
-        p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
-        creator.playSound(creator.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
-        animate(c, creator, p, 0);
     }
 
     private void animate(Challenge c, Player a, Player b, int step) {
