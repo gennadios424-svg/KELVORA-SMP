@@ -118,7 +118,6 @@ final class ShopSellManager implements Listener {
         if (page > 0) put(inv, controls + 2, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
         put(inv, controls + 3, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
         if (page + 1 < pages) put(inv, controls + 4, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
-        put(inv, controls + 5, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
         p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.25f);
@@ -266,8 +265,7 @@ final class ShopSellManager implements Listener {
                     session.quantity = qty;
                     confirmPurchase(p, session);
                 }
-            } else if (action.equals("confirm")) confirmPurchase(p, session);
-            else if (action.equals("back")) {
+            } else if (action.equals("back")) {
                 quantitySessions.remove(p.getUniqueId());
                 openCategory(p, session.category, session.page);
             } else if (action.equals("cancel")) {
@@ -462,16 +460,15 @@ final class ShopSellManager implements Listener {
     }
 
     private void openQuantity(Player p, QuantitySession session) {
-        Inventory inv = Bukkit.createInventory(null, 45, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
         activeInventories.add(inv);
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         refreshQuantityView(p, inv, session);
-        put(inv, 19, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
-        put(inv, 21, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
-        put(inv, 23, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
-        put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
-        put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
-        put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
+        put(inv, 11, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Price: $" + MONEY.format(session.unitPrice));
+        put(inv, 13, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
+        put(inv, 15, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
+        put(inv, 18, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
+        put(inv, 26, Material.BARRIER, "Cancel", "cancel", "Close without buying");
         p.openInventory(inv);
         p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.25f, 1.2f);
     }
@@ -481,10 +478,8 @@ final class ShopSellManager implements Listener {
         display.setAmount(1);
         ItemMeta dm = display.getItemMeta();
         dm.displayName(Component.text(session.name, NamedTextColor.WHITE));
-        dm.lore(List.of(Component.text("Unit price: $" + MONEY.format(session.unitPrice), NamedTextColor.GREEN),
-            Component.text("Selected quantity: " + session.quantity, NamedTextColor.AQUA),
-            Component.text("Total: $" + MONEY.format(session.unitPrice * session.quantity), NamedTextColor.GOLD),
-            Component.text("Current Money: $" + MONEY.format(balance(p)), NamedTextColor.GRAY)));
+        dm.lore(List.of(Component.text("Price: $" + MONEY.format(session.unitPrice) + " each", NamedTextColor.GREEN),
+            Component.text("Choose Buy 1, Buy 32 or Buy 64", NamedTextColor.GRAY)));
         display.setItemMeta(dm);
         inv.setItem(13, display);
         ItemStack confirm = inv.getItem(31);
