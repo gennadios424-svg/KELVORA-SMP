@@ -29,6 +29,7 @@ ranks:
   booster: { label: "Booster", color: "&5", description: "Discord booster supporter role" }
   sprout: { label: "Sprout", color: "&d", description: "Starting rank · New players" }
   member: { label: "Member", color: "&7", description: "Default rank · Every new player" }
+  bootstrap-groups: true
   helper: { label: "Helper", color: "&a", description: "Answers questions and helps players" }
   moderator: { label: "Moderator", color: "&9", description: "Handles chat and rule enforcement" }
   manager: { label: "Manager", color: "&b", description: "Coordinates staff operations" }
@@ -292,9 +293,7 @@ homes:
     owner: 20
 
 
-# Phase 22: Rank progression. Groups are created if missing; existing permissions are preserved.
-ranks:
-  bootstrap-groups: true
+# Phase 22: Rank progression. Group creation remains enabled; rank labels are defined above.
 
 rank-up:
   # Set each cost to a positive Money amount before enabling rank-ups. -1 disables that step.
