@@ -117,21 +117,20 @@ final class TpaManager implements Listener {
         target.sendMessage(Component.text("Teleport request accepted.", NamedTextColor.GREEN));
         traveler.playSound(traveler.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .4f, 1.2f);
         target.playSound(target.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .3f, 1.15f);
-        Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
+        final BukkitTask[] timer = new BukkitTask[1];
+        timer[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             int remaining = seconds;
-            BukkitTask task;
             @Override public void run() {
-                if (task == null) task = Bukkit.getScheduler().runTaskLater(plugin, () -> {}, 1L);
-                if (!traveler.isOnline() || !destinationPlayer.isOnline()) { task.cancel(); return; }
+                if (!traveler.isOnline() || !destinationPlayer.isOnline()) { timer[0].cancel(); return; }
                 if (traveler.getLocation().getBlockX() != start.getBlockX() || traveler.getLocation().getBlockY() != start.getBlockY() || traveler.getLocation().getBlockZ() != start.getBlockZ()) {
-                    task.cancel(); fail(traveler, "Teleport cancelled because you moved."); return;
+                    timer[0].cancel(); fail(traveler, "Teleport cancelled because you moved."); return;
                 }
                 if (combat != null && (combat.isInCombat(traveler) || combat.isInCombat(destinationPlayer))) {
-                    task.cancel(); fail(traveler, "Teleport cancelled because combat started."); return;
+                    timer[0].cancel(); fail(traveler, "Teleport cancelled because combat started."); return;
                 }
                 if (remaining <= 0) {
                     Location finalDestination = safeLocation(destinationPlayer);
-                    task.cancel();
+                    timer[0].cancel();
                     if (finalDestination == null) { fail(traveler, "Teleport cancelled: destination is no longer safe."); return; }
                     traveler.teleportAsync(finalDestination).thenAccept(ok -> Bukkit.getScheduler().runTask(plugin, () -> {
                         if (ok) { traveler.playSound(traveler.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, .45f, 1.1f); traveler.sendMessage(Component.text("Teleport complete.", NamedTextColor.GREEN)); }
