@@ -106,6 +106,12 @@ commands:
   shardshopreload:
     description: Reload cosmetic configuration without resetting ownership
     usage: /shardshopreload
+  glow:
+    description: Open and manage owned glow cosmetics
+    usage: /glow
+  tags:
+    description: Open and manage owned tag cosmetics
+    usage: /tags
   rank:
     description: Open the Kelvora rank guide or administer progression ranks
     usage: /rank [set <player> <rank>]
