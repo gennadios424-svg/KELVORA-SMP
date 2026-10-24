@@ -33,6 +33,7 @@ ranks:
   admin: { label: "Admin", color: "&5", description: "Manages server operations" }
   owner: { label: "Owner", color: "&c", description: "Server leadership" }
   creator: { label: "Creator", color: "&d", description: "Content creators for Kelvora" }
+  media: { label: "Media", color: "&d", description: "Approved streamers and content creators" }
   # Compatibility aliases for existing groups
   mod: { label: "Moderator", color: "&9" }
   vip: { label: "Verdant", color: "&a" }
