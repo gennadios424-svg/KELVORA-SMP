@@ -1,9 +1,11 @@
 package net.kelvora.smp;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -41,6 +43,7 @@ final class CoinflipManager implements Listener {
     private final Set<Inventory> protectedGuis = Collections.newSetFromMap(new WeakHashMap<>());
     private final Map<UUID, Long> chatCreate = new HashMap<>();
     private final List<String> history = new ArrayList<>();
+    private final Set<UUID> joining = ConcurrentHashMap.newKeySet();
 
     CoinflipManager(JavaPlugin plugin, BountyCombatManager combatManager) {
         this.plugin = plugin;
@@ -120,38 +123,52 @@ final class CoinflipManager implements Listener {
     }
 
     private void create(Player p, double amount) {
-        if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot create a coinflip during combat.", NamedTextColor.RED)); return; }
+        if (combatManager.isInCombat(p)) { fail(p, "You cannot create a coinflip during combat."); return; }
         if (economy == null) connectEconomy();
-        if (economy == null) { p.sendMessage(Component.text("Money is unavailable right now. Try again later.", NamedTextColor.RED)); return; }
+        if (economy == null) { fail(p, "Money is unavailable right now. Try again later."); return; }
         if (!Double.isFinite(amount) || amount < 1 || amount > 1_000_000_000_000d || Math.abs(amount * 100 - Math.rint(amount * 100)) > 0.000001) {
-            p.sendMessage(Component.text("Wager must be between $1 and $1,000,000,000,000 (max 2 decimals).", NamedTextColor.RED)); return;
+            fail(p, "Wager must be between $1 and $1,000,000,000,000 (max 2 decimals)."); return;
         }
         if (challenges.values().stream().anyMatch(c -> c.creator.equals(p.getUniqueId()) && c.status.equals("OPEN"))) {
-            p.sendMessage(Component.text("You already have an open coinflip. Use /coinflip cancel.", NamedTextColor.RED)); return;
+            fail(p, "You already have an open coinflip. Use /coinflip cancel."); return;
         }
-        if (balance(p) + 0.000001 < amount) { p.sendMessage(Component.text("You do not have enough Money.", NamedTextColor.RED)); return; }
-        if (!money(p, amount, true)) { p.sendMessage(Component.text("Your wager could not be reserved; no challenge was created.", NamedTextColor.RED)); return; }
-        Challenge c = new Challenge(UUID.randomUUID(), p.getUniqueId(), p.getName(), amount);
-        challenges.put(c.id, c);
-        save();
+        if (balance(p) + 0.000001 < amount) { fail(p, "You do not have enough Money."); return; }
+        if (!money(p, amount, true)) { fail(p, "Your wager could not be reserved; no challenge was created."); return; }
+        Challenge challenge = new Challenge(UUID.randomUUID(), p.getUniqueId(), p.getName(), amount);
+        challenges.put(challenge.id, challenge);
+        if (!save()) {
+            challenges.remove(challenge.id);
+            if (!money(p, amount, false)) {
+                challenge.status = "REFUND_PENDING";
+                challenges.put(challenge.id, challenge);
+                save();
+                plugin.getLogger().severe("Coinflip creation refund needs staff review for " + p.getUniqueId() + " amount " + amount);
+                fail(p, "The challenge could not be saved and your refund needs staff review.");
+            } else fail(p, "The challenge could not be saved. Your wager was returned.");
+            return;
+        }
         p.sendMessage(Component.text("Coinflip created for $" + fmt(amount) + ". Your wager is escrowed. Waiting for an opponent.", NamedTextColor.GREEN));
+        p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.35f, 1.15f);
         for (Player online : Bukkit.getOnlinePlayers()) if (!online.equals(p)) online.sendMessage(Component.text(p.getName() + " opened a $" + fmt(amount) + " coinflip. Use /coinflip to join.", NamedTextColor.GOLD));
         openMain(p);
     }
 
     private void cancel(Player p) {
-        if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot cancel a coinflip during combat.", NamedTextColor.RED)); return; }
-        Challenge found = challenges.values().stream().filter(c -> c.creator.equals(p.getUniqueId()) && c.status.equals("OPEN")).findFirst().orElse(null);
-        if (found == null) { p.sendMessage(Component.text("You have no unjoined coinflip to cancel.", NamedTextColor.RED)); return; }
-        challenges.remove(found.id);
-        save();
+        if (combatManager.isInCombat(p)) { fail(p, "You cannot cancel a coinflip during combat."); return; }
+        Challenge found = challenges.values().stream().filter(c -> c.status.equals("OPEN") && c.creator.equals(p.getUniqueId())).findFirst().orElse(null);
+        if (found == null) { fail(p, "You have no unjoined coinflip to cancel."); return; }
+        found.status = "REFUND_PENDING";
+        challenges.put(found.id, found);
+        if (!save()) { found.status = "OPEN"; challenges.put(found.id, found); fail(p, "The cancellation could not be saved safely; your challenge remains open."); return; }
         if (!money(p, found.amount, false)) {
-            // Keep a durable refund claim so the escrow is never silently discarded.
-            found.status = "REFUND_PENDING"; challenges.put(found.id, found); save();
-            p.sendMessage(Component.text("Refund is pending because Money is temporarily unavailable. Contact staff if it does not resolve.", NamedTextColor.RED));
+            plugin.getLogger().severe("Coinflip refund pending for " + p.getUniqueId() + " amount " + found.amount + "; escrow record preserved.");
+            fail(p, "Refund is pending because Money is temporarily unavailable. Contact staff if it does not resolve.");
             return;
         }
+        challenges.remove(found.id);
+        save();
         p.sendMessage(Component.text("Coinflip cancelled. Your $" + fmt(found.amount) + " wager was returned.", NamedTextColor.YELLOW));
+        p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .25f, .9f);
         openMain(p);
     }
 
@@ -201,32 +218,77 @@ final class CoinflipManager implements Listener {
     }
 
     private void join(Player p, UUID id) {
-        if (combatManager.isInCombat(p)) { p.sendMessage(Component.text("You cannot join a coinflip during combat.", NamedTextColor.RED)); return; }
+        if (combatManager.isInCombat(p)) { fail(p, "You cannot join a coinflip during combat."); return; }
         Challenge c = challenges.get(id);
-        if (c == null || !c.status.equals("OPEN")) { p.sendMessage(Component.text("That coinflip is no longer available.", NamedTextColor.RED)); openMain(p); return; }
-        if (c.creator.equals(p.getUniqueId())) { p.sendMessage(Component.text("You cannot join your own coinflip.", NamedTextColor.RED)); openMain(p); return; }
-        if (p.getWorld().getName().isBlank()) return;
-        Player creator = Bukkit.getPlayer(c.creator);
-        if (creator == null) {
-            // The creator's escrow is still owed even if their challenge owner disconnected.
-            if (money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) {
-                challenges.remove(c.id);
-            } else {
+        if (c == null || !c.status.equals("OPEN")) { fail(p, "That coinflip is no longer available."); openMain(p); return; }
+        if (c.creator.equals(p.getUniqueId())) { fail(p, "You cannot join your own coinflip."); openMain(p); return; }
+        if (!joining.add(id)) { fail(p, "That coinflip is already being joined."); return; }
+        try {
+            Player creator = Bukkit.getPlayer(c.creator);
+            if (creator == null) {
                 c.status = "REFUND_PENDING";
                 challenges.put(c.id, c);
+                if (!save()) { fail(p, "Creator disconnected and the refund record could not be saved; staff review is required."); return; }
+                if (money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) {
+                    challenges.remove(c.id);
+                    save();
+                } else {
+                    plugin.getLogger().severe("Coinflip creator refund requires staff review for challenge " + c.id);
+                }
+                fail(p, "Creator disconnected; the challenge was cancelled.");
+                return;
             }
-            save();
-            p.sendMessage(Component.text("Creator disconnected; the challenge was cancelled.", NamedTextColor.YELLOW));
-            return;
+            if (combatManager.isInCombat(creator)) { fail(p, "The creator is in combat; you cannot join right now."); return; }
+            if (balance(p) + 0.000001 < c.amount) { fail(p, "You do not have enough Money."); return; }
+
+            // Persist a JOINING reservation before the opponent's balance changes.
+            c.status = "JOINING";
+            c.opponent = p.getUniqueId();
+            c.opponentName = p.getName();
+            c.pot = c.amount * 2;
+            c.winner = null;
+            if (!save()) {
+                c.status = "OPEN"; c.opponent = null; c.opponentName = ""; c.pot = 0;
+                challenges.put(c.id, c);
+                fail(p, "Could not reserve this challenge safely. No wager was taken.");
+                return;
+            }
+            if (!money(p, c.amount, true)) {
+                c.status = "OPEN"; c.opponent = null; c.opponentName = ""; c.pot = 0;
+                challenges.put(c.id, c);
+                save();
+                fail(p, "Your wager could not be reserved.");
+                return;
+            }
+
+            c.status = "RUNNING";
+            c.winner = ThreadLocalRandom.current().nextBoolean() ? c.creator : p.getUniqueId();
+            challenges.put(c.id, c);
+            if (!save()) {
+                // Do not start the animation unless the locked result is persisted.
+                boolean opponentRefunded = money(p, c.amount, false);
+                boolean creatorRefunded = money(creator, c.amount, false);
+                if (opponentRefunded && creatorRefunded) {
+                    challenges.remove(c.id);
+                    save();
+                    fail(p, "The match could not be saved. Both wagers were returned.");
+                    creator.sendMessage(Component.text("The match could not be saved. Your wager was returned.", NamedTextColor.YELLOW));
+                } else {
+                    c.status = "PAYOUT_PENDING";
+                    challenges.put(c.id, c);
+                    save();
+                    plugin.getLogger().severe("Coinflip match reservation needs staff reconciliation: " + c.id + "; opponentRefunded=" + opponentRefunded + "; creatorRefunded=" + creatorRefunded);
+                    fail(p, "The match could not be saved safely. Staff must reconcile the wagers; do not retry.");
+                    creator.sendMessage(Component.text("Coinflip requires staff reconciliation. Do not create another match; contact staff.", NamedTextColor.RED));
+                }
+                return;
+            }
+            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
+            creator.playSound(creator.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
+            animate(c, creator, p, 0);
+        } finally {
+            joining.remove(id);
         }
-        if (balance(p) + 0.000001 < c.amount) { p.sendMessage(Component.text("You do not have enough Money.", NamedTextColor.RED)); return; }
-        if (!money(p, c.amount, true)) { p.sendMessage(Component.text("Your wager could not be reserved.", NamedTextColor.RED)); return; }
-        // Lock and persist the match and fair server-side result before starting any animation.
-        c.status = "RUNNING"; c.opponent = p.getUniqueId(); c.opponentName = p.getName();
-        c.winner = ThreadLocalRandom.current().nextBoolean() ? c.creator : p.getUniqueId();
-        c.pot = c.amount * 2;
-        save();
-        animate(c, creator, p, 0);
     }
 
     private void animate(Challenge c, Player a, Player b, int step) {
@@ -310,6 +372,7 @@ final class CoinflipManager implements Listener {
         // shift-click, number-key, offhand, double-click, creative and bottom-inventory clicks too.
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != top) return;
+        p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.1f);
         String title = e.getView().getTitle();
         int slot = e.getRawSlot();
         if (title.equals(MAIN)) {
@@ -360,13 +423,16 @@ final class CoinflipManager implements Listener {
         if (c != null) {
             c.status = "REFUND_PENDING";
             challenges.put(c.id, c);
-            save();
-            // Vault accepts OfflinePlayer; don't depend on Bukkit.getPlayer after quit (it is normally null).
+            if (!save()) {
+                plugin.getLogger().severe("Coinflip refund record could not be persisted for " + id + "; no refund was issued.");
+                return;
+            }
+            // Persist the pending state before touching Money; an ambiguous provider response is never retried automatically.
             if (money(Bukkit.getOfflinePlayer(id), c.amount, false)) {
                 challenges.remove(c.id);
                 save();
             } else {
-                plugin.getLogger().severe("Coinflip refund pending for " + id + " amount " + c.amount + "; escrow record preserved.");
+                plugin.getLogger().severe("Coinflip refund pending for " + id + " amount " + c.amount + "; escrow record preserved for staff review.");
             }
         }
     }
@@ -374,53 +440,95 @@ final class CoinflipManager implements Listener {
     private void load() {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
         data = YamlConfiguration.loadConfiguration(file);
+        List<Challenge> startupRefunds = new ArrayList<>();
         for (String key : data.getKeys(false)) {
             if (key.equals("history")) continue;
             try {
-                UUID id = UUID.fromString(key); String status = data.getString(key+".status","OPEN");
-                Challenge c = new Challenge(id, UUID.fromString(data.getString(key+".creator")), data.getString(key+".creatorName","Player"), data.getDouble(key+".amount"));
-                c.status = status; c.opponentName = data.getString(key+".opponentName",""); c.pot = data.getDouble(key+".pot");
-                if (data.getString(key+".opponent") != null) c.opponent = UUID.fromString(data.getString(key+".opponent"));
-                if (data.getString(key+".winner") != null) c.winner = UUID.fromString(data.getString(key+".winner"));
-                c.paid = data.getBoolean(key+".paid",false);
+                UUID id = UUID.fromString(key);
+                String status = data.getString(key + ".status", "OPEN");
+                Challenge c = new Challenge(id, UUID.fromString(data.getString(key + ".creator")),
+                    data.getString(key + ".creatorName", "Player"), data.getDouble(key + ".amount"));
+                c.status = status;
+                c.opponentName = data.getString(key + ".opponentName", "");
+                c.pot = data.getDouble(key + ".pot");
+                if (data.getString(key + ".opponent") != null) c.opponent = UUID.fromString(data.getString(key + ".opponent"));
+                if (data.getString(key + ".winner") != null) c.winner = UUID.fromString(data.getString(key + ".winner"));
+                c.paid = data.getBoolean(key + ".paid", false);
                 if (status.equals("OPEN")) {
-                    // An open challenge from a prior server session has no valid live opponent; refund escrow on startup.
-                    Player creator = Bukkit.getPlayer(c.creator);
-                    if (money(Bukkit.getOfflinePlayer(c.creator),c.amount,false)) continue;
-                    c.status = "REFUND_PENDING"; challenges.put(c.id,c);
+                    // Convert to a durable pending state before refunding an abandoned creator escrow.
+                    c.status = "REFUND_PENDING";
+                    challenges.put(c.id, c);
+                    startupRefunds.add(c);
+                } else if (status.equals("JOINING")) {
+                    challenges.put(c.id, c);
+                    plugin.getLogger().severe("Coinflip JOINING transaction requires staff reconciliation (no automatic refund/payout): " + c.id);
                 } else if (status.equals("RUNNING") && c.winner != null) {
-                    // Vault has no generic idempotency key. A crash could happen immediately
-                    // after a deposit but before saving PAID, so never auto-deposit on recovery.
                     c.status = "PAYOUT_PENDING";
                     challenges.put(c.id, c);
                     plugin.getLogger().severe("Interrupted coinflip payout preserved for staff reconciliation (no automatic retry): " + c.id);
                 } else if (status.equals("REFUND_PENDING")) {
-                    // The previous provider response may have been lost after accepting the refund.
-                    // Keep a durable claim for staff review rather than risk issuing the refund twice.
                     challenges.put(c.id, c);
                     plugin.getLogger().severe("Coinflip refund preserved for staff reconciliation (no automatic retry): " + c.id);
                 } else if (status.equals("PAYOUT_PENDING")) {
-                    // Do not retry automatically: generic Vault providers cannot guarantee exactly-once deposits.
                     challenges.put(c.id, c);
                 }
-            } catch (Exception ex) { plugin.getLogger().warning("Skipping malformed coinflip record " + key); }
+            } catch (Exception ex) {
+                plugin.getLogger().warning("Skipping malformed coinflip record " + key);
+            }
         }
         history.addAll(data.getStringList("history"));
-        save();
+        if (!save()) {
+            plugin.getLogger().severe("Coinflip startup recovery could not persist escrow state; no startup refunds were issued.");
+            return;
+        }
+        for (Challenge c : startupRefunds) {
+            if (money(Bukkit.getOfflinePlayer(c.creator), c.amount, false)) {
+                challenges.remove(c.id);
+                if (!save()) plugin.getLogger().severe("Coinflip refund was sent but record cleanup failed; no automatic retry will occur: " + c.id);
+            } else {
+                plugin.getLogger().severe("Coinflip startup refund requires staff review for challenge " + c.id);
+            }
+        }
     }
 
-    private void save() {
+    private boolean save() {
         if (data == null) data = new YamlConfiguration();
-        for (String key : new HashSet<>(data.getKeys(false))) if (!key.equals("history")) data.set(key,null);
+        for (String key : new HashSet<>(data.getKeys(false))) if (!key.equals("history")) data.set(key, null);
         for (Challenge c : challenges.values()) {
-            String k=c.id.toString(); data.set(k+".creator",c.creator.toString()); data.set(k+".creatorName",c.creatorName);
-            data.set(k+".amount",c.amount); data.set(k+".status",c.status); data.set(k+".opponentName",c.opponentName);
-            data.set(k+".pot",c.pot); data.set(k+".paid",c.paid);
-            if (c.opponent != null) data.set(k+".opponent",c.opponent.toString());
-            if (c.winner != null) data.set(k+".winner",c.winner.toString());
+            String k = c.id.toString();
+            data.set(k + ".creator", c.creator.toString());
+            data.set(k + ".creatorName", c.creatorName);
+            data.set(k + ".amount", c.amount);
+            data.set(k + ".status", c.status);
+            data.set(k + ".opponentName", c.opponentName);
+            data.set(k + ".pot", c.pot);
+            data.set(k + ".paid", c.paid);
+            if (c.opponent != null) data.set(k + ".opponent", c.opponent.toString());
+            else data.set(k + ".opponent", null);
+            if (c.winner != null) data.set(k + ".winner", c.winner.toString());
+            else data.set(k + ".winner", null);
         }
-        data.set("history",new ArrayList<>(history));
-        try { data.save(file); } catch (Exception ex) { plugin.getLogger().severe("Could not save coinflip escrow file: "+ex.getMessage()); }
+        data.set("history", new ArrayList<>(history));
+        File temp = new File(plugin.getDataFolder(), "coinflip.yml.tmp");
+        try {
+            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) throw new IOException("Could not create plugin data directory");
+            data.save(temp);
+            try {
+                java.nio.file.Files.move(temp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                java.nio.file.Files.move(temp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (Exception ex) {
+            try { java.nio.file.Files.deleteIfExists(temp.toPath()); } catch (Exception ignored) {}
+            plugin.getLogger().severe("Could not save coinflip escrow file: " + ex.getMessage());
+            return false;
+        }
+    }
+
+    private void fail(Player player, String message) {
+        player.sendMessage(Component.text(message, NamedTextColor.RED));
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f);
     }
 
     private void showHistory(Player p) {

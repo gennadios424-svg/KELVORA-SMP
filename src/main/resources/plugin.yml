@@ -61,6 +61,32 @@ commands:
     description: Browse configured item values
     usage: /worth [search]
     aliases: [itemworth]
+  meta:
+    description: Showcase configured values for Kelp, Pink Petals and Sea Pickle
+    usage: /meta
+  live:
+    description: Mark a Media member live with a Twitch or YouTube link
+    usage: /live <link|off>
+  tpa:
+    description: Request to teleport to another player
+    usage: /tpa <player>
+    permission: kelvora.tpa
+  tpahere:
+    description: Request another player to teleport to you
+    usage: /tpahere <player>
+    permission: kelvora.tpa
+  tpaccept:
+    description: Accept a teleport request
+    usage: /tpaccept
+    permission: kelvora.tpa
+  tpdeny:
+    description: Deny a teleport request
+    usage: /tpdeny
+    permission: kelvora.tpa
+  tpacancel:
+    description: Cancel a teleport request you sent
+    usage: /tpacancel
+    permission: kelvora.tpa
   ah:
     description: Open and manage the Kelvora Auction House
     usage: /ah [sell <price>|listings|cancel <id>|help]
@@ -122,6 +148,12 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 permissions:
+  kelvora.media:
+    description: Use /live as an approved Media member
+    default: false
+  kelvora.tpa:
+    description: Use player teleport requests
+    default: true
   kelvora.crate.admin:
     description: Administer physical crates and digital keys
     default: op

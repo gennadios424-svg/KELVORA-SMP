@@ -20,12 +20,28 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
     private static final String TITLE = "KELVORA | LEADERBOARDS";
     private static final List<String> TYPES = List.of("kills", "deaths", "playtime", "money", "kelvoras", "rank");
     private static final DecimalFormat EXACT = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US));
+    private static volatile LeaderboardManager instance;
     private final JavaPlugin plugin;
     private final KelvorasManager kelvoras;
     private final Map<UUID, String> selected = new HashMap<>();
     private final Map<UUID, Integer> pages = new HashMap<>();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
 
-    LeaderboardManager(JavaPlugin plugin, KelvorasManager kelvoras) { this.plugin = plugin; this.kelvoras = kelvoras; }
+    LeaderboardManager(JavaPlugin plugin, KelvorasManager kelvoras) { this.plugin = plugin; this.kelvoras = kelvoras; instance = this; }
+
+    static void refreshLiveStatuses() { if (instance != null) instance.refreshOpenViews(); }
+    private void refreshOpenViews() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            Inventory top = player.getOpenInventory().getTopInventory();
+            if (!activeInventories.contains(top)) continue;
+            if (TITLE.equals(player.getOpenInventory().getTitle())) {
+                openMenu(player);
+                continue;
+            }
+            String type = selected.get(player.getUniqueId());
+            if (type != null) openBoard(player, type, pages.getOrDefault(player.getUniqueId(), 0));
+        }
+    }
 
     void register() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -47,6 +63,7 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
 
     private void openMenu(Player p) {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         Material[] icons = {Material.IRON_SWORD, Material.SKELETON_SKULL, Material.CLOCK, Material.GOLD_INGOT, Material.AMETHYST_SHARD, Material.NETHER_STAR};
         for (int i=0;i<TYPES.size();i++) {
             String type=TYPES.get(i);
@@ -64,13 +81,26 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         page = Math.min(page, maxPage);
         selected.put(p.getUniqueId(), type); pages.put(p.getUniqueId(), page);
         Inventory inv=Bukkit.createInventory(null,54,Component.text(TITLE+" | "+label(type),NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
+        if (entries.isEmpty()) {
+            ItemStack empty = new ItemStack(Material.PAPER);
+            ItemMeta em = empty.getItemMeta();
+            em.displayName(Component.text("No saved statistics yet", NamedTextColor.GRAY));
+            em.lore(List.of(Component.text("This leaderboard has no eligible entries.", NamedTextColor.DARK_GRAY)));
+            empty.setItemMeta(em);
+            inv.setItem(22, empty);
+        }
         for(int i=0;i<10;i++) {
             int index=page*10+i;
             if(index>=entries.size()) break;
             Entry entry=entries.get(index);
             ItemStack item=new ItemStack(index==0?Material.GOLD_INGOT:index==1?Material.IRON_INGOT:index==2?Material.COPPER_INGOT:Material.PAPER);
             ItemMeta meta=item.getItemMeta();
-            meta.displayName(Component.text("#"+(index+1)+" "+entry.name, index==0?NamedTextColor.GOLD:index==1?NamedTextColor.WHITE:index==2?NamedTextColor.RED:NamedTextColor.AQUA));
+            Component displayName = Component.text("#"+(index+1)+" "+entry.name, index==0?NamedTextColor.GOLD:index==1?NamedTextColor.WHITE:index==2?NamedTextColor.RED:NamedTextColor.AQUA);
+            String liveUrl = LiveManager.link(entry.id);
+            if (liveUrl != null) displayName = displayName.append(Component.text("  ● LIVE", NamedTextColor.RED)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(liveUrl)));
+            meta.displayName(displayName);
             meta.lore(List.of(Component.text(entry.display,NamedTextColor.GREEN),Component.text("Position "+(index+1),NamedTextColor.GRAY)));
             item.setItemMeta(meta); inv.setItem(10+i,item);
         }
@@ -96,7 +126,10 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
                 case "rank" -> { String rank=rank(p); value=rankScore(rank); shown=rank; }
                 default -> { value=0; shown="0"; }
             }
-            if(!Double.isFinite(value)) value=0;
+            if (!Double.isFinite(value)) {
+                if (type.equals("money")) continue;
+                value = 0;
+            }
             out.add(new Entry(p.getUniqueId(),name,value,shown));
         }
         out.sort(Comparator.comparingDouble(Entry::value).reversed().thenComparing(Entry::name,String.CASE_INSENSITIVE_ORDER).thenComparing(e->e.id.toString()));
@@ -139,10 +172,11 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
     private NamedTextColor color(String type){return switch(type){case "kills"->NamedTextColor.RED;case "deaths"->NamedTextColor.DARK_RED;case "playtime"->NamedTextColor.AQUA;case "money"->NamedTextColor.GOLD;case "kelvoras"->NamedTextColor.LIGHT_PURPLE;default->NamedTextColor.GREEN;};}
 
     @EventHandler public void click(InventoryClickEvent e) {
-        if(e.getView().getTitle()==null||!e.getView().getTitle().startsWith(TITLE))return;
+        if(!activeInventories.contains(e.getView().getTopInventory()))return;
         e.setCancelled(true);
         if(!(e.getWhoClicked() instanceof Player p)||e.getClickedInventory()!=e.getView().getTopInventory())return;
         String title=e.getView().getTitle();
+        p.playSound(p.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.35f, 1.15f);
         if(title.equals(TITLE)) {
             int slot=e.getRawSlot()-10;
             if(slot>=0&&slot<TYPES.size())openBoard(p,TYPES.get(slot),0);
@@ -154,7 +188,8 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         else if(e.getRawSlot()==48&&page>0)openBoard(p,type,page-1);
         else if(e.getRawSlot()==50)openBoard(p,type,page+1);
     }
-    @EventHandler public void drag(InventoryDragEvent e){if(e.getView().getTitle()!=null&&e.getView().getTitle().startsWith(TITLE))e.setCancelled(true);}
+    @EventHandler public void drag(InventoryDragEvent e){if(activeInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
+    @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){activeInventories.remove(e.getInventory());}
     @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){if(args.length==1)return TYPES; if(args.length==2)return List.of("1","2","3");return List.of();}
     private record Entry(UUID id,String name,double value,String display) {}
 }

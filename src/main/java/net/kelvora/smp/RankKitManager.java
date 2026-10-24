@@ -6,6 +6,7 @@ import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.types.InheritanceNode;
 import net.luckperms.api.node.types.PrefixNode;
+import net.luckperms.api.node.types.PermissionNode;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -45,9 +46,9 @@ final class RankKitManager implements Listener {
         Map.entry("sprout", "Sprout"), Map.entry("i_sprout", "Sprout"), Map.entry("verdant", "Verdant"),
         Map.entry("emerald", "Emerald"), Map.entry("sovereign", "Sovereign"),
         Map.entry("ascendant", "Ascendant"), Map.entry("helper", "Helper"),
-        Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"),
+        Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"), Map.entry("manager", "Manager"),
         Map.entry("admin", "Admin"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"),
-        Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
+        Map.entry("booster", "Booster"), Map.entry("media", "Media"), Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
     );
     private final KelvoraSMP plugin;
     private final NamespacedKey actionKey;
@@ -56,6 +57,7 @@ final class RankKitManager implements Listener {
     private final YamlConfiguration cooldowns;
     private final YamlConfiguration rankCache;
     private final Set<UUID> claiming = ConcurrentHashMap.newKeySet();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, String> currentViews = new HashMap<>();
     private LuckPerms luckPerms;
 
@@ -85,7 +87,7 @@ final class RankKitManager implements Listener {
     }
 
     private void bootstrapGroups() {
-        for (String key : List.of("sprout","verdant","emerald","sovereign","ascendant","helper","moderator","admin","owner","creator")) {
+        for (String key : List.of("booster","sprout","verdant","emerald","sovereign","ascendant","helper","moderator","manager","admin","owner","creator","media")) {
             try {
                 Group group = luckPerms.getGroupManager().getGroup(key);
                 if (group == null) {
@@ -93,7 +95,13 @@ final class RankKitManager implements Listener {
                     catch (Exception ex) { plugin.getLogger().warning("Could not create LuckPerms group '" + key + "': " + ex.getMessage()); continue; }
                 }
                 String prefix = prefixFor(key);
-                boolean changed = group.data().add(PrefixNode.builder(prefix, priorityFor(key)).build()).wasSuccessful();
+                boolean changed = false;
+                // Replace stale prefix nodes only; leave permissions and inheritance nodes untouched.
+                for (net.luckperms.api.node.Node node : new ArrayList<>(group.data().toCollection())) {
+                    if (node instanceof PrefixNode) changed |= group.data().remove(node).wasSuccessful();
+                }
+                changed |= group.data().add(PrefixNode.builder(prefix, priorityFor(key)).build()).wasSuccessful();
+                if (key.equals("media")) changed |= group.data().add(PermissionNode.builder("kelvora.media").value(true).build()).wasSuccessful();
                 if (changed) luckPerms.getGroupManager().saveGroup(group).join();
             } catch (Exception ex) {
                 plugin.getLogger().warning("Could not configure LuckPerms group '" + key + "': " + ex.getMessage());
@@ -103,9 +111,9 @@ final class RankKitManager implements Listener {
 
     private int priorityFor(String key) {
         return switch (key) {
-            case "owner" -> 100; case "admin" -> 90; case "moderator" -> 80; case "helper" -> 70;
-            case "creator" -> 60; case "ascendant" -> 50; case "sovereign" -> 40;
-            case "emerald" -> 30; case "verdant" -> 20; default -> 10;
+            case "owner" -> 100; case "admin" -> 90; case "manager" -> 85; case "moderator" -> 80; case "helper" -> 70;
+            case "creator", "media" -> 65; case "ascendant" -> 60; case "sovereign" -> 50;
+            case "emerald" -> 40; case "verdant" -> 30; case "sprout" -> 20; case "booster" -> 15; default -> 10;
         };
     }
 
@@ -117,10 +125,10 @@ final class RankKitManager implements Listener {
 
     private String defaultColor(String key) {
         return switch (key) {
-            case "sprout", "i_sprout" -> "&7"; case "verdant", "helper" -> "&a";
+            case "sprout", "i_sprout" -> "&d"; case "booster" -> "&5"; case "verdant", "helper" -> "&a";
             case "emerald" -> "&3"; case "sovereign" -> "&3";
-            case "ascendant" -> "&6"; case "moderator" -> "&9";
-            case "admin" -> "&5"; case "owner" -> "&c"; case "creator" -> "&d"; default -> "&7";
+            case "ascendant" -> "&6"; case "moderator" -> "&9"; case "manager" -> "&b";
+            case "admin" -> "&5"; case "owner" -> "&c"; case "creator", "media" -> "&d"; default -> "&7";
         };
     }
 
@@ -215,6 +223,7 @@ final class RankKitManager implements Listener {
 
     private void openRanks(Player player) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         int[] slots = {10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
@@ -223,9 +232,11 @@ final class RankKitManager implements Listener {
         }
         put(inv, 28, Material.LIME_DYE, "&aHelper", List.of("Answers questions and helps players", "Assigned by authorized staff"), "info");
         put(inv, 29, Material.BLUE_DYE, "&9Moderator", List.of("Handles chat and rule enforcement", "Assigned by authorized staff"), "info");
-        put(inv, 30, Material.PURPLE_DYE, "&5Admin", List.of("Manages server operations", "Assigned by authorized staff"), "info");
-        put(inv, 31, Material.RED_DYE, "&cOwner", List.of("Server leadership", "Assigned by authorized staff"), "info");
+        put(inv, 30, Material.CYAN_DYE, "&bManager", List.of("Coordinates staff operations", "Below Admin and above Moderator", "Assigned by authorized staff"), "info");
+        put(inv, 31, Material.PURPLE_DYE, "&5Admin", List.of("Manages server operations", "Assigned by authorized staff"), "info");
+        put(inv, 32, Material.RED_DYE, "&cOwner", List.of("Server leadership", "Assigned by authorized staff"), "info");
         put(inv, 33, Material.MAGENTA_DYE, "&dCreator", List.of("For YouTubers, TikTokers and streamers", "Assigned by authorized staff"), "info");
+        put(inv, 34, Material.AMETHYST_SHARD, "&5Booster", List.of("Discord supporter role", "Does not replace your progression rank"), "info");
         put(inv, 22, Material.BOOK, "&bPurchase Ranks on Discord", List.of("Ranks are purchased, not earned", "Click for the server Discord"), "discord");
         put(inv, 40, Material.BARRIER, "&cClose", List.of("Close menu"), "close");
         player.openInventory(inv);
@@ -238,6 +249,7 @@ final class RankKitManager implements Listener {
 
     private void openKits(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text("Kelvora | Kits", NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         int[] slots={10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
@@ -399,26 +411,36 @@ final class RankKitManager implements Listener {
     @EventHandler public void onJoin(PlayerJoinEvent event) { cacheRank(event.getPlayer().getUniqueId(),progressionRank(event.getPlayer().getUniqueId())); }
 
     @EventHandler public void onChat(AsyncChatEvent event) {
-        String prefix = null;
-        if (luckPerms != null) {
-            User user = luckPerms.getUserManager().getUser(event.getPlayer().getUniqueId());
-            if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
-        }
-        if (prefix == null || prefix.isBlank()) prefix = "&7[Sprout] ";
-        final Component rankPrefix = LegacyComponentSerializer.legacySection().deserialize(ChatColor.translateAlternateColorCodes('&', prefix));
-        String progression = progressionRank(event.getPlayer().getUniqueId());
+        Player player = event.getPlayer();
+        String progression = progressionRank(player.getUniqueId());
         String progressionLabel = LABELS.getOrDefault(progression, "Sprout");
-        String plainPrefix = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', prefix));
-        final Component visibleProgression = plainPrefix != null && plainPrefix.toLowerCase(Locale.ROOT).contains(progressionLabel.toLowerCase(Locale.ROOT))
-            ? Component.empty()
-            : LegacyComponentSerializer.legacyAmpersand().deserialize(plugin.getConfig().getString("ranks." + progression + ".color", "&7") + "[" + progressionLabel + "] ");
-        final ShardShopManager cosmetics = plugin.getShardShopManager();
-        String tag = cosmetics == null ? null : cosmetics.equippedTag(event.getPlayer());
-        String title = cosmetics == null ? null : cosmetics.equippedTitle(event.getPlayer());
-        String colour = cosmetics == null ? null : cosmetics.chatColour(event.getPlayer());
-        final Component cosmeticTag = tag == null ? Component.empty() : Component.text(" [" + tag + "]", NamedTextColor.AQUA);
-        final Component cosmeticTitle = title == null ? Component.empty() : Component.text(" {" + title + "}", NamedTextColor.GOLD);
-        final NamedTextColor safeChatColor = switch (colour == null ? "" : colour.toLowerCase(Locale.ROOT)) {
+        Component progressionPrefix = LegacyComponentSerializer.legacyAmpersand().deserialize(
+            plugin.getConfig().getString("ranks." + progression + ".color", "&d") + "[" + progressionLabel + "] ");
+        String lpPrefix = null;
+        User user = null;
+        if (luckPerms != null) {
+            user = luckPerms.getUserManager().getUser(player.getUniqueId());
+            if (user != null) lpPrefix = user.getCachedData().getMetaData().getPrefix();
+        }
+        String role = chatRoleKey(user);
+        Component rolePrefix = Component.empty();
+        if (role != null) {
+            String roleLabel = plugin.getConfig().getString("ranks." + role + ".label", LABELS.getOrDefault(role, role));
+            String roleColor = plugin.getConfig().getString("ranks." + role + ".color", defaultColor(role));
+            rolePrefix = LegacyComponentSerializer.legacyAmpersand().deserialize(roleColor + "[" + roleLabel + "] ");
+        } else if (lpPrefix != null && !lpPrefix.isBlank()) {
+            String plain = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', lpPrefix));
+            if (plain == null || !plain.toLowerCase(Locale.ROOT).contains(progressionLabel.toLowerCase(Locale.ROOT))) {
+                rolePrefix = LegacyComponentSerializer.legacyAmpersand().deserialize(lpPrefix);
+            }
+        }
+        ShardShopManager cosmetics = plugin.getShardShopManager();
+        String tag = cosmetics == null ? null : cosmetics.equippedTag(player);
+        String title = cosmetics == null ? null : cosmetics.equippedTitle(player);
+        String colour = cosmetics == null ? null : cosmetics.chatColour(player);
+        Component cosmeticTag = tag == null ? Component.empty() : Component.text(" [" + tag + "]", NamedTextColor.AQUA);
+        Component cosmeticTitle = title == null ? Component.empty() : Component.text(" {" + title + "}", NamedTextColor.GOLD);
+        NamedTextColor safeChatColor = switch (colour == null ? "" : colour.toLowerCase(Locale.ROOT)) {
             case "&f" -> NamedTextColor.WHITE;
             case "&a" -> NamedTextColor.GREEN;
             case "&b" -> NamedTextColor.AQUA;
@@ -429,29 +451,25 @@ final class RankKitManager implements Listener {
             case "&c" -> NamedTextColor.RED;
             default -> null;
         };
+        Component finalRolePrefix = rolePrefix;
         event.renderer((source, displayName, message, viewer) -> {
-            // Apply only a server-approved text color. Never parse player message text as legacy formatting.
             Component renderedMessage = safeChatColor == null ? message : message.color(safeChatColor);
-            return rankPrefix.append(visibleProgression).append(cosmeticTitle).append(displayName).append(cosmeticTag).append(Component.text(": ")).append(renderedMessage);
+            return progressionPrefix.append(finalRolePrefix).append(cosmeticTitle).append(displayName).append(cosmeticTag)
+                .append(Component.text(": ")).append(renderedMessage);
         });
     }
 
-    @EventHandler public void onClick(InventoryClickEvent event) {
-        String title=event.getView().title().toString();
-        if(!title.contains("Kelvora | Kits") && !title.contains("Kelvora | Ranks")) return;
-        event.setCancelled(true);
-        if(!(event.getWhoClicked() instanceof Player p) || event.getClickedInventory()!=event.getView().getTopInventory()) return;
-        ItemStack item=event.getCurrentItem(); if(item==null || !item.hasItemMeta()) return;
-        String action=item.getItemMeta().getPersistentDataContainer().get(actionKey,PersistentDataType.STRING);
-        if(action==null) return;
-        if(action.equals("discord")) { sendDiscordInfo(p); return; }
-        if(action.equals("close")) { p.closeInventory(); return; }
-        if(action.startsWith("kit:")) { claimKit(p,action.substring(4)); p.playSound(p.getLocation(),Sound.UI_BUTTON_CLICK,0.2f,1.1f); }
-        else if(action.startsWith("rank:")) { sendDiscordInfo(p); }
-    }
-    @EventHandler public void onDrag(InventoryDragEvent event) {
-        String title=event.getView().title().toString();
-        if(title.contains("Kelvora | Kits") || title.contains("Kelvora | Ranks")) event.setCancelled(true);
+    private String chatRoleKey(User user) {
+        if (user == null) return null;
+        for (String role : new String[]{"owner", "admin", "manager", "moderator", "mod", "helper", "creator", "media"}) {
+            if (role.equalsIgnoreCase(user.getPrimaryGroup()) || user.getNodes().stream().anyMatch(node ->
+                node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(role))) {
+                return role.equals("mod") ? "moderator" : role;
+            }
+        }
+        if ("booster".equalsIgnoreCase(user.getPrimaryGroup()) || user.getNodes().stream().anyMatch(node ->
+            node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase("booster"))) return "booster";
+        return null;
     }
 
     private void put(Inventory inv,int slot,Material material,String title,List<String> lore,String action) {

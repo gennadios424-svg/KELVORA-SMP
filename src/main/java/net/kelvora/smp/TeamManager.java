@@ -40,6 +40,7 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
     private final File file;
     private YamlConfiguration data;
     private final Map<String, Team> teams = new LinkedHashMap<>();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, Map<String, Long>> invitations = new HashMap<>();
     private final Set<UUID> awaitingTeamName = ConcurrentHashMap.newKeySet();
 
@@ -284,6 +285,7 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
 
     private void openGui(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         fill(inv);
         Team own = teamOf(player.getUniqueId());
         add(inv, 4, own == null ? Material.EMERALD : Material.PLAYER_HEAD,
@@ -348,7 +350,7 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void onInventoryClick(InventoryClickEvent event) {
-        if (!TITLE.equals(ChatColor.stripColor(event.getView().getTitle()))) return;
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player) || event.getClickedInventory() != event.getView().getTopInventory()) return;
         ItemStack item = event.getCurrentItem();
@@ -381,8 +383,10 @@ final class TeamManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void onInventoryDrag(InventoryDragEvent event) {
-        if (TITLE.equals(ChatColor.stripColor(event.getView().getTitle()))) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+
+    @EventHandler public void onGuiInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
 
     @EventHandler public void onQuit(PlayerQuitEvent event) { /* Team membership is persistent; no online state to clean up. */ }
 
