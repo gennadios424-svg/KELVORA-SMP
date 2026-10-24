@@ -134,6 +134,20 @@ commands:
   delhome:
     description: Delete a saved home
     usage: /delhome <name>
+
+  live:
+    description: Set Media live status and optional video/stream link
+    usage: /live [link|on|off]
+  role:
+    description: Manager role creation and assignment
+    usage: /role <list|create|add|remove>
+  suslist:
+    description: Moderator suspicious mining review list
+    usage: /suslist [tp <player>]
+  vanish:
+    description: Toggle staff vanish
+    usage: /vanish
+
 permissions:
   kelvora.roles.manage:
     description: Manage custom server roles
@@ -219,16 +233,3 @@ permissions:
   kelvora.homes.limit.unlimited:
     description: Bypass the configured home slot limit
     default: op
-
-  live:
-    description: Set Media live status and optional video/stream link
-    usage: /live [link|on|off]
-  role:
-    description: Manager role creation and assignment
-    usage: /role <list|create|add|remove>
-  suslist:
-    description: Moderator suspicious mining review list
-    usage: /suslist [tp <player>]
-  vanish:
-    description: Toggle staff vanish
-    usage: /vanish
