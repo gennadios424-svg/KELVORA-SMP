@@ -54,10 +54,10 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
     }
 
     private boolean manage(CommandSender sender) {
-        return sender.isOp() || sender.hasPermission("kelvora.roles.manage") || sender.hasPermission("kelvora.staff.manager");
+        return sender.isOp() || sender.hasPermission("kelvora.roles.manage") || sender.hasPermission("kelvora.staff.manager") || (sender instanceof Player p && hasRole(p, "manager"));
     }
     private boolean moderator(CommandSender sender) {
-        return sender.isOp() || sender.hasPermission("kelvora.suslist") || sender.hasPermission("kelvora.staff.mod") || sender.hasPermission("kelvora.staff.admin");
+        return sender.isOp() || sender.hasPermission("kelvora.suslist") || sender.hasPermission("kelvora.staff.mod") || sender.hasPermission("kelvora.staff.admin") || (sender instanceof Player p && (hasRole(p, "moderator") || hasRole(p, "mod") || hasRole(p, "admin") || hasRole(p, "owner")));
     }
     private String key(String s) { return s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", ""); }
     private boolean roleExists(String role) { return data.isConfigurationSection("roles." + key(role)); }
@@ -71,7 +71,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
     }
     private boolean isStaffOrMediaGroup(Player p, String wanted) {
         if (hasRole(p, wanted)) return true;
-        return p.hasPermission("group." + wanted) || p.hasPermission("kelvora.staff." + wanted);
+        return p.hasPermission("group." + wanted) || p.hasPermission("kelvora.staff." + wanted) || (plugin instanceof KelvoraSMP k && k.hasRoleGroup(p, wanted));
     }
     String tabLabels(Player player) {
         List<String> labels = new ArrayList<>();
