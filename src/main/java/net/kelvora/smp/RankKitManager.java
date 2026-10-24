@@ -47,7 +47,7 @@ final class RankKitManager implements Listener {
         Map.entry("ascendant", "Ascendant"), Map.entry("helper", "Helper"),
         Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"), Map.entry("manager", "Manager"),
         Map.entry("admin", "Admin"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"),
-        Map.entry("booster", "Booster"), Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
+        Map.entry("booster", "Booster"), Map.entry("media", "Media"), Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
     );
     private final KelvoraSMP plugin;
     private final NamespacedKey actionKey;
@@ -86,7 +86,7 @@ final class RankKitManager implements Listener {
     }
 
     private void bootstrapGroups() {
-        for (String key : List.of("sprout","verdant","emerald","sovereign","ascendant","helper","moderator","admin","owner","creator")) {
+        for (String key : List.of("booster","sprout","verdant","emerald","sovereign","ascendant","helper","moderator","manager","admin","owner","creator","media")) {
             try {
                 Group group = luckPerms.getGroupManager().getGroup(key);
                 if (group == null) {
@@ -105,8 +105,8 @@ final class RankKitManager implements Listener {
     private int priorityFor(String key) {
         return switch (key) {
             case "owner" -> 100; case "admin" -> 90; case "manager" -> 85; case "moderator" -> 80; case "helper" -> 70;
-            case "creator" -> 60; case "ascendant" -> 50; case "sovereign" -> 40;
-            case "emerald" -> 30; case "verdant" -> 20; default -> 10;
+            case "creator", "media" -> 65; case "ascendant" -> 60; case "sovereign" -> 50;
+            case "emerald" -> 40; case "verdant" -> 30; case "sprout" -> 20; case "booster" -> 15; default -> 10;
         };
     }
 
@@ -121,7 +121,7 @@ final class RankKitManager implements Listener {
             case "sprout", "i_sprout" -> "&d"; case "booster" -> "&5"; case "verdant", "helper" -> "&a";
             case "emerald" -> "&3"; case "sovereign" -> "&3";
             case "ascendant" -> "&6"; case "moderator" -> "&9"; case "manager" -> "&b";
-            case "admin" -> "&5"; case "owner" -> "&c"; case "creator" -> "&d"; default -> "&7";
+            case "admin" -> "&5"; case "owner" -> "&c"; case "creator", "media" -> "&d"; default -> "&7";
         };
     }
 
@@ -454,7 +454,7 @@ final class RankKitManager implements Listener {
 
     private String chatRoleKey(User user) {
         if (user == null) return null;
-        for (String role : new String[]{"owner", "admin", "manager", "moderator", "mod", "helper", "creator"}) {
+        for (String role : new String[]{"owner", "admin", "manager", "moderator", "mod", "helper", "creator", "media"}) {
             if (role.equalsIgnoreCase(user.getPrimaryGroup()) || user.getNodes().stream().anyMatch(node ->
                 node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(role))) {
                 return role.equals("mod") ? "moderator" : role;
