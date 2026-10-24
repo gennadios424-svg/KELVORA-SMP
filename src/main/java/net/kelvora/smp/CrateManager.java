@@ -159,7 +159,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private String locKey(Location l) { return l.getWorld().getName() + "," + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ(); }
     private String titleCase(String s) { return s.substring(0,1).toUpperCase(Locale.ROOT) + s.substring(1).toLowerCase(Locale.ROOT); }
     private Component color(String s) { return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand().deserialize(s); }
-    private boolean admin(CommandSender sender) { return sender.isOp(); }
+    private boolean admin(CommandSender sender) { return sender.isOp() || sender.hasPermission("kelvora.crate.admin"); }
     private String validType(String s) { if (s == null) return null; String v=s.toLowerCase(Locale.ROOT); return TYPES.contains(v)?v:null; }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
