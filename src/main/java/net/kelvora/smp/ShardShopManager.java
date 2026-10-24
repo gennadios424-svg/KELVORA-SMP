@@ -68,6 +68,8 @@ final class ShardShopManager implements Listener {
         if (plugin.getCommand("shardshopreload") != null) plugin.getCommand("shardshopreload").setExecutor(this::execute);
         if (plugin.getCommand("glow") != null) plugin.getCommand("glow").setExecutor(this::execute);
         if (plugin.getCommand("tags") != null) plugin.getCommand("tags").setExecutor(this::execute);
+        if (plugin.getCommand("tag") != null) plugin.getCommand("tag").setExecutor(this::execute);
+        if (plugin.getCommand("chatcolour") != null) plugin.getCommand("chatcolour").setExecutor(this::execute);
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
     }
 
@@ -175,9 +177,10 @@ final class ShardShopManager implements Listener {
             player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
             return true;
         }
-        if (label.equalsIgnoreCase("glow") || label.equalsIgnoreCase("tags")) {
+        if (label.equalsIgnoreCase("glow") || label.equalsIgnoreCase("tags") || label.equalsIgnoreCase("tag") || label.equalsIgnoreCase("chatcolour")) {
             if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
-            openItems(player, label.equalsIgnoreCase("glow") ? "glows" : "tags");
+            String category = label.equalsIgnoreCase("glow") ? "glows" : label.equalsIgnoreCase("chatcolour") ? "chat" : "tags";
+            openItems(player, category);
             return true;
         }
         if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
@@ -255,6 +258,7 @@ final class ShardShopManager implements Listener {
             }
         }
         add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
+        add(inv, 49, Material.BARRIER, "&cRemove Equipped Cosmetic", List.of("Unequip your active " + categoryLabel(category).toLowerCase(Locale.ROOT), "Your purchase stays owned."), "remove:" + category);
         add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
         player.openInventory(inv);
     }
@@ -698,6 +702,22 @@ final class ShardShopManager implements Listener {
         if (action == null) return;
         if (action.equals("close")) { player.closeInventory(); return; }
         if (action.equals("back")) { openCategories(player); return; }
+        if (action.startsWith("remove:")) {
+            String category = action.substring("remove:".length());
+            UUID uuid = player.getUniqueId();
+            data.set(uuid + ".equipped." + category, null);
+            data.set(uuid + ".enabled." + category, false);
+            if (!saveData()) {
+                player.sendMessage(Component.text("Could not save cosmetic removal.", NamedTextColor.RED));
+                openItems(player, category);
+                return;
+            }
+            applyCosmetic(player, category, null, null);
+            plugin.refreshSidebar(player);
+            player.sendMessage(Component.text("Unequipped your " + categoryLabel(category).toLowerCase(Locale.ROOT) + ". Ownership was kept.", NamedTextColor.YELLOW));
+            openItems(player, category);
+            return;
+        }
         if (action.startsWith("category:")) { openItems(player, action.substring(9)); return; }
         if (action.startsWith("item:")) {
             String[] parts = action.split(":", 3);
