@@ -238,7 +238,9 @@ final class ShardShopManager implements Listener {
                 long duration = entry.getLong("duration-seconds", 0);
                 boolean available = entry.getBoolean("available", false) && price >= 0 && Double.isFinite(price);
                 boolean owned = owns(player.getUniqueId(), category, id);
-                boolean equipped = id.equals(data.getString(player.getUniqueId() + ".equipped." + category, ""));
+                boolean selected = id.equals(data.getString(player.getUniqueId() + ".equipped." + category, ""));
+                boolean enabled = data.getBoolean(player.getUniqueId() + ".enabled." + category, true);
+                boolean equipped = selected && enabled;
                 long expires = data.getLong(player.getUniqueId() + ".owned." + category + "." + id, 0);
                 boolean expired = data.getBoolean(player.getUniqueId() + ".expired." + category + "." + id, false);
                 List<String> lore = new ArrayList<>();
@@ -247,7 +249,7 @@ final class ShardShopManager implements Listener {
                 if (duration > 0) lore.add("Duration: " + durationLabel(duration));
                 if (owned && expires > 0) lore.add("Expires: " + new Date(expires).toString());
                 if (expired) lore.add("&cExpired — click to renew");
-                lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : expired ? "&eClick to renew" : available ? "&aClick to purchase" : "&cComing Soon");
+                lore.add(equipped ? "&aEquipped" : selected && !enabled ? "&eSelected — disabled" : owned ? "&eOwned — click to equip" : expired ? "&eClick to renew" : available ? "&aClick to purchase" : "&cComing Soon");
                 Material icon = material(entry.getString("icon", "NAME_TAG"));
                 add(inv, slot++, icon, (equipped ? "&a" : "&f") + name, lore, "item:" + category + ":" + id);
             }
@@ -271,15 +273,31 @@ final class ShardShopManager implements Listener {
             boolean owned = owns(uuid, category, id);
             String equipped = data.getString(uuid + ".equipped." + category, "");
             if (owned) {
+                String enabledPath = uuid + ".enabled." + category;
                 if (id.equals(equipped)) {
-                    data.set(uuid + ".equipped." + category, null);
-                    saveData();
-                    applyCosmetic(player, category, null, null);
+                    boolean wasEnabled = data.getBoolean(enabledPath, true);
+                    data.set(enabledPath, !wasEnabled);
+                    if (!saveData()) {
+                        data.set(enabledPath, wasEnabled);
+                        player.sendMessage(Component.text("Could not save cosmetic state.", NamedTextColor.RED));
+                        openItems(player, category);
+                        return;
+                    }
+                    applyCosmetic(player, category, wasEnabled ? null : id, wasEnabled ? null : entry);
                     plugin.refreshSidebar(player);
-                    player.sendMessage(Component.text("Cosmetic unequipped.", NamedTextColor.YELLOW));
+                    player.sendMessage(Component.text(wasEnabled ? "Cosmetic disabled. Ownership and selection were kept." : "Cosmetic enabled.", NamedTextColor.YELLOW));
                 } else {
+                    String previous = data.getString(uuid + ".equipped." + category, "");
+                    boolean previousEnabled = data.getBoolean(enabledPath, true);
                     data.set(uuid + ".equipped." + category, id);
-                    saveData();
+                    data.set(enabledPath, true);
+                    if (!saveData()) {
+                        data.set(uuid + ".equipped." + category, previous.isBlank() ? null : previous);
+                        data.set(enabledPath, previousEnabled);
+                        player.sendMessage(Component.text("Could not save cosmetic selection.", NamedTextColor.RED));
+                        openItems(player, category);
+                        return;
+                    }
                     applyCosmetic(player, category, id, entry);
                     plugin.refreshSidebar(player);
                     player.sendMessage(Component.text("Equipped " + entry.getString("name", id) + ".", NamedTextColor.GREEN));
@@ -299,15 +317,19 @@ final class ShardShopManager implements Listener {
             data.set(uuid + ".owned." + category + "." + id, expires);
             data.set(uuid + ".expired." + category + "." + id, null);
             String previous = data.getString(uuid + ".equipped." + category, "");
+            boolean previousEnabled = data.getBoolean(uuid + ".enabled." + category, true);
             data.set(uuid + ".equipped." + category, id);
+            data.set(uuid + ".enabled." + category, true);
             if (!saveData()) {
                 data.set(uuid + ".owned." + category + "." + id, null);
                 data.set(uuid + ".equipped." + category, previous.isBlank() ? null : previous);
+                data.set(uuid + ".enabled." + category, previousEnabled);
                 player.sendMessage(Component.text("Purchase could not be saved; no charge was made.", NamedTextColor.RED)); return;
             }
             if (!currency.withdraw(player, price)) {
                 data.set(uuid + ".owned." + category + "." + id, null);
                 data.set(uuid + ".equipped." + category, previous.isBlank() ? null : previous);
+                data.set(uuid + ".enabled." + category, previousEnabled);
                 saveData();
                 player.sendMessage(Component.text("Purchase failed; no charge was made.", NamedTextColor.RED)); return;
             }
@@ -554,7 +576,8 @@ final class ShardShopManager implements Listener {
 
     private synchronized String activeCosmetic(UUID uuid, String category) {
         String id = data.getString(uuid + ".equipped." + category);
-        if (id == null || id.isBlank() || !owns(uuid, category, id)) return null;
+        if (id == null || id.isBlank() || !data.getBoolean(uuid + ".enabled." + category, true)
+                || !owns(uuid, category, id)) return null;
         return id;
     }
 
@@ -571,7 +594,10 @@ final class ShardShopManager implements Listener {
         if (expires > 0 && expires <= System.currentTimeMillis()) {
             data.set(path, null);
             data.set(uuid + ".expired." + category + "." + id, true);
-            if (id.equals(data.getString(uuid + ".equipped." + category))) data.set(uuid + ".equipped." + category, null);
+            if (id.equals(data.getString(uuid + ".equipped." + category))) {
+                data.set(uuid + ".equipped." + category, null);
+                data.set(uuid + ".enabled." + category, null);
+            }
             saveData();
         }
     }
@@ -607,6 +633,7 @@ final class ShardShopManager implements Listener {
                         data.set(uuidText + ".expired." + category + "." + id, true);
                         if (id.equals(data.getString(uuidText + ".equipped." + category))) {
                             data.set(uuidText + ".equipped." + category, null);
+                            data.set(uuidText + ".enabled." + category, null);
                             if (category.equals("glows")) {
                                 Player online = Bukkit.getPlayer(uuid);
                                 if (online != null) {
