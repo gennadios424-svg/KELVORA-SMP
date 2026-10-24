@@ -56,6 +56,7 @@ final class RankKitManager implements Listener {
     private final YamlConfiguration cooldowns;
     private final YamlConfiguration rankCache;
     private final Set<UUID> claiming = ConcurrentHashMap.newKeySet();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, String> currentViews = new HashMap<>();
     private LuckPerms luckPerms;
 
@@ -215,6 +216,7 @@ final class RankKitManager implements Listener {
 
     private void openRanks(Player player) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         int[] slots = {10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
@@ -238,6 +240,7 @@ final class RankKitManager implements Listener {
 
     private void openKits(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text("Kelvora | Kits", NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         int[] slots={10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
@@ -437,8 +440,8 @@ final class RankKitManager implements Listener {
     }
 
     @EventHandler public void onClick(InventoryClickEvent event) {
+        if(!activeInventories.contains(event.getView().getTopInventory())) return;
         String title=event.getView().title().toString();
-        if(!title.contains("Kelvora | Kits") && !title.contains("Kelvora | Ranks")) return;
         event.setCancelled(true);
         if(!(event.getWhoClicked() instanceof Player p) || event.getClickedInventory()!=event.getView().getTopInventory()) return;
         ItemStack item=event.getCurrentItem(); if(item==null || !item.hasItemMeta()) return;
@@ -451,8 +454,10 @@ final class RankKitManager implements Listener {
     }
     @EventHandler public void onDrag(InventoryDragEvent event) {
         String title=event.getView().title().toString();
-        if(title.contains("Kelvora | Kits") || title.contains("Kelvora | Ranks")) event.setCancelled(true);
+        if(activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+
+    @EventHandler public void onGuiInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
 
     private void put(Inventory inv,int slot,Material material,String title,List<String> lore,String action) {
         ItemStack item=new ItemStack(material); ItemMeta meta=item.getItemMeta();
