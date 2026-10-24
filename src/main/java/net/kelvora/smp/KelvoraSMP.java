@@ -265,19 +265,23 @@ implements Listener {
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
         String kelvoras = this.getKelvoras(player);
-        Component rotatingMessage = switch (this.tabFrame) {
-            case 0 -> Component.text("🌿 KELVORA SMP", net.kyori.adventure.text.format.TextColor.color(0x008000));
-            case 1 -> Component.text("🌿 KELVORA SMP", NamedTextColor.DARK_GREEN);
-            default -> Component.text("🌿 KELVORA SMP", net.kyori.adventure.text.format.TextColor.color(0x7CFC00));
+        net.kyori.adventure.text.format.TextColor titleColor = switch (this.tabFrame) {
+            case 0 -> net.kyori.adventure.text.format.TextColor.color(0x00C853);
+            case 1 -> net.kyori.adventure.text.format.TextColor.color(0x00A86B);
+            default -> net.kyori.adventure.text.format.TextColor.color(0x7CFC00);
         };
-        Component footerMessage = switch (this.footerFrame) {
-            case 0 -> Component.text("💬 JOIN OUR DISCORD", NamedTextColor.LIGHT_PURPLE)
+        Component rotatingMessage = Component.text("🌿  K E L V O R A   S M P  🌿", titleColor)
+            .decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
+            .append(Component.text("\n━━━━━━━━━━━━━━━━━━━━━━━━", net.kyori.adventure.text.format.TextColor.color(0x1B5E20)));
+        Component footerContent = switch (this.footerFrame) {
+            case 0 -> Component.text("💬  JOIN OUR DISCORD", NamedTextColor.LIGHT_PURPLE)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
-            case 1 -> Component.text("🛡️ APPLY FOR STAFF", NamedTextColor.GOLD);
-            case 2 -> Component.text("🎥 APPLY FOR MEDIA", NamedTextColor.AQUA);
-            case 3 -> Component.text("⚔️ JOIN KELVORA SMP", NamedTextColor.GREEN);
-            default -> Component.text("🌐 kelvorasmp.mcsh.gg", NamedTextColor.YELLOW);
+            case 1 -> Component.text("🛡️  APPLY FOR STAFF", NamedTextColor.GOLD);
+            case 2 -> Component.text("🎥  APPLY FOR MEDIA", NamedTextColor.AQUA);
+            case 3 -> Component.text("⚔️  JOIN KELVORA SMP", NamedTextColor.GREEN);
+            default -> Component.text("🌐  kelvorasmp.mcsh.gg", NamedTextColor.YELLOW);
         };
+        Component footerMessage = Component.text("\n\n\n").append(footerContent.decorate(net.kyori.adventure.text.format.TextDecoration.BOLD));
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
@@ -313,12 +317,12 @@ implements Listener {
             this.color("&6&l⭐ RANK: " + rankColor + "&l" + rankDisplay),
             this.color("&a&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
             this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
-            this.color("&3🛡 Team: &b" + teamName),
+            this.color("&b🛡 Team: &f" + teamName),
             this.color("&c⚔ Kills: &f" + kills),
-            this.color("&4☠ Deaths: &c" + deaths),
-            this.color("&9⏱ Playtime: &b" + playtime),
-            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7🌐 IP: &f" + serverAddress)
+            this.color("&6☠ Deaths: &f" + deaths),
+            this.color("&3⏱ Playtime: &f" + playtime),
+            this.color("&d👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&8/&f" + Bukkit.getMaxPlayers()),
+            this.color("&e🌐 IP: &f" + serverAddress)
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
