@@ -20,13 +20,25 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
     private static final String TITLE = "KELVORA | LEADERBOARDS";
     private static final List<String> TYPES = List.of("kills", "deaths", "playtime", "money", "kelvoras", "rank");
     private static final DecimalFormat EXACT = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US));
+    private static volatile LeaderboardManager instance;
     private final JavaPlugin plugin;
     private final KelvorasManager kelvoras;
     private final Map<UUID, String> selected = new HashMap<>();
     private final Map<UUID, Integer> pages = new HashMap<>();
     private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
 
-    LeaderboardManager(JavaPlugin plugin, KelvorasManager kelvoras) { this.plugin = plugin; this.kelvoras = kelvoras; }
+    LeaderboardManager(JavaPlugin plugin, KelvorasManager kelvoras) { this.plugin = plugin; this.kelvoras = kelvoras; instance = this; }
+
+    static void refreshLiveStatuses() { if (instance != null) instance.refreshOpenViews(); }
+    private void refreshOpenViews() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            Inventory top = player.getOpenInventory().getTopInventory();
+            if (!activeInventories.contains(top)) continue;
+            String type = selected.get(player.getUniqueId());
+            if (type == null) openMenu(player);
+            else openBoard(player, type, pages.getOrDefault(player.getUniqueId(), 0));
+        }
+    }
 
     void register() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
