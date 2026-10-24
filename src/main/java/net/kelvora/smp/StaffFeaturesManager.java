@@ -102,7 +102,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 p.sendMessage(ChatColor.YELLOW + "Live status disabled.");
             } else {
                 String link = args[0].trim();
-                if (!link.matches("(?i)^https?://\\S{1,240}$")) { p.sendMessage(ChatColor.RED + "Use a full http(s) link, e.g. /live https://twitch.tv/yourname"); return true; }
+                if (!link.matches("(?i)^https?://\\S{1,120}$")) { p.sendMessage(ChatColor.RED + "Use a full http(s) link, e.g. /live https://twitch.tv/yourname"); return true; }
                 data.set("live." + p.getUniqueId() + ".active", true);
                 data.set("live." + p.getUniqueId() + ".link", link);
                 p.sendMessage(ChatColor.LIGHT_PURPLE + "Live status enabled and link saved.");
