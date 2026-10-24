@@ -83,6 +83,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
     String liveTabLabel(Player player) {
         if (!data.getBoolean("live." + player.getUniqueId() + ".active", false)) return "";
         String link = data.getString("live." + player.getUniqueId() + ".link", "");
+        if (link.length() > 120) link = link.substring(0, 120);
         return ChatColor.RED + ChatColor.BOLD.toString() + "[LIVE]" + ChatColor.RESET + (link.isBlank() ? "" : ChatColor.GRAY + " " + link);
     }
     boolean isVanished(Player player) { return vanished.contains(player.getUniqueId()); }
