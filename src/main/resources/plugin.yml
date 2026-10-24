@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.17.0
+version: 2.19.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -106,6 +106,12 @@ commands:
   shardshopreload:
     description: Reload cosmetic configuration without resetting ownership
     usage: /shardshopreload
+  glow:
+    description: Open and manage owned glow cosmetics
+    usage: /glow
+  tags:
+    description: Open and manage owned tag cosmetics
+    usage: /tags
   rank:
     description: Open the Kelvora rank guide or administer progression ranks
     usage: /rank [set <player> <rank>]

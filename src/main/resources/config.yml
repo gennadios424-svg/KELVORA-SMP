@@ -20,13 +20,16 @@ passive-kelvoras:
 scoreboard:
   title: "&a&lKELVORA SMP"
 ranks:
-  # Supporter role is separate from progression and must not replace the main rank.
+  # Progression order (highest to lowest): Ascendant > Sovereign > Emerald > Verdant > Booster > Sprout > Member.
+  # Booster is a supporter rank directly above Sprout. Staff and Media roles remain independent.
+  ascendant: { label: "Ascendant", color: "&6", description: "Top rank · The elite of Kelvora" }
+  sovereign: { label: "Sovereign", color: "&3", description: "High rank · Powerful and respected" }
+  emerald: { label: "Emerald", color: "&3", description: "Mid progression · Established players" }
+  verdant: { label: "Verdant", color: "&a", description: "Early progression · Growing your wealth" }
   booster: { label: "Booster", color: "&5", description: "Discord booster supporter role" }
   sprout: { label: "Sprout", color: "&d", description: "Starting rank · New players" }
-  verdant: { label: "Verdant", color: "&a", description: "Early progression · Growing your wealth" }
-  emerald: { label: "Emerald", color: "&3", description: "Mid progression · Established players" }
-  sovereign: { label: "Sovereign", color: "&3", description: "High rank · Powerful and respected" }
-  ascendant: { label: "Ascendant", color: "&6", description: "Top rank · The elite of Kelvora" }
+  member: { label: "Member", color: "&7", description: "Default rank · Every new player" }
+  bootstrap-groups: true
   helper: { label: "Helper", color: "&a", description: "Answers questions and helps players" }
   moderator: { label: "Moderator", color: "&9", description: "Handles chat and rule enforcement" }
   manager: { label: "Manager", color: "&b", description: "Coordinates staff operations" }
@@ -290,9 +293,7 @@ homes:
     owner: 20
 
 
-# Phase 22: Rank progression. Groups are created if missing; existing permissions are preserved.
-ranks:
-  bootstrap-groups: true
+# Phase 22: Rank progression. Group creation remains enabled; rank labels are defined above.
 
 rank-up:
   # Set each cost to a positive Money amount before enabling rank-ups. -1 disables that step.
@@ -653,15 +654,15 @@ shardshop:
       title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: DIAMOND_HELMET, price: 2500, duration-seconds: 604800, available: true }
       title_30d: { name: "Mythic", description: "Temporary cosmetic title only", icon: NETHER_STAR, price: 8000, duration-seconds: 2592000, available: true }
     ranks:
-      verdant_1d: { name: "Verdant Style 1d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 8000, duration-seconds: 86400, available: true }
-      verdant_3d: { name: "Verdant Style 3d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 13000, duration-seconds: 259200, available: true }
-      verdant_7d: { name: "Verdant Style 7d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 21000, duration-seconds: 604800, available: true }
-      emerald_1d: { name: "Emerald Style 1d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 12000, duration-seconds: 86400, available: true }
-      emerald_3d: { name: "Emerald Style 3d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 17000, duration-seconds: 259200, available: true }
-      emerald_7d: { name: "Emerald Style 7d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 25000, duration-seconds: 604800, available: true }
-      sovereign_1d: { name: "Sovereign Style 1d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 17000, duration-seconds: 86400, available: true }
-      sovereign_3d: { name: "Sovereign Style 3d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 28000, duration-seconds: 259200, available: true }
-      sovereign_7d: { name: "Sovereign Style 7d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 36000, duration-seconds: 604800, available: true }
+      verdant_1d: { name: "Verdant · 1 Day", description: "Temporary Verdant rank with LuckPerms permissions", icon: EMERALD, rank: verdant, price: 8000, duration-seconds: 86400, available: true }
+      verdant_3d: { name: "Verdant · 3 Days", description: "Temporary Verdant rank with LuckPerms permissions", icon: EMERALD, rank: verdant, price: 13000, duration-seconds: 259200, available: true }
+      verdant_7d: { name: "Verdant · 7 Days", description: "Temporary Verdant rank with LuckPerms permissions", icon: EMERALD, rank: verdant, price: 21000, duration-seconds: 604800, available: true }
+      emerald_1d: { name: "Emerald · 1 Day", description: "Temporary Emerald rank with LuckPerms permissions", icon: EMERALD, rank: emerald, price: 12000, duration-seconds: 86400, available: true }
+      emerald_3d: { name: "Emerald · 3 Days", description: "Temporary Emerald rank with LuckPerms permissions", icon: EMERALD, rank: emerald, price: 17000, duration-seconds: 259200, available: true }
+      emerald_7d: { name: "Emerald · 7 Days", description: "Temporary Emerald rank with LuckPerms permissions", icon: EMERALD, rank: emerald, price: 25000, duration-seconds: 604800, available: true }
+      sovereign_1d: { name: "Sovereign · 1 Day", description: "Temporary Sovereign rank with LuckPerms permissions", icon: NETHER_STAR, rank: sovereign, price: 17000, duration-seconds: 86400, available: true }
+      sovereign_3d: { name: "Sovereign · 3 Days", description: "Temporary Sovereign rank with LuckPerms permissions", icon: NETHER_STAR, rank: sovereign, price: 28000, duration-seconds: 259200, available: true }
+      sovereign_7d: { name: "Sovereign · 7 Days", description: "Temporary Sovereign rank with LuckPerms permissions", icon: NETHER_STAR, rank: sovereign, price: 36000, duration-seconds: 604800, available: true }
     glows:
       green: { name: "Green Glow", description: "Emerald glow effect", icon: LIME_DYE, color: GREEN, price: 5000, duration-seconds: 0, available: true }
       cyan: { name: "Cyan Glow", description: "Cool cyan glow effect", icon: CYAN_DYE, color: AQUA, price: 5000, duration-seconds: 0, available: true }

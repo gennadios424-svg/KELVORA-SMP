@@ -369,12 +369,14 @@ implements Listener {
         if (group == null || group.isBlank()) return "sprout";
         group = group.toLowerCase(Locale.ROOT);
         // Progression is independent of staff/media groups: prefer the actual inherited progression rank.
-        for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "sprout", "i_sprout"}) {
+        for (String progression : new String[]{"ascendant", "sovereign", "emerald", "verdant", "booster", "sprout", "i_sprout", "member", "default"}) {
             if (user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(progression))) {
-                return progression.equals("i_sprout") ? "sprout" : progression;
+                if (progression.equals("i_sprout")) return "sprout";
+                if (progression.equals("default")) return "member";
+                return progression;
             }
         }
-        if (Set.of("helper", "moderator", "mod", "manager", "admin", "owner", "creator", "media", "booster", "default", "member", "i_sprout").contains(group)) return "sprout";
+        if (Set.of("helper", "moderator", "mod", "manager", "admin", "owner", "creator", "media").contains(group)) return "member";
         if (group.equals("vip")) return "verdant";
         ConfigurationSection ranks = this.getConfig().getConfigurationSection("ranks");
         if (ranks != null && ranks.contains(group) && !Set.of("helper", "moderator", "admin", "owner", "creator").contains(group)) return group;
