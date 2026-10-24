@@ -45,6 +45,7 @@ final class AuctionHouseManager implements Listener {
     private final Map<UUID, ViewSession> sessions = new ConcurrentHashMap<>();
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
     private final Set<String> reservedListings = ConcurrentHashMap.newKeySet();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, String> searchQueries = new ConcurrentHashMap<>();
     private YamlConfiguration data;
     private Object economy;
@@ -263,13 +264,14 @@ final class AuctionHouseManager implements Listener {
         int pages = Math.max(1, (visible.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         int page = Math.max(0, Math.min(requestedPage, pages - 1));
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(ownOnly ? MY_LISTINGS : TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         ViewSession session = new ViewSession(ownOnly, page, visible.stream().map(l -> l.id).toList());
         sessions.put(p.getUniqueId(), session);
         for (int i = 0; i < PAGE_SIZE; i++) {
             int index = page * PAGE_SIZE + i;
             if (index >= visible.size()) break;
             Listing l = visible.get(index);
-            inv.setItem(i, listingDisplay(l));
+            inv.setItem(i, listingDisplay(l, p, ownOnly));
         }
         put(inv, 45, Material.ARROW, "Previous Page", "previous", page > 0 ? "Page " + page : "First page");
         put(inv, 47, Material.SUNFLOWER, "Refresh", "refresh", " ");
@@ -300,25 +302,16 @@ final class AuctionHouseManager implements Listener {
         return label.toLowerCase(Locale.ROOT).contains(q);
     }
 
-    private ItemStack listingDisplay(Listing l) {
+    private ItemStack listingDisplay(Listing l, Player viewer, boolean ownOnly) {
         ItemStack icon = l.item.clone();
         ItemMeta meta = icon.getItemMeta();
         if (meta != null) {
-            List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
-            lore.add(Component.empty());
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("$" + compact(l.price), NamedTextColor.GREEN));
             lore.add(Component.text("Seller: " + l.sellerName, NamedTextColor.GRAY));
-            lore.add(Component.text("Price: $" + compact(l.price), NamedTextColor.GREEN));
             lore.add(Component.text("Quantity: " + l.item.getAmount(), NamedTextColor.GRAY));
-            lore.add(Component.text("Remaining: " + remaining(l.expiresAt), NamedTextColor.GRAY));
-            if (meta.hasDisplayName()) lore.add(Component.text("Custom item name", NamedTextColor.AQUA));
-            if (!meta.getEnchants().isEmpty()) {
-                StringJoiner enchants = new StringJoiner(", ");
-                meta.getEnchants().forEach((enchantment, level) -> enchants.add(
-                    enchantment.getKey().getKey().replace('_', ' ') + " " + roman(level)));
-                lore.add(Component.text("Enchantments: " + enchants, NamedTextColor.LIGHT_PURPLE));
-            }
-            lore.add(Component.text("Click to inspect and purchase", NamedTextColor.YELLOW));
-            lore.add(Component.text("ID: " + l.id, NamedTextColor.DARK_GRAY));
+            if (l.owner.equals(viewer.getUniqueId())) lore.add(Component.text("Your listing · Click to manage", NamedTextColor.YELLOW));
+            else lore.add(Component.text("Click to Buy", NamedTextColor.YELLOW));
             meta.lore(lore);
             icon.setItemMeta(meta);
         }
@@ -329,7 +322,7 @@ final class AuctionHouseManager implements Listener {
     public void onInventoryClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
         String title = plain(e.getView().getTitle());
-        if (!title.equals(TITLE) && !title.equals(MY_LISTINGS) && !title.equals(CONFIRM)) return;
+        if (!activeInventories.contains(e.getView().getTopInventory())) return;
         e.setCancelled(true);
         if (e.getClickedInventory() == null || e.getClickedInventory() != e.getView().getTopInventory()) return;
         ItemStack clicked = e.getCurrentItem();
@@ -355,7 +348,10 @@ final class AuctionHouseManager implements Listener {
             if (listing == null) { msg(p, NamedTextColor.RED, "That listing is no longer available."); openBrowse(p, 0, false); return; }
             if (parts[0].equals("buy")) purchase(p, listing);
             else if (parts[0].equals("cancel")) { cancelListing(p, listing.id); p.closeInventory(); }
-            else if (parts[0].equals("back")) openBrowse(p, 0, false);
+            else if (parts[0].equals("back")) {
+                ViewSession previous = sessions.get(p.getUniqueId());
+                openBrowse(p, previous == null ? 0 : previous.page, previous != null && previous.ownOnly);
+            }
             return;
         }
         ViewSession session = sessions.get(p.getUniqueId());
@@ -371,20 +367,27 @@ final class AuctionHouseManager implements Listener {
     }
 
     @EventHandler
+    public void onInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent e) { activeInventories.remove(e.getInventory()); }
+
+    @EventHandler
     public void onInventoryDrag(InventoryDragEvent e) {
         String title = plain(e.getView().getTitle());
-        if (title.equals(TITLE) || title.equals(MY_LISTINGS) || title.equals(CONFIRM)) e.setCancelled(true);
+        if (activeInventories.contains(e.getView().getTopInventory())) e.setCancelled(true);
     }
 
     private void openConfirm(Player p, Listing l, boolean ownOnly) {
         if (l.expiresAt <= System.currentTimeMillis()) { expireListings(); msg(p, NamedTextColor.RED, "That listing has expired."); return; }
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(CONFIRM, NamedTextColor.DARK_GREEN));
-        inv.setItem(4, listingDisplay(l));
-        put(inv, 11, Material.LIME_DYE, "Confirm Purchase", "buy:" + l.id,
-                "$" + exact(l.price) + " • " + l.sellerName);
-        put(inv, 15, Material.BARRIER, ownOnly && l.owner.equals(p.getUniqueId()) ? "Cancel Listing" : "Back",
-                ownOnly && l.owner.equals(p.getUniqueId()) ? "cancel:" + l.id : "back:" + l.id,
-                "Expires in " + remaining(l.expiresAt));
+        activeInventories.add(inv);
+        boolean ownListing = ownOnly && l.owner.equals(p.getUniqueId());
+        inv.setItem(4, listingDisplay(l, p, ownOnly));
+        if (ownListing) {
+            put(inv, 11, Material.NAME_TAG, "Manage Listing", "noop", "Your active listing");
+            put(inv, 15, Material.BARRIER, "Cancel Listing", "cancel:" + l.id, "Return the listed item");
+        } else {
+            put(inv, 11, Material.LIME_DYE, "Buy", "buy:" + l.id, "$" + exact(l.price));
+            put(inv, 15, Material.BARRIER, "Back", "back:" + l.id, "Return to listings");
+        }
         p.openInventory(inv);
 
     }
