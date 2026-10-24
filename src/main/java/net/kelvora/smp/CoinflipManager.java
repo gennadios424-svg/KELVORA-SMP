@@ -1,9 +1,11 @@
 package net.kelvora.smp;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -507,6 +509,11 @@ final class CoinflipManager implements Listener {
             plugin.getLogger().severe("Could not save coinflip escrow file: " + ex.getMessage());
             return false;
         }
+    }
+
+    private void fail(Player player, String message) {
+        player.sendMessage(Component.text(message, NamedTextColor.RED));
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f);
     }
 
     private void showHistory(Player p) {
