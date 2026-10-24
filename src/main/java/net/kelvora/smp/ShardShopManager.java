@@ -250,7 +250,16 @@ final class ShardShopManager implements Listener {
                 if (expired) lore.add("&cExpired — click to renew");
                 lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : expired ? "&eClick to renew" : available ? "&aClick to purchase" : "&cComing Soon");
                 Material icon = material(entry.getString("icon", "NAME_TAG"));
-                add(inv, slot++, icon, (equipped ? "&a" : "&f") + name, lore, "item:" + category + ":" + id);
+                String displayName = (equipped ? "&a" : "&f") + name;
+                if (category.equalsIgnoreCase("tags")) {
+                    String tagColour = entry.getString("color", "");
+                    if (tagColour.isBlank()) {
+                        String[] palette = {"&b", "&d", "&6", "&a", "&e", "&9", "&5", "&c"};
+                        tagColour = palette[Math.floorMod(id.toLowerCase(Locale.ROOT).hashCode(), palette.length)];
+                    }
+                    displayName = tagColour + (entry.getBoolean("bold", true) ? "&l" : "") + name;
+                }
+                add(inv, slot++, icon, displayName, lore, "item:" + category + ":" + id);
             }
         }
         if (ownedOnly && slot == 10) add(inv, 22, Material.PAPER, "&7No owned cosmetics", List.of("Purchase cosmetics in /shardshop"), "info");
