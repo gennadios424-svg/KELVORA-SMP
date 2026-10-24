@@ -6,6 +6,7 @@ import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.types.InheritanceNode;
 import net.luckperms.api.node.types.PrefixNode;
+import net.luckperms.api.node.types.PermissionNode;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -100,6 +101,7 @@ final class RankKitManager implements Listener {
                     if (node instanceof PrefixNode) changed |= group.data().remove(node).wasSuccessful();
                 }
                 changed |= group.data().add(PrefixNode.builder(prefix, priorityFor(key)).build()).wasSuccessful();
+                if (key.equals("media")) changed |= group.data().add(PermissionNode.builder("kelvora.media").value(true).build()).wasSuccessful();
                 if (changed) luckPerms.getGroupManager().saveGroup(group).join();
             } catch (Exception ex) {
                 plugin.getLogger().warning("Could not configure LuckPerms group '" + key + "': " + ex.getMessage());
