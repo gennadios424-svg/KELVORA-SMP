@@ -3,7 +3,7 @@ name: Build Kelvora SMP plugin
 on:
   workflow_dispatch:
   push:
-    branches: [main, phase-11-tab-bal-tooltip]
+    branches: [main, phase-11-tab-bal-tooltip, phase-36-shardshop-tab-leaderboard-fixes]
     paths:
       - 'src/**'
       - 'pom.xml'

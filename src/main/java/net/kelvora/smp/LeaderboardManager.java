@@ -17,7 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 final class LeaderboardManager implements Listener, CommandExecutor, TabCompleter {
-    private static final String TITLE = "KELVORA | LEADERBOARDS";
+    private static final String TITLE = "KELVORA  |  LEADERBOARDS";
     private static final List<String> TYPES = List.of("kills", "deaths", "playtime", "money", "kelvoras", "rank");
     private static final DecimalFormat EXACT = new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US));
     private final JavaPlugin plugin;
@@ -46,14 +46,18 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
     }
 
     private void openMenu(Player p) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        Inventory inv = Bukkit.createInventory(null, 36, Component.text("KELVORA  |  LEADERBOARDS", NamedTextColor.DARK_GREEN));
+        ItemStack frame = new ItemStack(Material.GREEN_STAINED_GLASS_PANE);
+        ItemMeta frameMeta = frame.getItemMeta(); frameMeta.displayName(Component.text(" ")); frame.setItemMeta(frameMeta);
+        for (int slot : new int[]{0,1,2,3,4,5,6,7,8,27,28,29,30,31,32,33,34,35}) inv.setItem(slot, frame.clone());
         Material[] icons = {Material.IRON_SWORD, Material.SKELETON_SKULL, Material.CLOCK, Material.GOLD_INGOT, Material.AMETHYST_SHARD, Material.NETHER_STAR};
+        int[] slots = {10, 12, 14, 19, 21, 23};
         for (int i=0;i<TYPES.size();i++) {
             String type=TYPES.get(i);
             ItemStack item=new ItemStack(icons[i]); ItemMeta meta=item.getItemMeta();
             meta.displayName(Component.text(label(type), color(type)));
-            meta.lore(List.of(Component.text("Click to view top 10", NamedTextColor.GRAY)));
-            item.setItemMeta(meta); inv.setItem(10+i,item);
+            meta.lore(List.of(Component.text("Click to view the rankings", NamedTextColor.GRAY)));
+            item.setItemMeta(meta); inv.setItem(slots[i],item);
         }
         p.openInventory(inv);
     }

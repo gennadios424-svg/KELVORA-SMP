@@ -244,13 +244,13 @@ implements Listener {
         ShardShopManager cosmetics = this.shardShopManager;
         String cosmeticTitle = cosmetics == null ? null : cosmetics.equippedTitle(player);
         String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
-        String cosmeticPrefix = cosmeticTitle == null ? "" : this.color("&6{" + cosmeticTitle + "} ");
         String cosmeticSuffix = cosmeticTag == null ? "" : this.color(" &b[" + cosmeticTag + "]");
         // Always show the actual progression rank, and retain a separate LuckPerms staff/media prefix if it is different.
         String plainPrefix = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', prefix));
         boolean prefixShowsProgression = plainPrefix != null && plainPrefix.toLowerCase(Locale.ROOT).contains(rankLabel.toLowerCase(Locale.ROOT));
         String progressionPrefix = this.color(rankColor + "[" + rankLabel + "] ");
-        player.setPlayerListName(progressionPrefix + (prefixShowsProgression ? "" : this.color(prefix)) + cosmeticPrefix + player.getName() + cosmeticSuffix);
+        // Temporary ShardShop ranks are cosmetics, never actual TAB ranks. Keep the player list clean.
+        player.setPlayerListName(progressionPrefix + player.getName() + cosmeticSuffix);
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
@@ -319,6 +319,7 @@ implements Listener {
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
         }
+        if (this.shardShopManager != null) this.shardShopManager.refreshCosmetics(player);
     }
 
     private String rankKey(Player player) {

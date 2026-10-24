@@ -65,6 +65,8 @@ final class ShardShopManager implements Listener {
         if (plugin.getCommand("shardshop") != null) plugin.getCommand("shardshop").setExecutor(this::execute);
         if (plugin.getCommand("shards") != null) plugin.getCommand("shards").setExecutor(this::execute);
         if (plugin.getCommand("shardshopreload") != null) plugin.getCommand("shardshopreload").setExecutor(this::execute);
+        if (plugin.getCommand("glow") != null) plugin.getCommand("glow").setExecutor(this::execute);
+        if (plugin.getCommand("tags") != null) plugin.getCommand("tags").setExecutor(this::execute);
         Bukkit.getScheduler().runTaskTimer(plugin, this::expireAll, 20L, 1200L);
     }
 
@@ -151,9 +153,52 @@ final class ShardShopManager implements Listener {
             player.sendMessage(Component.text("Your Kelvoras: ✦" + KelvorasManager.format(currency.balance(player)), NamedTextColor.AQUA));
             return true;
         }
+        if (label.equalsIgnoreCase("glow") || label.equalsIgnoreCase("tags")) {
+            toggleCosmetic(player, label.equalsIgnoreCase("glow") ? "glows" : "tags");
+            return true;
+        }
         if (!player.hasPermission("kelvora.shardshop.use")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         openCategories(player);
         return true;
+    }
+
+    private synchronized void toggleCosmetic(Player player, String category) {
+        UUID uuid = player.getUniqueId();
+        String path = uuid + ".equipped." + category;
+        String current = activeCosmetic(uuid, category);
+        if (current != null) {
+            data.set(path, null);
+            if (!saveData()) {
+                data.set(path, current);
+                player.sendMessage(Component.text("Could not save your cosmetic setting. Try again.", NamedTextColor.RED));
+                return;
+            }
+            applyCosmetic(player, category, null, null);
+            player.sendMessage(Component.text((category.equals("glows") ? "Glow" : "Tag") + " turned off.", NamedTextColor.YELLOW));
+            plugin.refreshSidebar(player);
+            return;
+        }
+        ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
+        String selected = null;
+        if (entries != null) {
+            for (String id : entries.getKeys(false)) {
+                if (owns(uuid, category, id)) { selected = id; break; }
+            }
+        }
+        if (selected == null) {
+            player.sendMessage(Component.text("You do not own an active " + (category.equals("glows") ? "glow" : "tag") + ". Visit /shardshop.", NamedTextColor.RED));
+            return;
+        }
+        data.set(path, selected);
+        if (!saveData()) {
+            data.set(path, null);
+            player.sendMessage(Component.text("Could not save your cosmetic setting. Try again.", NamedTextColor.RED));
+            return;
+        }
+        ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category + "." + selected);
+        applyCosmetic(player, category, selected, entry);
+        player.sendMessage(Component.text((category.equals("glows") ? "Glow" : "Tag") + " turned on.", NamedTextColor.GREEN));
+        plugin.refreshSidebar(player);
     }
 
     private void openCategories(Player player) {
@@ -264,8 +309,10 @@ final class ShardShopManager implements Listener {
                 // Colorized glowing uses scoreboard teams; teams are added to each viewer's current scoreboard.
                 ChatColor color = ChatColor.valueOf(entry.getString("color", "GREEN").toUpperCase(Locale.ROOT));
                 String glowStatePath = player.getUniqueId() + ".glow.previous-state";
-                if (!data.contains(glowStatePath)) data.set(glowStatePath, player.isGlowing());
-                saveData();
+                if (!data.contains(glowStatePath)) {
+                    data.set(glowStatePath, player.isGlowing());
+                    saveData();
+                }
                 player.setGlowing(true);
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
                     Scoreboard board = viewer.getScoreboard();
@@ -298,6 +345,14 @@ final class ShardShopManager implements Listener {
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             Team team = viewer.getScoreboard().getTeam(teamName);
             if (team != null) team.removeEntry(player.getName());
+        }
+    }
+
+    synchronized void refreshCosmetics(Player player) {
+        String id = activeCosmetic(player.getUniqueId(), "glows");
+        if (id != null) {
+            ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue.glows." + id);
+            if (entry != null) applyCosmetic(player, "glows", id, entry);
         }
     }
 
@@ -441,13 +496,8 @@ final class ShardShopManager implements Listener {
     @EventHandler public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> {
-            for (String category : List.of("glows")) {
-                String id = activeCosmetic(player.getUniqueId(), category);
-                if (id != null) {
-                    ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category + "." + id);
-                    if (entry != null) applyCosmetic(player, category, id, entry);
-                }
-            }
+            refreshCosmetics(player);
+            plugin.refreshSidebar(player);
         });
     }
     @EventHandler public void onQuit(PlayerQuitEvent event) {
