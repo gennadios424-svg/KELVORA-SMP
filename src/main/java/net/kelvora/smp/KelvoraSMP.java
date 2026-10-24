@@ -243,7 +243,14 @@ implements Listener {
             User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
             if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
         }
-        if (prefix == null || prefix.isBlank()) prefix = rankColor + "[" + rankLabel + "] ";
+        String staffRole = this.staffRoleKey(player);
+        if (staffRole != null) {
+            String staffLabel = this.getConfig().getString("ranks." + staffRole + ".label", staffRole.toUpperCase(Locale.ROOT));
+            String staffColor = this.getConfig().getString("ranks." + staffRole + ".color", "&b");
+            prefix = staffColor + "[" + staffLabel + "] ";
+        } else if (this.hasLuckPermsGroup(player, "booster")) {
+            prefix = this.getConfig().getString("ranks.booster.color", "&5") + "[Booster] ";
+        } else if (prefix == null || prefix.isBlank()) prefix = rankColor + "[" + rankLabel + "] ";
         ShardShopManager cosmetics = this.shardShopManager;
         String cosmeticTitle = cosmetics == null ? null : cosmetics.equippedTitle(player);
         String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
@@ -322,6 +329,23 @@ implements Listener {
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
         }
+    }
+
+    private boolean hasLuckPermsGroup(Player player, String group) {
+        if (this.luckPerms == null) return false;
+        User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
+        if (user == null) return false;
+        if (group.equalsIgnoreCase(user.getPrimaryGroup())) return true;
+        return user.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode inheritance
+            && inheritance.getGroupName().equalsIgnoreCase(group));
+    }
+
+    private String staffRoleKey(Player player) {
+        // Check highest staff role first; staff/supporter groups never replace progression rank.
+        for (String role : new String[]{"owner", "admin", "manager", "moderator", "mod", "helper"}) {
+            if (this.hasLuckPermsGroup(player, role)) return role.equals("mod") ? "moderator" : role;
+        }
+        return null;
     }
 
     private String rankKey(Player player) {
