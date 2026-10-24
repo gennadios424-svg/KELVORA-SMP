@@ -94,7 +94,12 @@ final class RankKitManager implements Listener {
                     catch (Exception ex) { plugin.getLogger().warning("Could not create LuckPerms group '" + key + "': " + ex.getMessage()); continue; }
                 }
                 String prefix = prefixFor(key);
-                boolean changed = group.data().add(PrefixNode.builder(prefix, priorityFor(key)).build()).wasSuccessful();
+                boolean changed = false;
+                // Replace stale prefix nodes only; leave permissions and inheritance nodes untouched.
+                for (net.luckperms.api.node.Node node : new ArrayList<>(group.data().toCollection())) {
+                    if (node instanceof PrefixNode) changed |= group.data().remove(node).wasSuccessful();
+                }
+                changed |= group.data().add(PrefixNode.builder(prefix, priorityFor(key)).build()).wasSuccessful();
                 if (changed) luckPerms.getGroupManager().saveGroup(group).join();
             } catch (Exception ex) {
                 plugin.getLogger().warning("Could not configure LuckPerms group '" + key + "': " + ex.getMessage());
