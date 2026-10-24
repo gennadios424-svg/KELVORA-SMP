@@ -574,6 +574,7 @@ final class ShardShopManager implements Listener {
         return section == null ? null : section.getString("legacy-color", null);
     }
 
+    /** Returns the selected cosmetic only when its separate enabled flag permits display. */
     private synchronized String activeCosmetic(UUID uuid, String category) {
         String id = data.getString(uuid + ".equipped." + category);
         if (id == null || id.isBlank() || !data.getBoolean(uuid + ".enabled." + category, true)
