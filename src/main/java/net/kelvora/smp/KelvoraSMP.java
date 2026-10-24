@@ -326,7 +326,22 @@ implements Listener {
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
         }
+        clearNameplateInfo(board);
         if (this.shardShopManager != null) this.shardShopManager.refreshCosmetics(player);
+    }
+
+    // Remove external scoreboard prefix/suffix text from player nameplates (e.g. Money/Team).
+    // TAB-list ranks are handled separately with setPlayerListName above.
+    private void clearNameplateInfo(Scoreboard board) {
+        if (board == null) return;
+        Set<String> onlineNames = new java.util.HashSet<>();
+        for (Player online : Bukkit.getOnlinePlayers()) onlineNames.add(online.getName());
+        for (Team team : board.getTeams()) {
+            boolean isPlayerTeam = team.getEntries().stream().anyMatch(onlineNames::contains);
+            if (!isPlayerTeam) continue;
+            if (!team.getPrefix().isEmpty()) team.setPrefix("");
+            if (!team.getSuffix().isEmpty()) team.setSuffix("");
+        }
     }
 
     private String rankKey(Player player) {
