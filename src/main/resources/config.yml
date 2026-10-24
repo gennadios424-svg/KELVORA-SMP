@@ -15,13 +15,16 @@ passive-kelvoras:
 scoreboard:
   title: "&a&lKELVORA SMP"
 ranks:
-  sprout: { label: "Sprout", color: "&7", description: "Starting rank · New players" }
+  # Supporter role is separate from progression and must not replace the main rank.
+  booster: { label: "Booster", color: "&5", description: "Discord booster supporter role" }
+  sprout: { label: "Sprout", color: "&d", description: "Starting rank · New players" }
   verdant: { label: "Verdant", color: "&a", description: "Early progression · Growing your wealth" }
   emerald: { label: "Emerald", color: "&3", description: "Mid progression · Established players" }
   sovereign: { label: "Sovereign", color: "&3", description: "High rank · Powerful and respected" }
   ascendant: { label: "Ascendant", color: "&6", description: "Top rank · The elite of Kelvora" }
   helper: { label: "Helper", color: "&a", description: "Answers questions and helps players" }
   moderator: { label: "Moderator", color: "&9", description: "Handles chat and rule enforcement" }
+  manager: { label: "Manager", color: "&b", description: "Coordinates staff operations" }
   admin: { label: "Admin", color: "&5", description: "Manages server operations" }
   owner: { label: "Owner", color: "&c", description: "Server leadership" }
   creator: { label: "Creator", color: "&d", description: "Content creators for Kelvora" }
