@@ -31,6 +31,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
     private final File file;
     private final NamespacedKey actionKey;
     private final Map<UUID, Map<String, SavedHome>> homes = new HashMap<>();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<UUID> teleporting = new HashSet<>();
     private final Map<UUID, BukkitTask> teleportTasks = new HashMap<>();
     private final Map<UUID, Location> teleportOrigins = new HashMap<>();
@@ -237,6 +238,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
     private void openHomes(Player p, int page) {
         if (!p.hasPermission("kelvora.homes.use")) { fail(p, "You do not have permission."); return; }
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         ItemStack pane = item(Material.GRAY_STAINED_GLASS_PANE, " ", null);
         for (int i = 45; i < 54; i++) inv.setItem(i, pane);
         Map<String, SavedHome> own = homes.getOrDefault(p.getUniqueId(), Map.of());
@@ -277,7 +279,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent e) {
-        if (!TITLE.equals(ChatColor.stripColor(e.getView().getTitle()))) return;
+        if (!activeInventories.contains(e.getView().getTopInventory())) return;
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getView().getTopInventory()) return;
         if (e.getRawSlot() < 0 || e.getRawSlot() >= e.getView().getTopInventory().getSize()) return;
@@ -305,6 +307,8 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
         teleport(p, h);
     }
 
+    @EventHandler public void onGuiInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
+
     private int currentPage(Inventory inv) {
         ItemStack paper = inv.getItem(49);
         if (paper == null || !paper.hasItemMeta()) return 0;
@@ -314,7 +318,7 @@ final class HomesManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     @EventHandler public void onInventoryDrag(InventoryDragEvent e) {
-        if (TITLE.equals(ChatColor.stripColor(e.getView().getTitle()))) e.setCancelled(true);
+        if (activeInventories.contains(e.getView().getTopInventory())) e.setCancelled(true);
     }
     @EventHandler(ignoreCancelled = true)
     public void onTeleportMove(PlayerMoveEvent e) {
