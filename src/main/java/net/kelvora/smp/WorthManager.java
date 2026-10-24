@@ -36,6 +36,8 @@ package net.kelvora.smp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -85,6 +87,7 @@ TabExecutor {
     private final NamespacedKey stateKey;
     private final Map<Material, Double> prices = new EnumMap<Material, Double>(Material.class);
     private final Map<UUID, SearchState> pendingSearch = new ConcurrentHashMap<UUID, SearchState>();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<Inventory, Boolean>());
 
     WorthManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -460,6 +463,7 @@ TabExecutor {
         int pages = Math.max(1, (entries.size() + 45 - 1) / 45);
         state.page = Math.max(0, Math.min(state.page, pages - 1));
         Inventory inv = Bukkit.createInventory(null, (int)54, (Component)TITLE);
+        this.activeInventories.add(inv);
         for (int i = 0; i < 45 && (index = state.page * 45 + i) < entries.size(); ++i) {
             Map.Entry<Material, Double> entry = entries.get(index);
             ItemStack item = new ItemStack(entry.getKey());
@@ -502,7 +506,7 @@ TabExecutor {
         Player player;
         block22: {
             block21: {
-                if (!event.getView().title().equals((Object)TITLE)) {
+                if (!this.activeInventories.contains(event.getView().getTopInventory())) {
                     return;
                 }
                 event.setCancelled(true);
@@ -565,10 +569,13 @@ TabExecutor {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (event.getView().title().equals((Object)TITLE) && event.getRawSlots().stream().anyMatch(slot -> slot < event.getView().getTopInventory().getSize())) {
+        if (this.activeInventories.contains(event.getView().getTopInventory())) {
             event.setCancelled(true);
         }
     }
+
+    @EventHandler
+    public void onClose(org.bukkit.event.inventory.InventoryCloseEvent event) { this.activeInventories.remove(event.getInventory()); }
 
     @EventHandler
     public void onChat(AsyncPlayerChatEvent event) {
