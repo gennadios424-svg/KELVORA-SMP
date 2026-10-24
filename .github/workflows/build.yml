@@ -9,6 +9,13 @@ on:
       - 'src/main/resources/**'
       - 'pom.xml'
       - '.github/workflows/build.yml'
+  pull_request:
+    branches: [phase-34-ranks-live-tpa-crates]
+    paths:
+      - 'src/**'
+      - 'src/main/resources/**'
+      - 'pom.xml'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
@@ -71,6 +78,7 @@ jobs:
           echo "Compiled JAR, coinflip, shop manager, Money leaderboard, and Kelvoras command verified."
       - name: Publish compiled JAR to repository
         id: publish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           JAR="KelvoraSMP-${VERSION}.jar"
@@ -88,6 +96,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: KelvoraSMP-${{ steps.version.outputs.version }}
-          path: KelvoraSMP-${{ steps.version.outputs.version }}.jar
+          path: target/KelvoraSMP-${{ steps.version.outputs.version }}.jar
           if-no-files-found: error
           retention-days: 30
