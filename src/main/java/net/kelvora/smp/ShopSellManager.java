@@ -37,6 +37,7 @@ final class ShopSellManager implements Listener {
     private final NamespacedKey actionKey;
     private final NamespacedKey kelvoraToolIdKey;
     private final Set<UUID> transactions = ConcurrentHashMap.newKeySet();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<UUID, QuantitySession> quantitySessions = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> currentCategoryPages = new ConcurrentHashMap<>();
     private Object economy;
@@ -83,6 +84,7 @@ final class ShopSellManager implements Listener {
 
     private void openShop(Player p) {
         Inventory inv = Bukkit.createInventory(null, 36, Component.text(MAIN, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         put(inv, 10, Material.BRICKS, "Blocks", "cat:blocks:0", "Building blocks, wood and shulker boxes");
         put(inv, 11, Material.COOKED_BEEF, "Food", "cat:food:0", "Ready-to-eat food");
         put(inv, 12, Material.END_CRYSTAL, "Crystal PvP", "cat:pvp:0", "Crystals and combat supplies");
@@ -106,6 +108,7 @@ final class ShopSellManager implements Listener {
         page = Math.max(0, Math.min(page, pages - 1));
         int controls = guiSize - 9;
         Inventory inv = Bukkit.createInventory(null, guiSize, Component.text(CATEGORY + (cat.equals("pvp") ? "CRYSTAL PVP" : cat.toUpperCase(Locale.ROOT)), NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         for (int i = 0; i < pageSize; i++) {
             int index = page * pageSize + i;
             if (index >= entries.size()) break;
@@ -222,6 +225,7 @@ final class ShopSellManager implements Listener {
 
     private void openSell(Player p) {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(SELL, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         // New layout: dedicated instruction header, four rows of real deposit slots, and protected controls.
         for (int i = 0; i < SELL_START; i++) inv.setItem(i, createSellHeaderFrame());
         for (int i = SELL_END; i < 54; i++) inv.setItem(i, createSellFrame());
@@ -456,6 +460,7 @@ final class ShopSellManager implements Listener {
 
     private void openQuantity(Player p, QuantitySession session) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text(QUANTITY, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         refreshQuantityView(p, inv, session);
         put(inv, 19, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
