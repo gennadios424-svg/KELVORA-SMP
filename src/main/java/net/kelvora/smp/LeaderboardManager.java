@@ -50,6 +50,12 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         ItemStack frame = new ItemStack(Material.GREEN_STAINED_GLASS_PANE);
         ItemMeta frameMeta = frame.getItemMeta(); frameMeta.displayName(Component.text(" ")); frame.setItemMeta(frameMeta);
         for (int slot : new int[]{0,1,2,3,4,5,6,7,8,27,28,29,30,31,32,33,34,35}) inv.setItem(slot, frame.clone());
+        ItemStack brand = new ItemStack(Material.EMERALD_BLOCK);
+        ItemMeta brandMeta = brand.getItemMeta();
+        brandMeta.displayName(Component.text("KELVORA SMP", NamedTextColor.GREEN));
+        brandMeta.lore(List.of(Component.text("Emerald economy • Survival • Community", NamedTextColor.GRAY)));
+        brand.setItemMeta(brandMeta);
+        inv.setItem(4, brand);
         Material[] icons = {Material.IRON_SWORD, Material.SKELETON_SKULL, Material.CLOCK, Material.GOLD_INGOT, Material.AMETHYST_SHARD, Material.NETHER_STAR};
         int[] slots = {10, 12, 14, 19, 21, 23};
         for (int i=0;i<TYPES.size();i++) {
