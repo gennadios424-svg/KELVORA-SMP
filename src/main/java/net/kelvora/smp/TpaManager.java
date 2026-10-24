@@ -116,6 +116,7 @@ final class TpaManager implements Listener {
         if (safe == null) { fail(target, "The destination is unsafe. Request another teleport when the destination is safe."); return true; }
         int seconds = Math.max(0, Math.min(30, plugin.getConfig().getInt("tpa.countdown-seconds", 5)));
         Location start = traveler.getLocation().clone();
+        sender.sendMessage(Component.text(target.getName() + " accepted your teleport request.", NamedTextColor.GREEN));
         traveler.sendMessage(Component.text("Teleporting in " + seconds + " seconds. Do not move or enter combat.", NamedTextColor.GREEN));
         target.sendMessage(Component.text("Teleport request accepted.", NamedTextColor.GREEN));
         traveler.playSound(traveler.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .4f, 1.2f);
