@@ -135,7 +135,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         }
         if (cmd.equals("vanish")) {
             if (!(sender instanceof Player p)) { sender.sendMessage("Players only."); return true; }
-            if (!moderator(p) && !p.hasPermission("kelvora.vanish")) { p.sendMessage(ChatColor.RED+"You do not have permission."); return true; }
+            if (!moderator(p) && !hasRole(p, "staff") && !hasRole(p, "manager") && !p.hasPermission("kelvora.vanish")) { p.sendMessage(ChatColor.RED+"You do not have permission."); return true; }
             if (vanished.remove(p.getUniqueId())) { p.removePotionEffect(PotionEffectType.INVISIBILITY); for (Player other:Bukkit.getOnlinePlayers()) other.showPlayer(plugin,p); p.sendMessage(ChatColor.YELLOW+"Vanish disabled."); }
             else { vanished.add(p.getUniqueId()); applyVanishVisibility(p); p.sendMessage(ChatColor.GREEN+"Vanish enabled."); }
             return true;
