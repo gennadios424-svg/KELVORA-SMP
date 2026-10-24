@@ -135,6 +135,7 @@ final class CoinflipManager implements Listener {
         challenges.put(c.id, c);
         save();
         p.sendMessage(Component.text("Coinflip created for $" + fmt(amount) + ". Your wager is escrowed. Waiting for an opponent.", NamedTextColor.GREEN));
+        p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.35f, 1.15f);
         for (Player online : Bukkit.getOnlinePlayers()) if (!online.equals(p)) online.sendMessage(Component.text(p.getName() + " opened a $" + fmt(amount) + " coinflip. Use /coinflip to join.", NamedTextColor.GOLD));
         openMain(p);
     }
@@ -220,12 +221,14 @@ final class CoinflipManager implements Listener {
             return;
         }
         if (balance(p) + 0.000001 < c.amount) { p.sendMessage(Component.text("You do not have enough Money.", NamedTextColor.RED)); return; }
-        if (!money(p, c.amount, true)) { p.sendMessage(Component.text("Your wager could not be reserved.", NamedTextColor.RED)); return; }
+        if (!money(p, c.amount, true)) { p.sendMessage(Component.text("Your wager could not be reserved.", NamedTextColor.RED)); p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, .3f, .8f); return; }
         // Lock and persist the match and fair server-side result before starting any animation.
         c.status = "RUNNING"; c.opponent = p.getUniqueId(); c.opponentName = p.getName();
         c.winner = ThreadLocalRandom.current().nextBoolean() ? c.creator : p.getUniqueId();
         c.pot = c.amount * 2;
         save();
+        p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
+        creator.playSound(creator.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, .35f, 1.15f);
         animate(c, creator, p, 0);
     }
 
@@ -310,6 +313,7 @@ final class CoinflipManager implements Listener {
         // shift-click, number-key, offhand, double-click, creative and bottom-inventory clicks too.
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != top) return;
+        p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, .18f, 1.1f);
         String title = e.getView().getTitle();
         int slot = e.getRawSlot();
         if (title.equals(MAIN)) {
