@@ -344,6 +344,9 @@ final class ShardShopManager implements Listener {
             return;
         }
         String previousLastProduct = data.getString(uuid + ".temporary-ranks." + group + ".last-product");
+        String previousEquippedRank = data.getString(uuid + ".equipped.ranks");
+        Map<String, Object> previousOwned = new HashMap<>();
+        Map<String, Object> previousExpired = new HashMap<>();
         data.set(expiryPath, expires);
         data.set(uuid + ".temporary-ranks." + group + ".last-product", product);
         ConfigurationSection rankOffers = plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks");
@@ -351,8 +354,12 @@ final class ShardShopManager implements Listener {
             for (String offerId : rankOffers.getKeys(false)) {
                 ConfigurationSection offer = rankOffers.getConfigurationSection(offerId);
                 if (offer != null && group.equalsIgnoreCase(offer.getString("rank", ""))) {
-                    data.set(uuid + ".owned.ranks." + offerId, expires);
-                    data.set(uuid + ".expired.ranks." + offerId, null);
+                    String ownedPath = uuid + ".owned.ranks." + offerId;
+                    String expiredPath = uuid + ".expired.ranks." + offerId;
+                    previousOwned.put(offerId, data.get(ownedPath));
+                    previousExpired.put(offerId, data.get(expiredPath));
+                    data.set(ownedPath, expires);
+                    data.set(expiredPath, null);
                 }
             }
         }
@@ -362,10 +369,11 @@ final class ShardShopManager implements Listener {
             data.set(uuid + ".temporary-ranks." + group + ".last-product", previousLastProduct);
             if (rankOffers != null) {
                 for (String offerId : rankOffers.getKeys(false)) {
-                    ConfigurationSection offer = rankOffers.getConfigurationSection(offerId);
-                    if (offer != null && group.equalsIgnoreCase(offer.getString("rank", ""))) data.set(uuid + ".owned.ranks." + offerId, null);
+                    if (previousOwned.containsKey(offerId)) data.set(uuid + ".owned.ranks." + offerId, previousOwned.get(offerId));
+                    if (previousExpired.containsKey(offerId)) data.set(uuid + ".expired.ranks." + offerId, previousExpired.get(offerId));
                 }
             }
+            data.set(uuid + ".equipped.ranks", previousEquippedRank);
             restoreTimedRankNodes(lp, uuid, group, oldTimedNodes);
             currency.deposit(player, price);
             player.sendMessage(Component.text("Could not save the rank expiry. Your Kelvoras were refunded.", NamedTextColor.RED));
@@ -560,8 +568,14 @@ final class ShardShopManager implements Listener {
         return switch (category) { case "tags" -> "Tags"; case "titles" -> "Temporary Ranks"; case "ranks" -> "Temporary Ranks"; case "glows" -> "Glows"; default -> "Chat Colours"; };
     }
     private String durationLabel(long seconds) {
-        if (seconds % 86400 == 0) return (seconds / 86400) + " day(s)";
-        if (seconds % 3600 == 0) return (seconds / 3600) + " hour(s)";
+        if (seconds % 86400 == 0) {
+            long days = seconds / 86400;
+            return days + (days == 1 ? " Day" : " Days");
+        }
+        if (seconds % 3600 == 0) {
+            long hours = seconds / 3600;
+            return hours + (hours == 1 ? " Hour" : " Hours");
+        }
         return seconds + " seconds";
     }
     private Material material(String name) {
