@@ -311,13 +311,21 @@ final class ShardShopManager implements Listener {
         } finally { processing.remove(uuid); }
     }
 
+    /**
+     * Purchase-rank hierarchy used only to prevent a temporary purchase from
+     * replacing a higher permanent purchase rank. Staff/media groups are
+     * deliberately outside this ladder and are therefore never removed.
+     *
+     * Booster -> Sprout -> Verdant -> Emerald -> Sovereign -> Ascendant.
+     */
     private int rankWeight(String rank) {
         return switch (rank.toLowerCase(Locale.ROOT)) {
-            case "sprout", "member", "default" -> 1;
-            case "verdant", "vip" -> 2;
-            case "emerald" -> 3;
-            case "sovereign" -> 4;
-            case "ascendant" -> 5;
+            case "booster" -> 1;
+            case "sprout", "member", "default" -> 2;
+            case "verdant", "vip" -> 3;
+            case "emerald" -> 4;
+            case "sovereign" -> 5;
+            case "ascendant" -> 6;
             default -> 0;
         };
     }
