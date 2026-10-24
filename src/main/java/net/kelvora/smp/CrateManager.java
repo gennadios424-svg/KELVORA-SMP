@@ -446,7 +446,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 if (raw >= 0 && raw < 45 && raw < rewards.size()) {
                     String removed = rewards.remove(raw);
                     p.sendMessage(Component.text("Removed reward " + removed + ". Click SAVE REWARDS to persist.", NamedTextColor.YELLOW));
-                    openRewardEditor(p, type);
+                    Bukkit.getScheduler().runTask(plugin, () -> openRewardEditor(p, type));
                 }
                 return;
             }
@@ -457,7 +457,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
                 rewards.add(cursorItem.getType().name() + ":" + cursorItem.getAmount() + ":1:Common");
                 p.sendMessage(Component.text("Added " + cursorItem.getType().name() + " x" + cursorItem.getAmount() + " as a reward template. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
-                openRewardEditor(p, type);
+                Bukkit.getScheduler().runTask(plugin, () -> openRewardEditor(p, type));
             }
             return;
         }
