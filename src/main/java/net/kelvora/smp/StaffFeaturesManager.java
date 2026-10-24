@@ -75,13 +75,11 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
     }
     String tabLabels(Player player) {
         List<String> labels = new ArrayList<>();
-        for (String role : roles(player)) if (roleExists(role)) labels.add(ChatColor.translateAlternateColorCodes('&', roleColor(role) + "[" + roleLabel(role) + ChatColor.RESET + ChatColor.translateAlternateColorCodes('&', roleColor(role)) + "]"));
-        if (isStaffOrMediaGroup(player, "staff") && labels.stream().noneMatch(x -> ChatColor.stripColor(x).equalsIgnoreCase("[Staff]"))) labels.add(ChatColor.RED + ChatColor.BOLD.toString() + "[Staff]" + ChatColor.RESET);
-        if (isStaffOrMediaGroup(player, "media") && labels.stream().noneMatch(x -> ChatColor.stripColor(x).equalsIgnoreCase("[Media]"))) labels.add(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "[Media]" + ChatColor.RESET);
+        for (String role : roles(player)) if (roleExists(role)) labels.add(roleColor(role) + "&l[" + roleLabel(role) + "]&r");
+        if (isStaffOrMediaGroup(player, "staff") && labels.stream().noneMatch(x -> x.replace("&l", "").replace("&r", "").equalsIgnoreCase("&c[Staff]"))) labels.add("&c&l[Staff]&r");
+        if (isStaffOrMediaGroup(player, "media") && labels.stream().noneMatch(x -> x.replace("&l", "").replace("&r", "").equalsIgnoreCase("&d[Media]"))) labels.add("&d&l[Media]&r");
         return String.join(" ", labels);
     }
-    ComponentHolder chatRoleLabels(Player player) { return new ComponentHolder(tabLabels(player)); }
-    static final class ComponentHolder { final String text; ComponentHolder(String text) { this.text=text; } }
     String liveTabLabel(Player player) {
         if (!data.getBoolean("live." + player.getUniqueId() + ".active", false)) return "";
         String link = data.getString("live." + player.getUniqueId() + ".link", "");
