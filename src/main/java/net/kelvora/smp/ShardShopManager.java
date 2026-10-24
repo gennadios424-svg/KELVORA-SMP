@@ -214,6 +214,10 @@ final class ShardShopManager implements Listener {
         UUID uuid = player.getUniqueId();
         if (!processing.add(uuid)) return;
         try {
+            if (category.equals("ranks")) {
+                handleTemporaryRankPurchase(player, id, entry);
+                return;
+            }
             expire(uuid, category, id);
             boolean owned = owns(uuid, category, id);
             String equipped = data.getString(uuid + ".equipped." + category, "");
@@ -222,11 +226,13 @@ final class ShardShopManager implements Listener {
                     data.set(uuid + ".equipped." + category, null);
                     saveData();
                     applyCosmetic(player, category, null, null);
+                    plugin.refreshSidebar(player);
                     player.sendMessage(Component.text("Cosmetic unequipped.", NamedTextColor.YELLOW));
                 } else {
                     data.set(uuid + ".equipped." + category, id);
                     saveData();
                     applyCosmetic(player, category, id, entry);
+                    plugin.refreshSidebar(player);
                     player.sendMessage(Component.text("Equipped " + entry.getString("name", id) + ".", NamedTextColor.GREEN));
                 }
                 openItems(player, category);
@@ -257,9 +263,155 @@ final class ShardShopManager implements Listener {
                 player.sendMessage(Component.text("Purchase failed; no charge was made.", NamedTextColor.RED)); return;
             }
             applyCosmetic(player, category, id, entry);
-            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
+            plugin.refreshSidebar(player);
+            player.sendMessage(Component.text("Purchased and equipped " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
             openItems(player, category);
         } finally { processing.remove(uuid); }
+    }
+
+    private int rankWeight(String rank) {
+        return switch (rank.toLowerCase(Locale.ROOT)) {
+            case "sprout", "member", "default" -> 1;
+            case "verdant", "vip" -> 2;
+            case "emerald" -> 3;
+            case "sovereign" -> 4;
+            case "ascendant" -> 5;
+            default -> 0;
+        };
+    }
+
+    private void handleTemporaryRankPurchase(Player player, String product, ConfigurationSection entry) {
+        UUID uuid = player.getUniqueId();
+        String group = entry.getString("rank", "").toLowerCase(Locale.ROOT);
+        long duration = entry.getLong("duration-seconds", 0L);
+        double price = entry.getDouble("price", -1.0);
+        if (!Set.of("verdant", "emerald", "sovereign").contains(group) || duration <= 0
+                || !Double.isFinite(price) || price < 0 || !entry.getBoolean("available", false)) {
+            player.sendMessage(Component.text("This rank offer is not configured correctly. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        LuckPerms lp;
+        try { lp = LuckPermsProvider.get(); }
+        catch (IllegalStateException ex) {
+            player.sendMessage(Component.text("LuckPerms is unavailable. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        double balance = currency.balance(player);
+        if (!Double.isFinite(balance) || balance + 0.000001 < price) {
+            player.sendMessage(Component.text("Not enough Kelvoras! Balance: ✦" + KelvorasManager.format(balance), NamedTextColor.RED));
+            return;
+        }
+        User user;
+        try {
+            user = lp.getUserManager().getUser(uuid);
+            if (user == null) user = lp.getUserManager().loadUser(uuid).join();
+        } catch (Exception ex) {
+            player.sendMessage(Component.text("Could not load your rank data. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        int wantedWeight = rankWeight(group);
+        for (Node node : user.getNodes()) {
+            if (node instanceof InheritanceNode inherited && node.getExpiry().equals(java.time.Instant.MAX)
+                    && rankWeight(inherited.getGroupName()) >= wantedWeight && rankWeight(inherited.getGroupName()) > 0) {
+                player.sendMessage(Component.text("You already have this rank permanently or a higher permanent rank. No Kelvoras were charged.", NamedTextColor.YELLOW));
+                return;
+            }
+        }
+        long now = System.currentTimeMillis();
+        String expiryPath = uuid + ".temporary-ranks." + group + ".expires";
+        long previousExpiry = data.getLong(expiryPath, 0L);
+        long expires = Math.max(now, previousExpiry) + duration * 1000L;
+        if (!currency.withdraw(player, price)) {
+            player.sendMessage(Component.text("Purchase failed. No Kelvoras were charged.", NamedTextColor.RED));
+            return;
+        }
+        List<Node> oldTimedNodes = new ArrayList<>();
+        try {
+            for (Node node : new ArrayList<>(user.getNodes())) {
+                if (node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(group)
+                        && !node.getExpiry().equals(java.time.Instant.MAX)) {
+                    oldTimedNodes.add(node);
+                    user.data().remove(node);
+                }
+            }
+            user.data().add(InheritanceNode.builder(group)
+                .expiry(java.time.Duration.ofMillis(Math.max(1000L, expires - now))).build());
+            lp.getUserManager().saveUser(user).join();
+        } catch (Exception ex) {
+            restoreTimedRankNodes(lp, uuid, group, oldTimedNodes);
+            currency.deposit(player, price);
+            player.sendMessage(Component.text("Rank assignment failed. Your Kelvoras were refunded.", NamedTextColor.RED));
+            return;
+        }
+        String previousLastProduct = data.getString(uuid + ".temporary-ranks." + group + ".last-product");
+        data.set(expiryPath, expires);
+        data.set(uuid + ".temporary-ranks." + group + ".last-product", product);
+        ConfigurationSection rankOffers = plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks");
+        if (rankOffers != null) {
+            for (String offerId : rankOffers.getKeys(false)) {
+                ConfigurationSection offer = rankOffers.getConfigurationSection(offerId);
+                if (offer != null && group.equalsIgnoreCase(offer.getString("rank", ""))) {
+                    data.set(uuid + ".owned.ranks." + offerId, expires);
+                    data.set(uuid + ".expired.ranks." + offerId, null);
+                }
+            }
+        }
+        data.set(uuid + ".equipped.ranks", null);
+        if (!saveData()) {
+            data.set(expiryPath, previousExpiry == 0L ? null : previousExpiry);
+            data.set(uuid + ".temporary-ranks." + group + ".last-product", previousLastProduct);
+            if (rankOffers != null) {
+                for (String offerId : rankOffers.getKeys(false)) {
+                    ConfigurationSection offer = rankOffers.getConfigurationSection(offerId);
+                    if (offer != null && group.equalsIgnoreCase(offer.getString("rank", ""))) data.set(uuid + ".owned.ranks." + offerId, null);
+                }
+            }
+            restoreTimedRankNodes(lp, uuid, group, oldTimedNodes);
+            currency.deposit(player, price);
+            player.sendMessage(Component.text("Could not save the rank expiry. Your Kelvoras were refunded.", NamedTextColor.RED));
+            return;
+        }
+        plugin.refreshSidebar(player);
+        String label = group.substring(0, 1).toUpperCase(Locale.ROOT) + group.substring(1);
+        player.sendMessage(Component.text("Purchased " + label + " for " + durationLabel(duration)
+            + ". Rank permissions applied. Expires " + new Date(expires) + ". Paid ✦" + KelvorasManager.format(price) + ".", NamedTextColor.GREEN));
+        openItems(player, "ranks");
+    }
+
+    private void restoreTimedRankNodes(LuckPerms lp, UUID uuid, String group, List<Node> oldNodes) {
+        try {
+            User rollback = lp.getUserManager().getUser(uuid);
+            if (rollback == null) rollback = lp.getUserManager().loadUser(uuid).join();
+            for (Node node : new ArrayList<>(rollback.getNodes())) {
+                if (node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(group)
+                        && !node.getExpiry().equals(java.time.Instant.MAX)) rollback.data().remove(node);
+            }
+            oldNodes.forEach(node -> rollback.data().add(node));
+            lp.getUserManager().saveUser(rollback).join();
+        } catch (Exception ex) {
+            plugin.getLogger().severe("Could not restore previous temporary rank for " + uuid + ": " + ex.getMessage());
+        }
+    }
+
+    private void expireTemporaryRank(UUID uuid, String group) {
+        try {
+            LuckPerms lp = LuckPermsProvider.get();
+            User user = lp.getUserManager().getUser(uuid);
+            if (user == null) user = lp.getUserManager().loadUser(uuid).join();
+            boolean changed = false;
+            for (Node node : new ArrayList<>(user.getNodes())) {
+                if (node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(group)
+                        && !node.getExpiry().equals(java.time.Instant.MAX)) {
+                    user.data().remove(node);
+                    changed = true;
+                }
+            }
+            if (changed) lp.getUserManager().saveUser(user).join();
+            Player online = Bukkit.getPlayer(uuid);
+            if (online != null) plugin.refreshSidebar(online);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Could not expire temporary rank " + group + " for " + uuid + ": " + ex.getMessage());
+        }
     }
 
     private void applyCosmetic(Player player, String category, String id, ConfigurationSection entry) {
@@ -362,6 +514,18 @@ final class ShardShopManager implements Listener {
         for (String uuidText : data.getKeys(false)) {
             UUID uuid;
             try { uuid = UUID.fromString(uuidText); } catch (IllegalArgumentException ex) { continue; }
+            ConfigurationSection temporaryRanks = data.getConfigurationSection(uuidText + ".temporary-ranks");
+            if (temporaryRanks != null) {
+                for (String rank : temporaryRanks.getKeys(false)) {
+                    long rankExpiry = temporaryRanks.getLong(rank + ".expires", 0L);
+                    if (rankExpiry > 0 && rankExpiry <= System.currentTimeMillis()) {
+                        expireTemporaryRank(uuid, rank);
+                        data.set(uuidText + ".temporary-ranks." + rank + ".expires", null);
+                        data.set(uuidText + ".temporary-ranks." + rank + ".last-product", null);
+                        changed = true;
+                    }
+                }
+            }
             ConfigurationSection owned = data.getConfigurationSection(uuidText + ".owned");
             if (owned == null) continue;
             for (String category : owned.getKeys(false)) {
