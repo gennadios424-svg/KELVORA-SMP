@@ -30,7 +30,11 @@ jobs:
           cache: maven
       - name: Compile plugin and validate JAR
         run: |
-          mvn -B -ntp clean package
+          for attempt in 1 2 3; do
+            if mvn -B -ntp -Dmaven.wagon.http.retryHandler.count=5 clean package; then exit 0; fi
+            if [ "$attempt" -lt 3 ]; then echo "Maven build failed; retrying in 10 seconds ($attempt/3)..."; sleep 10; fi
+          done
+          exit 1
           VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed 's/<[^>]*>//g')
           JAR="target/KelvoraSMP-${VERSION}.jar"
           test -s "$JAR"
