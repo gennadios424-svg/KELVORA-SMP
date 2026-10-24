@@ -257,7 +257,7 @@ implements Listener {
         // Temporary ShardShop ranks are cosmetics, never actual TAB ranks. Keep the player list clean.
         String extraRoles = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
         String liveLabel = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.liveTabLabel(player);
-        player.setPlayerListName(progressionPrefix + (extraRoles.isBlank() ? "" : extraRoles + " ") + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
+        player.setPlayerListName(progressionPrefix + (extraRoles.isBlank() ? "" : this.color(extraRoles) + " ") + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
@@ -365,6 +365,12 @@ implements Listener {
             }
         }
         return this.rankKey(player);
+    }
+    boolean hasRoleGroup(Player player, String groupName) {
+        if (this.luckPerms == null) return false;
+        User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
+        return user != null && user.getNodes().stream().anyMatch(node ->
+            node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(groupName));
     }
     TeamManager getTeamManager() { return this.teamManager; }
     void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
