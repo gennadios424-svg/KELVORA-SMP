@@ -48,6 +48,7 @@ final class ShardShopManager implements Listener {
     private YamlConfiguration data;
     private final Set<UUID> processing = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> openCategory = new HashMap<>();
+    private final Set<Inventory> activeInventories = Collections.newSetFromMap(new IdentityHashMap<>());
 
     ShardShopManager(KelvoraSMP plugin, KelvorasManager currency) {
         this.plugin = plugin;
@@ -159,6 +160,7 @@ final class ShardShopManager implements Listener {
     private void openCategories(Player player) {
         openCategory.put(player.getUniqueId(), "categories");
         Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE, NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         add(inv, 10, Material.NAME_TAG, "&aTags", List.of("Decorative labels beside your name"), "category:tags");
         add(inv, 12, Material.EMERALD, "&eTemporary Ranks", List.of("Cosmetic titles only — no permissions", "Choose a title duration"), "category:ranks");
         add(inv, 14, Material.GLOW_INK_SAC, "&bGlows", List.of("Cosmetic player glow colours"), "category:glows");
@@ -171,6 +173,7 @@ final class ShardShopManager implements Listener {
     private void openItems(Player player, String category) {
         openCategory.put(player.getUniqueId(), category);
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(TITLE + " | " + categoryLabel(category), NamedTextColor.DARK_GREEN));
+        activeInventories.add(inv);
         ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
         int slot = 10;
         if (entries != null) {
@@ -419,8 +422,8 @@ final class ShardShopManager implements Listener {
     }
 
     @EventHandler public void onClick(InventoryClickEvent event) {
+        if (!activeInventories.contains(event.getView().getTopInventory())) return;
         String title = event.getView().title().toString();
-        if (!title.contains(TITLE)) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player) || event.getClickedInventory() != event.getView().getTopInventory()) return;
         ItemStack item = event.getCurrentItem();
@@ -436,8 +439,9 @@ final class ShardShopManager implements Listener {
         }
     }
     @EventHandler public void onDrag(InventoryDragEvent event) {
-        if (event.getView().title().toString().contains(TITLE)) event.setCancelled(true);
+        if (activeInventories.contains(event.getView().getTopInventory())) event.setCancelled(true);
     }
+    @EventHandler public void onClose(org.bukkit.event.inventory.InventoryCloseEvent event) { activeInventories.remove(event.getInventory()); }
     @EventHandler public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> {
