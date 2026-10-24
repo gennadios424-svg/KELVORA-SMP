@@ -67,7 +67,6 @@ commands:
   live:
     description: Mark a Media member live with a Twitch or YouTube link
     usage: /live <link|off>
-    permission: kelvora.media
   tpa:
     description: Request to teleport to another player
     usage: /tpa <player>
