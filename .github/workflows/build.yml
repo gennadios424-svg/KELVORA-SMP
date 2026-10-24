@@ -1,5 +1,6 @@
 name: Build and verify KelvoraSMP
-# Build the current main branch source and publish the compiled plugin JAR.
+# Build the current main branch source, verify it, and publish the compiled plugin JAR.
+# Uses its own concurrency group so the startup smoke-test workflow cannot cancel publication.
 
 on:
   push:
