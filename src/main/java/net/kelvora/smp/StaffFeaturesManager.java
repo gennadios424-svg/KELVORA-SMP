@@ -14,6 +14,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.GameMode;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,6 +35,11 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
     private final Map<UUID, Deque<Long>> minedBlocks = new HashMap<>();
     private final Map<UUID, List<String>> recentOres = new HashMap<>();
     private final Map<UUID, Long> recentOreTimes = new HashMap<>();
+    private final Map<UUID, Deque<Long>> debrisTimes = new HashMap<>();
+    private final Map<UUID, Deque<Long>> diamondTimes = new HashMap<>();
+    private final Set<String> playerPlacedBlocks = new HashSet<>();
+    private final Map<UUID, UUID> suspectGuiTargets = new HashMap<>();
+    private static final String SUS_TITLE = ChatColor.DARK_GREEN + "Kelvora | Suslist";
     private final Set<UUID> vanished = new HashSet<>();
 
     StaffFeaturesManager(JavaPlugin plugin) {
@@ -143,6 +155,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (cmd.equals("suslist")) {
             if (!moderator(sender)) { sender.sendMessage(ChatColor.RED + "Only moderators and above can use /suslist."); return true; }
             ConfigurationSection suspects=data.getConfigurationSection("suspects");
+            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) { sender.sendMessage(ChatColor.GREEN + "Suslist uses the current configuration and saved evidence."); return true; }
             if (args.length >= 2 && args[0].equalsIgnoreCase("tp")) {
                 Player target=Bukkit.getPlayerExact(args[1]);
                 if (target==null) { sender.sendMessage(ChatColor.RED+"That player is not online."); return true; }
@@ -150,41 +163,75 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 if (!vanished.contains(staff.getUniqueId())) { vanished.add(staff.getUniqueId()); applyVanishVisibility(staff); }
                 staff.teleport(target.getLocation()); staff.sendMessage(ChatColor.GREEN+"Teleported to "+target.getName()+" in vanish. Check evidence before taking action."); return true;
             }
-            sender.sendMessage(ChatColor.GOLD+"Suspicious mining flags:");
-            if (suspects==null || suspects.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY+"No players currently flagged."); return true; }
-            for (String uuidText:suspects.getKeys(false)) {
-                String name=suspects.getString(uuidText+".name",uuidText);
-                String reason=suspects.getString(uuidText+".reason","Suspicious mining pattern");
-                sender.sendMessage(ChatColor.YELLOW+name+ChatColor.GRAY+" — "+reason+ChatColor.DARK_GRAY+" | /suslist tp "+name);
-            }
+            openSuspectGui(sender, suspects);
             return true;
         }
         return false;
     }
 
+    @EventHandler public void onBlockPlace(BlockPlaceEvent e) { if (e.getBlockPlaced().getWorld() != null) playerPlacedBlocks.add(blockKey(e.getBlockPlaced())); }
+    private String blockKey(Block b) { return b.getWorld().getName()+":"+b.getX()+":"+b.getY()+":"+b.getZ(); }
     @EventHandler public void onMine(BlockBreakEvent event) {
-        Player p=event.getPlayer(); UUID id=p.getUniqueId(); long now=System.currentTimeMillis();
+        if (event.isCancelled()) return;
+        Player p=event.getPlayer(); if (p.getGameMode()!=GameMode.SURVIVAL && p.getGameMode()!=GameMode.ADVENTURE) return;
+        if (moderator(p) || hasRole(p,"staff") || hasRole(p,"manager")) return;
+        Block block=event.getBlock(); String blockKey=blockKey(block); if (playerPlacedBlocks.remove(blockKey)) return;
+        UUID id=p.getUniqueId(); long now=System.currentTimeMillis();
         Deque<Long> times=minedBlocks.computeIfAbsent(id, x->new ArrayDeque<>()); times.addLast(now);
         while (!times.isEmpty() && now-times.peekFirst()>10_000L) times.removeFirst();
-        if (times.size()>=45) flag(p,"Breaking "+times.size()+" blocks in 10 seconds");
-        Material type=event.getBlock().getType();
-        if (type==Material.ANCIENT_DEBRIS || type==Material.DIAMOND_ORE || type==Material.DEEPSLATE_DIAMOND_ORE) {
-            List<String> ores=recentOres.computeIfAbsent(id,x->new ArrayList<>());
-            Long last=recentOreTimes.get(id);
-            if (last==null || now-last>120_000L) ores.clear();
-            ores.add(type.name()); recentOreTimes.put(id,now);
-            long diamonds=ores.stream().filter(o->o.contains("DIAMOND")).count();
-            long debris=ores.stream().filter(o->o.equals("ANCIENT_DEBRIS")).count();
-            if (diamonds>=6) flag(p,"Mined "+diamonds+" diamond ores within 2 minutes");
-            if (debris>=4) flag(p,"Mined "+debris+" ancient debris within 2 minutes");
+        if (times.size()>=45) flag(p,"Breaking "+times.size()+" blocks in 10 seconds",block);
+        Material type=block.getType();
+        if (type==Material.ANCIENT_DEBRIS) {
+            Deque<Long> found=debrisTimes.computeIfAbsent(id,x->new ArrayDeque<>()); found.addLast(now);
+            while(!found.isEmpty() && now-found.peekFirst()>180_000L) found.removeFirst();
+            if(found.size()>=2) flag(p,"Mined "+found.size()+" ancient debris within 3 minutes",block);
+        } else if (type==Material.DIAMOND_ORE || type==Material.DEEPSLATE_DIAMOND_ORE) {
+            Deque<Long> found=diamondTimes.computeIfAbsent(id,x->new ArrayDeque<>()); found.addLast(now);
+            while(!found.isEmpty() && now-found.peekFirst()>30_000L) found.removeFirst();
+            if(found.size()>=3) flag(p,"Mined "+found.size()+" diamond ores within 30 seconds",block);
         }
     }
-    private void flag(Player p,String reason) {
+    private void flag(Player p,String reason, Block ore) {
         String path="suspects."+p.getUniqueId();
-        data.set(path+".name",p.getName()); data.set(path+".reason",reason); data.set(path+".world",p.getWorld().getName());
-        data.set(path+".x",p.getLocation().getBlockX()); data.set(path+".y",p.getLocation().getBlockY()); data.set(path+".z",p.getLocation().getBlockZ());
-        data.set(path+".time",System.currentTimeMillis()); save();
+        data.set(path+".name",p.getName()); data.set(path+".reason",reason); data.set(path+".world",ore.getWorld().getName());
+        data.set(path+".x",ore.getX()); data.set(path+".y",ore.getY()); data.set(path+".z",ore.getZ());
+        data.set(path+".tool",p.getInventory().getItemInMainHand().getType().name());
+        data.set(path+".time",System.currentTimeMillis()); data.set(path+".count",reason.replaceAll("[^0-9]", "")); save();
         for (Player staff:Bukkit.getOnlinePlayers()) if (moderator(staff)) staff.sendMessage(ChatColor.RED+"[SUS] "+p.getName()+": "+reason+" — /suslist tp "+p.getName());
+    }
+    private void openSuspectGui(CommandSender sender, ConfigurationSection suspects) {
+        if (!(sender instanceof Player staff)) {
+            sender.sendMessage(ChatColor.GOLD+"Suspicious mining flags:");
+            if (suspects==null || suspects.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY+"No players currently flagged."); return; }
+            for (String id:suspects.getKeys(false)) sender.sendMessage(ChatColor.YELLOW+suspects.getString(id+".name",id)+ChatColor.GRAY+" — "+suspects.getString(id+".reason","Suspicious mining pattern")+" | /suslist tp "+suspects.getString(id+".name",id));
+            return;
+        }
+        Inventory inv=Bukkit.createInventory(null,54,SUS_TITLE);
+        suspectGuiTargets.clear();
+        if (suspects!=null) {
+            int slot=0;
+            for (String uuidText:suspects.getKeys(false)) {
+                if(slot>=45) break;
+                UUID id; try { id=UUID.fromString(uuidText); } catch(IllegalArgumentException ex) { continue; }
+                String name=suspects.getString(uuidText+".name",uuidText);
+                ItemStack head=new ItemStack(Material.PLAYER_HEAD); SkullMeta meta=(SkullMeta)head.getItemMeta();
+                Player online=Bukkit.getPlayer(id); if(online!=null) meta.setOwningPlayer(online);
+                String reason=suspects.getString(uuidText+".reason","Suspicious mining pattern");
+                meta.setDisplayName((reason.contains("ancient debris")?ChatColor.LIGHT_PURPLE:reason.contains("diamond")?ChatColor.AQUA:ChatColor.RED)+ChatColor.BOLD+name);
+                meta.setLore(List.of(ChatColor.GRAY+reason,ChatColor.GRAY+"World: "+suspects.getString(uuidText+".world","unknown"),ChatColor.GRAY+"Coords: "+suspects.getInt(uuidText+".x")+", "+suspects.getInt(uuidText+".y")+", "+suspects.getInt(uuidText+".z"),ChatColor.GRAY+"Tool: "+suspects.getString(uuidText+".tool","unknown"),ChatColor.YELLOW+"Left-click: teleport in vanish",ChatColor.YELLOW+"Right-click: inspect details"));
+                head.setItemMeta(meta); inv.setItem(slot,head); suspectGuiTargets.put(id,id); slot++;
+            }
+        }
+        ItemStack info=new ItemStack(Material.BOOK); org.bukkit.inventory.meta.ItemMeta im=info.getItemMeta(); im.setDisplayName(ChatColor.GOLD+"Investigation only"); im.setLore(List.of(ChatColor.GRAY+"Flags are evidence for staff review.",ChatColor.GRAY+"They never cause automatic punishment.")); info.setItemMeta(im); inv.setItem(49,info);
+        staff.openInventory(inv);
+    }
+    @EventHandler public void onSuspectClick(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player staff) || !SUS_TITLE.equals(e.getView().getTitle())) return;
+        e.setCancelled(true); if(e.getClickedInventory()==null || e.getClickedInventory()!=e.getView().getTopInventory()) return;
+        ItemStack item=e.getCurrentItem(); if(item==null || item.getType()!=Material.PLAYER_HEAD || !(item.getItemMeta() instanceof SkullMeta meta)) return;
+        String name=ChatColor.stripColor(meta.getDisplayName()); Player target=Bukkit.getPlayerExact(name); if(target==null){staff.sendMessage(ChatColor.RED+"That player is offline.");return;}
+        if(e.isRightClick()) { ConfigurationSection s=data.getConfigurationSection("suspects."+target.getUniqueId()); if(s!=null) staff.sendMessage(ChatColor.GOLD+target.getName()+": "+s.getString("reason","Suspicious mining pattern")+ChatColor.GRAY+" at "+s.getString("world","?")+" "+s.getInt("x")+", "+s.getInt("y")+", "+s.getInt("z")+" using "+s.getString("tool","unknown")+". Review only; no automatic punishment."); return; }
+        boolean already=vanished.contains(staff.getUniqueId()); if(!already){vanished.add(staff.getUniqueId());applyVanishVisibility(staff);} staff.teleport(target.getLocation()); staff.sendMessage(ChatColor.GREEN+"Teleported to "+target.getName()+" in vanish. Review evidence before action.");
     }
     @EventHandler public void onJoin(PlayerJoinEvent e) { applyVanishVisibility(e.getPlayer()); }
     @EventHandler public void onQuit(PlayerQuitEvent e) { minedBlocks.remove(e.getPlayer().getUniqueId()); recentOres.remove(e.getPlayer().getUniqueId()); recentOreTimes.remove(e.getPlayer().getUniqueId()); }
