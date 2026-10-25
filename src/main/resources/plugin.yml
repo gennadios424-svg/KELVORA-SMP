@@ -135,6 +135,9 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 
+  media:
+    description: View Media rank requirements and application information
+    usage: /media
   live:
     description: Set Media live status and optional video/stream link
     usage: /live [link|on|off]
