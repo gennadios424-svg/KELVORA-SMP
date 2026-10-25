@@ -140,16 +140,29 @@ final class TeleportSettingsManager implements Listener {
         }
         Player teleporter = request.here ? receiver : requester;
         Player destination = request.here ? requester : receiver;
-        Location target = destination.getLocation().clone();
-        receiver.sendMessage(Component.text("Teleport request accepted.", NamedTextColor.GREEN));
-        requester.sendMessage(Component.text(receiver.getName() + " accepted your teleport request.", NamedTextColor.GREEN));
-        teleporter.teleportAsync(target).whenComplete((success, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
-            if (error != null || !Boolean.TRUE.equals(success)) {
-                if (teleporter.isOnline()) teleporter.sendMessage(Component.text("Teleport failed.", NamedTextColor.RED));
-            } else if (teleporter.isOnline()) {
-                teleporter.playSound(teleporter.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.5f, 1.2f);
+        Location start = teleporter.getLocation().clone();
+        receiver.sendMessage(Component.text("Teleport request accepted. Teleporting in 5 seconds — don't move.", NamedTextColor.GREEN));
+        requester.sendMessage(Component.text(receiver.getName() + " accepted your teleport request. Teleporting in 5 seconds.", NamedTextColor.GREEN));
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!teleporter.isOnline() || !destination.isOnline()) return;
+            if (combat != null && (combat.isInCombat(teleporter) || combat.isInCombat(destination))) {
+                teleporter.sendMessage(Component.text("Teleport cancelled because a player entered combat.", NamedTextColor.RED));
+                return;
             }
-        }));
+            Location current = teleporter.getLocation();
+            if (!current.getWorld().equals(start.getWorld()) || current.distanceSquared(start) > 0.25) {
+                teleporter.sendMessage(Component.text("Teleport cancelled because you moved.", NamedTextColor.RED));
+                return;
+            }
+            Location target = destination.getLocation().clone();
+            teleporter.teleportAsync(target).whenComplete((success, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
+                if (error != null || !Boolean.TRUE.equals(success)) {
+                    if (teleporter.isOnline()) teleporter.sendMessage(Component.text("Teleport failed.", NamedTextColor.RED));
+                } else if (teleporter.isOnline()) {
+                    teleporter.playSound(teleporter.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.5f, 1.2f);
+                }
+            }));
+        }, 100L);
         return true;
     }
 
