@@ -40,13 +40,13 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 final class RankKitManager implements Listener {
-    private static final List<String> PROGRESSION = List.of("sprout", "verdant", "emerald", "sovereign", "ascendant");
+    private static final List<String> PROGRESSION = List.of("booster", "sprout", "verdant", "emerald", "sovereign", "ascendant");
     private static final Map<String, String> LABELS = Map.ofEntries(
-        Map.entry("sprout", "Sprout"), Map.entry("i_sprout", "Sprout"), Map.entry("verdant", "Verdant"),
+        Map.entry("booster", "Booster"), Map.entry("sprout", "Sprout"), Map.entry("i_sprout", "Sprout"), Map.entry("verdant", "Verdant"),
         Map.entry("emerald", "Emerald"), Map.entry("sovereign", "Sovereign"),
         Map.entry("ascendant", "Ascendant"), Map.entry("helper", "Helper"),
         Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"),
-        Map.entry("admin", "Admin"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"),
+        Map.entry("admin", "Admin"), Map.entry("manager", "Manager"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"), Map.entry("media", "Media"),
         Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
     );
     private final KelvoraSMP plugin;
@@ -85,7 +85,7 @@ final class RankKitManager implements Listener {
     }
 
     private void bootstrapGroups() {
-        for (String key : List.of("sprout","verdant","emerald","sovereign","ascendant","helper","moderator","admin","owner","creator")) {
+        for (String key : List.of("booster","sprout","verdant","emerald","sovereign","ascendant","helper","moderator","manager","admin","owner","creator","media")) {
             try {
                 Group group = luckPerms.getGroupManager().getGroup(key);
                 if (group == null) {
@@ -103,9 +103,9 @@ final class RankKitManager implements Listener {
 
     private int priorityFor(String key) {
         return switch (key) {
-            case "owner" -> 100; case "admin" -> 90; case "moderator" -> 80; case "helper" -> 70;
-            case "creator" -> 60; case "ascendant" -> 50; case "sovereign" -> 40;
-            case "emerald" -> 30; case "verdant" -> 20; default -> 10;
+            case "owner" -> 120; case "admin" -> 110; case "manager" -> 100; case "moderator" -> 90; case "helper" -> 80;
+            case "creator", "media" -> 70; case "ascendant" -> 60; case "sovereign" -> 50;
+            case "emerald" -> 40; case "verdant" -> 30; case "sprout" -> 20; default -> 10;
         };
     }
 
@@ -117,10 +117,10 @@ final class RankKitManager implements Listener {
 
     private String defaultColor(String key) {
         return switch (key) {
-            case "sprout", "i_sprout" -> "&7"; case "verdant", "helper" -> "&a";
-            case "emerald" -> "&3"; case "sovereign" -> "&3";
-            case "ascendant" -> "&6"; case "moderator" -> "&9";
-            case "admin" -> "&5"; case "owner" -> "&c"; case "creator" -> "&d"; default -> "&7";
+            case "booster" -> "&d"; case "sprout", "i_sprout" -> "&7"; case "verdant", "helper" -> "&a";
+            case "emerald" -> "&2"; case "sovereign" -> "&b";
+            case "ascendant" -> "&6"; case "moderator" -> "&9"; case "manager" -> "&5";
+            case "admin" -> "&c"; case "owner" -> "&4"; case "creator", "media" -> "&d"; default -> "&7";
         };
     }
 
