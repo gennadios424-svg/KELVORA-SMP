@@ -56,7 +56,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
             save();
         }
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        for (String command : List.of("live", "role", "suslist", "vanish")) {
+        for (String command : List.of("live", "media", "role", "suslist", "vanish")) {
             if (plugin.getCommand(command) != null) {
                 plugin.getCommand(command).setExecutor(this);
                 plugin.getCommand(command).setTabCompleter(this);
@@ -102,6 +102,23 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         String cmd = command.getName().toLowerCase(Locale.ROOT);
+        if (cmd.equals("media")) {
+            if (!(sender instanceof Player p)) { sender.sendMessage("Use /media in-game."); return true; }
+            Inventory inv = Bukkit.createInventory(null, 27, ChatColor.DARK_GREEN + "Kelvora | Media");
+            org.bukkit.inventory.ItemStack requirements = new org.bukkit.inventory.ItemStack(Material.WRITABLE_BOOK);
+            org.bukkit.inventory.meta.ItemMeta rm = requirements.getItemMeta();
+            rm.setDisplayName(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Media Requirements");
+            rm.setLore(List.of(ChatColor.GRAY + "Creator eligibility is reviewed by staff.", ChatColor.GRAY + "Follower / view requirements: configure in", ChatColor.GRAY + "staff-features.yml under media.requirements.", ChatColor.GRAY + "Activity and content quality are reviewed.", ChatColor.YELLOW + "Media is never granted automatically."));
+            requirements.setItemMeta(rm); inv.setItem(11, requirements);
+            org.bukkit.inventory.ItemStack apply = new org.bukkit.inventory.ItemStack(Material.BOOK);
+            org.bukkit.inventory.meta.ItemMeta am = apply.getItemMeta();
+            am.setDisplayName(ChatColor.GREEN + "" + ChatColor.BOLD + "Apply for Media");
+            am.setLore(List.of(ChatColor.GRAY + "Join the Discord and contact staff.", ChatColor.AQUA + "https://discord.gg/gUt2uGcwe", ChatColor.YELLOW + "Click to open Discord"));
+            am.setCustomModelData(null); apply.setItemMeta(am); inv.setItem(15, apply);
+            org.bukkit.inventory.ItemStack close = new org.bukkit.inventory.ItemStack(Material.BARRIER);
+            org.bukkit.inventory.meta.ItemMeta cm = close.getItemMeta(); cm.setDisplayName(ChatColor.RED + "Close"); close.setItemMeta(cm); inv.setItem(22, close);
+            p.openInventory(inv); return true;
+        }
         if (cmd.equals("live")) {
             if (!(sender instanceof Player p)) { sender.sendMessage("Players only."); return true; }
             if (!isStaffOrMediaGroup(p, "media")) { p.sendMessage(ChatColor.RED + "Only Media can use /live."); return true; }
@@ -224,6 +241,14 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         }
         ItemStack info=new ItemStack(Material.BOOK); org.bukkit.inventory.meta.ItemMeta im=info.getItemMeta(); im.setDisplayName(ChatColor.GOLD+"Investigation only"); im.setLore(List.of(ChatColor.GRAY+"Flags are evidence for staff review.",ChatColor.GRAY+"They never cause automatic punishment.")); info.setItemMeta(im); inv.setItem(49,info);
         staff.openInventory(inv);
+    }
+    @EventHandler public void onMediaClick(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player p) || ! (ChatColor.DARK_GREEN + "Kelvora | Media").equals(e.getView().getTitle())) return;
+        e.setCancelled(true);
+        if (e.getClickedInventory() == null || e.getClickedInventory() != e.getView().getTopInventory()) return;
+        if (e.getSlot() == 15) p.closeInventory();
+        if (e.getSlot() == 15) p.sendMessage(ChatColor.AQUA + "Apply for Media on Discord: https://discord.gg/gUt2uGcwe");
+        if (e.getSlot() == 22) p.closeInventory();
     }
     @EventHandler public void onSuspectClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player staff) || !SUS_TITLE.equals(e.getView().getTitle())) return;
