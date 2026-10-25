@@ -259,16 +259,8 @@ final class ShardShopManager implements Listener {
                     }
                     displayName = tagColour + (entry.getBoolean("bold", true) ? "&l" : "") + name;
                 }
-                add(inv, slot++, icon, displayName, lore, "item:" + category + ":" + id);
-            }
-        }
-        if (category.equalsIgnoreCase("ranks")) {
-            int rankSlot=10;
-            for(int i=0;i<54;i++) {
-                ItemStack listed=inv.getItem(i);
-                if(listed==null || !listed.hasItemMeta()) continue;
-                String action=listed.getItemMeta().getPersistentDataContainer().get(actionKey,PersistentDataType.STRING);
-                if(action!=null && action.startsWith("item:ranks:")) { inv.setItem(i,null); if(rankSlot<45) { inv.setItem(rankSlot,listed); rankSlot+=9; } }
+                add(inv, slot, icon, displayName, lore, "item:" + category + ":" + id);
+                slot += category.equalsIgnoreCase("ranks") ? 9 : 1;
             }
         }
         if (ownedOnly && slot == 10) add(inv, 22, Material.PAPER, "&7No owned cosmetics", List.of("Purchase cosmetics in /shardshop"), "info");
