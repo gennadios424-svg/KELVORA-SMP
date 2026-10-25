@@ -259,8 +259,13 @@ final class ShardShopManager implements Listener {
                     }
                     displayName = tagColour + (entry.getBoolean("bold", true) ? "&l" : "") + name;
                 }
-                add(inv, slot, icon, displayName, lore, "item:" + category + ":" + id);
-                slot += category.equalsIgnoreCase("ranks") ? 9 : 1;
+                if (category.equalsIgnoreCase("ranks")) {
+                    int base = id.startsWith("verdant") ? 10 : id.startsWith("emerald") ? 12 : id.startsWith("sovereign") ? 14 : 16;
+                    int row = id.endsWith("_1d") ? 0 : id.endsWith("_3d") ? 1 : 2;
+                    add(inv, base + row * 9, icon, displayName, lore, "item:" + category + ":" + id);
+                } else {
+                    add(inv, slot++, icon, displayName, lore, "item:" + category + ":" + id);
+                }
             }
         }
         if (ownedOnly && slot == 10) add(inv, 22, Material.PAPER, "&7No owned cosmetics", List.of("Purchase cosmetics in /shardshop"), "info");
