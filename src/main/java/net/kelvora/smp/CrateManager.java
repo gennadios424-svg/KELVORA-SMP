@@ -437,6 +437,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         String title = e.getView().getTitle();
         if (!protectedInventories.contains(e.getView().getTopInventory())) return;
         e.setCancelled(true);
+        e.setResult(Event.Result.DENY);
         if (title.startsWith("KELVORA | EDIT ")) {
             String type = editingCrate.get(p.getUniqueId());
             List<String> rewards = editingRewards.get(p.getUniqueId());
@@ -631,7 +632,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         return remaining <= 0 || player.getInventory().firstEmpty() != -1;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST) public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
+    @EventHandler(priority = EventPriority.HIGHEST) public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory())){e.setCancelled(true); e.setResult(Event.Result.DENY);}}
     @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){protectedInventories.remove(e.getInventory()); if(e.getPlayer() instanceof Player p && e.getView().getTitle().startsWith("KELVORA | EDIT ") && !e.getView().getTitle().equals("KELVORA | EDIT ")) { /* edits remain in memory until save/cancel; reconnecting cannot persist them */ }}
     @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
         openCrate.remove(e.getPlayer().getUniqueId());
