@@ -75,7 +75,10 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         return sender.isOp() || sender.hasPermission("kelvora.roles.manage") || sender.hasPermission("kelvora.staff.manager") || (sender instanceof Player p && hasRole(p, "manager"));
     }
     private boolean moderator(CommandSender sender) {
-        return sender.isOp() || sender.hasPermission("kelvora.suslist") || sender.hasPermission("kelvora.staff.mod") || sender.hasPermission("kelvora.staff.admin") || (sender instanceof Player p && (hasRole(p, "moderator") || hasRole(p, "mod") || hasRole(p, "manager") || hasRole(p, "admin") || hasRole(p, "owner")));
+        if (sender instanceof Player p) return p.isOp() || p.hasPermission("kelvora.suslist") || p.hasPermission("kelvora.staff.mod")
+            || p.hasPermission("kelvora.staff.admin") || hasRole(p, "moderator") || hasRole(p, "mod")
+            || hasRole(p, "manager") || hasRole(p, "admin") || hasRole(p, "owner") || hasRole(p, "staff");
+        return sender.isOp() || sender.hasPermission("kelvora.suslist") || sender.hasPermission("kelvora.staff.mod") || sender.hasPermission("kelvora.staff.admin");
     }
     private String key(String s) { return s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", ""); }
     private boolean roleExists(String role) { return data.isConfigurationSection("roles." + key(role)); }
@@ -92,11 +95,13 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         return p.hasPermission("group." + wanted) || p.hasPermission("kelvora.staff." + wanted) || (plugin instanceof KelvoraSMP k && k.hasRoleGroup(p, wanted));
     }
     String tabLabels(Player player) {
-        List<String> labels = new ArrayList<>();
-        for (String role : roles(player)) if (roleExists(role)) labels.add(roleColor(role) + "&l[" + roleLabel(role) + "]&r");
-        if (isStaffOrMediaGroup(player, "staff") && labels.stream().noneMatch(x -> x.replace("&l", "").replace("&r", "").equalsIgnoreCase("&c[Staff]"))) labels.add("&c&l[Staff]&r");
-        if (isStaffOrMediaGroup(player, "media") && labels.stream().noneMatch(x -> x.replace("&l", "").replace("&r", "").equalsIgnoreCase("&d[Media]"))) labels.add("&d&l[Media]&r");
-        return String.join(" ", labels);
+        boolean staff = isStaffOrMediaGroup(player, "staff") || isStaffOrMediaGroup(player, "manager")
+            || isStaffOrMediaGroup(player, "moderator") || isStaffOrMediaGroup(player, "admin")
+            || isStaffOrMediaGroup(player, "owner") || roles(player).stream().anyMatch(r ->
+                Set.of("manager", "moderator", "mod", "admin", "owner", "staff").contains(key(r)));
+        if (staff) return "&c&l[Staff]&r";
+        if (isStaffOrMediaGroup(player, "media") || roles(player).stream().anyMatch(r -> Set.of("media", "creator").contains(key(r)))) return "&d&l[Media]&r";
+        return "";
     }
     String liveTabLabel(Player player) {
         if (!data.getBoolean("live." + player.getUniqueId() + ".active", false)) return "";
@@ -210,6 +215,15 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         return false;
     }
 
+    private void purgeExpiredFlags() {
+        ConfigurationSection suspects=data.getConfigurationSection("suspects"); if(suspects==null) return;
+        long now=System.currentTimeMillis();
+        for(String id:new ArrayList<>(suspects.getKeys(false))) {
+            long expires=suspects.getLong(id+".expires",suspects.getLong(id+".time",0)+5L*60L*60L*1000L);
+            if(expires<=now) data.set("suspects."+id,null);
+        }
+        save();
+    }
     @EventHandler public void onBlockPlace(BlockPlaceEvent e) { if (e.getBlockPlaced().getWorld() != null) playerPlacedBlocks.add(blockKey(e.getBlockPlaced())); }
     private String blockKey(Block b) { return b.getWorld().getName()+":"+b.getX()+":"+b.getY()+":"+b.getZ(); }
     @EventHandler public void onMine(BlockBreakEvent event) {
@@ -233,17 +247,19 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         }
     }
     private void flag(Player p,String reason, Block ore) {
-        String path="suspects."+p.getUniqueId();
+        long now=System.currentTimeMillis(); String path="suspects."+p.getUniqueId();
+        int flags=data.getInt(path+".flags",0)+1;
         data.set(path+".name",p.getName()); data.set(path+".reason",reason); data.set(path+".world",ore.getWorld().getName());
         data.set(path+".x",ore.getX()); data.set(path+".y",ore.getY()); data.set(path+".z",ore.getZ());
         data.set(path+".tool",p.getInventory().getItemInMainHand().getType().name());
         data.set(path+".ore", reason.toLowerCase(Locale.ROOT).contains("ancient debris") ? "ANCIENT_DEBRIS" : reason.toLowerCase(Locale.ROOT).contains("diamond") ? "DIAMOND_ORE" : "BLOCK_RATE");
         java.util.regex.Matcher countMatcher = java.util.regex.Pattern.compile("(\\d+)").matcher(reason);
         data.set(path+".count", countMatcher.find() ? Integer.parseInt(countMatcher.group(1)) : 0);
-        data.set(path+".time",System.currentTimeMillis()); save();
-        for (Player staff:Bukkit.getOnlinePlayers()) if (moderator(staff)) staff.sendMessage(ChatColor.RED+"[SUS] "+p.getName()+": "+reason+" — /suslist tp "+p.getName());
+        data.set(path+".flags",flags); data.set(path+".time",now); data.set(path+".expires",now+5L*60L*60L*1000L); save();
+        for (Player staff:Bukkit.getOnlinePlayers()) if (moderator(staff)) staff.sendMessage(ChatColor.RED+"[SUS] "+p.getName()+": "+reason+" | Flags: "+flags+" | Expires in 5h — /suslist tp "+p.getName());
     }
     private void openSuspectGui(CommandSender sender, ConfigurationSection suspects) {
+        purgeExpiredFlags(); suspects=data.getConfigurationSection("suspects");
         if (!(sender instanceof Player staff)) {
             sender.sendMessage(ChatColor.GOLD+"Suspicious mining flags:");
             if (suspects==null || suspects.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY+"No players currently flagged."); return; }
@@ -261,8 +277,12 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 ItemStack head=new ItemStack(Material.PLAYER_HEAD); SkullMeta meta=(SkullMeta)head.getItemMeta();
                 Player online=Bukkit.getPlayer(id); if(online!=null) meta.setOwningPlayer(online);
                 String reason=suspects.getString(uuidText+".reason","Suspicious mining pattern");
-                meta.setDisplayName((reason.contains("ancient debris")?ChatColor.LIGHT_PURPLE:reason.contains("diamond")?ChatColor.AQUA:ChatColor.RED).toString()+ChatColor.BOLD+name);
-                meta.setLore(List.of(ChatColor.GRAY+reason,ChatColor.GRAY+"World: "+suspects.getString(uuidText+".world","unknown"),ChatColor.GRAY+"Coords: "+suspects.getInt(uuidText+".x")+", "+suspects.getInt(uuidText+".y")+", "+suspects.getInt(uuidText+".z"),ChatColor.GRAY+"Tool: "+suspects.getString(uuidText+".tool","unknown"),ChatColor.YELLOW+"Left-click: teleport in vanish",ChatColor.YELLOW+"Right-click: inspect details"));
+                long expires=suspects.getLong(uuidText+".expires",suspects.getLong(uuidText+".time",0)+5L*60L*60L*1000L);
+                long remaining=Math.max(0,expires-System.currentTimeMillis());
+                String left=(remaining/3600000L)+"h "+((remaining%3600000L)/60000L)+"m";
+                int flags=suspects.getInt(uuidText+".flags",1);
+                meta.setDisplayName((reason.toLowerCase(Locale.ROOT).contains("ancient debris")?ChatColor.LIGHT_PURPLE:reason.toLowerCase(Locale.ROOT).contains("diamond")?ChatColor.AQUA:ChatColor.RED).toString()+ChatColor.BOLD+name);
+                meta.setLore(List.of(ChatColor.GRAY+reason,ChatColor.RED+"Flags: "+flags,ChatColor.YELLOW+"Expires in: "+left,ChatColor.GRAY+"World: "+suspects.getString(uuidText+".world","unknown"),ChatColor.GRAY+"Coords: "+suspects.getInt(uuidText+".x")+", "+suspects.getInt(uuidText+".y")+", "+suspects.getInt(uuidText+".z"),ChatColor.GRAY+"Tool: "+suspects.getString(uuidText+".tool","unknown"),ChatColor.YELLOW+"Left-click: teleport in vanish",ChatColor.YELLOW+"Right-click: inspect details"));
                 head.setItemMeta(meta); inv.setItem(slot,head); suspectGuiTargets.put(id,id); slot++;
             }
         }
