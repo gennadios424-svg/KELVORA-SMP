@@ -183,7 +183,19 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (cmd.equals("suslist")) {
             if (!moderator(sender)) { sender.sendMessage(ChatColor.RED + "Only moderators and above can use /suslist."); return true; }
             ConfigurationSection suspects=data.getConfigurationSection("suspects");
-            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) { sender.sendMessage(ChatColor.GREEN + "Suslist uses the current configuration and saved evidence."); return true; }
+            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) { sender.sendMessage(ChatColor.GREEN + "Suslist evidence and staff settings reloaded from the saved file."); return true; }
+            if (args.length == 1) {
+                ConfigurationSection all = data.getConfigurationSection("suspects");
+                String found = null;
+                if (all != null) for (String id : all.getKeys(false)) if (all.getString(id + ".name", "").equalsIgnoreCase(args[0])) { found = id; break; }
+                if (found == null) { sender.sendMessage(ChatColor.RED + "No saved suspicious-mining evidence for that player."); return true; }
+                sender.sendMessage(ChatColor.GOLD + "Investigation: " + all.getString(found + ".name", args[0]));
+                sender.sendMessage(ChatColor.YELLOW + "Reason: " + all.getString(found + ".reason", "Suspicious mining pattern"));
+                sender.sendMessage(ChatColor.GRAY + "World / coordinates: " + all.getString(found + ".world", "unknown") + " " + all.getInt(found + ".x") + ", " + all.getInt(found + ".y") + ", " + all.getInt(found + ".z"));
+                sender.sendMessage(ChatColor.GRAY + "Tool: " + all.getString(found + ".tool", "unknown") + " | Time: " + new java.util.Date(all.getLong(found + ".time", 0)));
+                sender.sendMessage(ChatColor.YELLOW + "Review evidence manually; flags never trigger automatic punishment. Teleport: /suslist tp " + all.getString(found + ".name", args[0]));
+                return true;
+            }
             if (args.length >= 2 && args[0].equalsIgnoreCase("tp")) {
                 Player target=Bukkit.getPlayerExact(args[1]);
                 if (target==null) { sender.sendMessage(ChatColor.RED+"That player is not online."); return true; }
@@ -283,7 +295,12 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (command.getName().equalsIgnoreCase("role") && args.length==1) return List.of("list","create","add","remove").stream().filter(x->x.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
         if (command.getName().equalsIgnoreCase("role") && args.length==2 && (args[0].equalsIgnoreCase("add")||args[0].equalsIgnoreCase("remove"))) return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(x->x.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         if (command.getName().equalsIgnoreCase("role") && args.length==3) { ConfigurationSection sec=data.getConfigurationSection("roles"); return sec==null?List.of():sec.getKeys(false).stream().filter(x->x.startsWith(args[2].toLowerCase(Locale.ROOT))).toList(); }
-        if (command.getName().equalsIgnoreCase("suslist") && args.length==1) return List.of("tp");
+        if (command.getName().equalsIgnoreCase("suslist") && args.length==1) {
+            List<String> choices = new ArrayList<>(List.of("reload", "tp"));
+            ConfigurationSection suspects = data.getConfigurationSection("suspects");
+            if (suspects != null) for (String id : suspects.getKeys(false)) choices.add(suspects.getString(id + ".name", id));
+            return choices.stream().filter(x -> x.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
+        }
         if (command.getName().equalsIgnoreCase("suslist") && args.length==2 && args[0].equalsIgnoreCase("tp")) return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(x->x.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         if (command.getName().equalsIgnoreCase("live") && args.length==1) return List.of("on","off");
         return Collections.emptyList();
