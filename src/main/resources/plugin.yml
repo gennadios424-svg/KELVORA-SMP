@@ -6,6 +6,9 @@ description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and 
 softdepend: [LuckPerms, Vault, PlaceholderAPI]
 author: Kelvora SMP
 commands:
+  booster:
+    description: Claim daily Booster rank keys
+    usage: /booster
   sprout:
     description: Claim daily Sprout rank keys
     usage: /sprout
