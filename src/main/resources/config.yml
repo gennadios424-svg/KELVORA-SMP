@@ -507,7 +507,7 @@ rank-up:
     ascendant: -1
 
 kits:
-  allow-lower-rank-kits: false
+  allow-lower-rank-kits: true
   sprout:
     display: "Sprout Kit"
     summary: "Starter enchanted diamond combat bundle"
