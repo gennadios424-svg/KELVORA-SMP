@@ -62,6 +62,7 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.Statistic;
+import org.bukkit.inventory.ItemStack;
 
 public final class KelvoraSMP
 extends JavaPlugin
