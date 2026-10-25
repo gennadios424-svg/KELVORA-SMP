@@ -154,8 +154,16 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         if(!(e.getWhoClicked() instanceof Player p)||e.getClickedInventory()!=e.getView().getTopInventory())return;
         String title=e.getView().getTitle();
         if(title.equals(TITLE)) {
-            int slot=e.getRawSlot()-10;
-            if(slot>=0&&slot<TYPES.size())openBoard(p,TYPES.get(slot),0);
+            String category = switch (e.getRawSlot()) {
+                case 10 -> "kills";
+                case 12 -> "deaths";
+                case 14 -> "playtime";
+                case 19 -> "money";
+                case 21 -> "kelvoras";
+                case 23 -> "rank";
+                default -> null;
+            };
+            if (category != null) openBoard(p, category, 0);
             return;
         }
         String type=selected.get(p.getUniqueId()); if(type==null)return;
