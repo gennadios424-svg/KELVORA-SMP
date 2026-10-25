@@ -354,7 +354,21 @@ final class RankKitManager implements Listener {
                 result.add(stack); remaining-=count;
             }
         }
-        while (result.size() < 36) result.add(new ItemStack(Material.TOTEM_OF_UNDYING, 1));
+        // Combat kits use remaining slots for useful CPvP supplies, never a full inventory of Totems.
+        // The basic Member kit remains a starter kit and is not artificially filled.
+        if (!"member".equalsIgnoreCase(kit.getName())) {
+            Material[] filler = {
+                Material.END_CRYSTAL, Material.GOLDEN_APPLE, Material.ENDER_PEARL,
+                Material.RESPAWN_ANCHOR, Material.GLOWSTONE, Material.TOTEM_OF_UNDYING,
+                Material.EXPERIENCE_BOTTLE, Material.COOKED_BEEF
+            };
+            int[] amounts = {64, 64, 16, 64, 64, 1, 64, 64};
+            int slot = 0;
+            while (result.size() < 36) {
+                int index = slot++ % filler.length;
+                result.add(new ItemStack(filler[index], amounts[index]));
+            }
+        }
         return result;
     }
 
