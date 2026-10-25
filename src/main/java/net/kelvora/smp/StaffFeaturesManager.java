@@ -69,7 +69,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         return sender.isOp() || sender.hasPermission("kelvora.roles.manage") || sender.hasPermission("kelvora.staff.manager") || (sender instanceof Player p && hasRole(p, "manager"));
     }
     private boolean moderator(CommandSender sender) {
-        return sender.isOp() || sender.hasPermission("kelvora.suslist") || sender.hasPermission("kelvora.staff.mod") || sender.hasPermission("kelvora.staff.admin") || (sender instanceof Player p && (hasRole(p, "moderator") || hasRole(p, "mod") || hasRole(p, "admin") || hasRole(p, "owner")));
+        return sender.isOp() || sender.hasPermission("kelvora.suslist") || sender.hasPermission("kelvora.staff.mod") || sender.hasPermission("kelvora.staff.admin") || (sender instanceof Player p && (hasRole(p, "moderator") || hasRole(p, "mod") || hasRole(p, "manager") || hasRole(p, "admin") || hasRole(p, "owner")));
     }
     private String key(String s) { return s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", ""); }
     private boolean roleExists(String role) { return data.isConfigurationSection("roles." + key(role)); }
@@ -94,9 +94,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
     }
     String liveTabLabel(Player player) {
         if (!data.getBoolean("live." + player.getUniqueId() + ".active", false)) return "";
-        String link = data.getString("live." + player.getUniqueId() + ".link", "");
-        if (link.length() > 120) link = link.substring(0, 120);
-        return ChatColor.RED + ChatColor.BOLD.toString() + "[LIVE]" + ChatColor.RESET + (link.isBlank() ? "" : ChatColor.GRAY + " " + link);
+        return ChatColor.RED + ChatColor.BOLD.toString() + "[LIVE]" + ChatColor.RESET;
     }
     boolean isVanished(Player player) { return vanished.contains(player.getUniqueId()); }
 
@@ -201,11 +199,11 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (type==Material.ANCIENT_DEBRIS) {
             Deque<Long> found=debrisTimes.computeIfAbsent(id,x->new ArrayDeque<>()); found.addLast(now);
             while(!found.isEmpty() && now-found.peekFirst()>180_000L) found.removeFirst();
-            if(found.size()>=2) flag(p,"Mined "+found.size()+" ancient debris within 3 minutes",block);
+            if(found.size()==2) flag(p,"Mined "+found.size()+" ancient debris within 3 minutes",block);
         } else if (type==Material.DIAMOND_ORE || type==Material.DEEPSLATE_DIAMOND_ORE) {
             Deque<Long> found=diamondTimes.computeIfAbsent(id,x->new ArrayDeque<>()); found.addLast(now);
             while(!found.isEmpty() && now-found.peekFirst()>30_000L) found.removeFirst();
-            if(found.size()>=3) flag(p,"Mined "+found.size()+" diamond ores within 30 seconds",block);
+            if(found.size()==3) flag(p,"Mined "+found.size()+" diamond ores within 30 seconds",block);
         }
     }
     private void flag(Player p,String reason, Block ore) {
@@ -259,7 +257,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         boolean already=vanished.contains(staff.getUniqueId()); if(!already){vanished.add(staff.getUniqueId());applyVanishVisibility(staff);} staff.teleport(target.getLocation()); staff.sendMessage(ChatColor.GREEN+"Teleported to "+target.getName()+" in vanish. Review evidence before action.");
     }
     @EventHandler public void onJoin(PlayerJoinEvent e) { applyVanishVisibility(e.getPlayer()); }
-    @EventHandler public void onQuit(PlayerQuitEvent e) { minedBlocks.remove(e.getPlayer().getUniqueId()); recentOres.remove(e.getPlayer().getUniqueId()); recentOreTimes.remove(e.getPlayer().getUniqueId()); }
+    @EventHandler public void onQuit(PlayerQuitEvent e) { UUID id=e.getPlayer().getUniqueId(); minedBlocks.remove(id); recentOres.remove(id); recentOreTimes.remove(id); debrisTimes.remove(id); diamondTimes.remove(id); data.set("live."+id+".active",false); data.set("live."+id+".link",null); save(); }
     private void applyVanishVisibility(Player joining) {
         for (UUID id:new HashSet<>(vanished)) {
             Player hidden=Bukkit.getPlayer(id);
