@@ -159,7 +159,13 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private String locKey(Location l) { return l.getWorld().getName() + "," + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ(); }
     private String titleCase(String s) { return s.substring(0,1).toUpperCase(Locale.ROOT) + s.substring(1).toLowerCase(Locale.ROOT); }
     private Component color(String s) { return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand().deserialize(s); }
-    private boolean admin(CommandSender sender) { return sender.isOp(); }
+    private boolean admin(CommandSender sender) {
+        if (sender.isOp() || sender.hasPermission("kelvora.crate.admin") || sender.hasPermission("kelvora.crate.edit") || sender.hasPermission("kelvora.roles.manage")) return true;
+        if (sender instanceof Player p && plugin instanceof KelvoraSMP k) {
+            return k.hasRoleGroup(p, "owner") || k.hasRoleGroup(p, "admin") || k.hasRoleGroup(p, "manager") || k.hasRoleGroup(p, "moderator") || k.hasRoleGroup(p, "helper");
+        }
+        return false;
+    }
     private String validType(String s) { if (s == null) return null; String v=s.toLowerCase(Locale.ROOT); return TYPES.contains(v)?v:null; }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -426,7 +432,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         }, 1L, 12L);
     }
 
-    @EventHandler public void click(InventoryClickEvent e) {
+    @EventHandler(priority = EventPriority.HIGHEST) public void click(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
         String title = e.getView().getTitle();
         if (!protectedInventories.contains(e.getView().getTopInventory())) return;
@@ -445,6 +451,18 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 return;
             }
             if (e.getClickedInventory() == e.getView().getTopInventory()) {
+                if (raw == 53) {
+                    ItemStack cursor = e.getCursor();
+                    if (cursor == null || cursor.getType().isAir() || !isAllowedReward(cursor.getType())) {
+                        p.sendMessage(Component.text("Pick up an allowed item onto your cursor first, then click ADD FROM INVENTORY.", NamedTextColor.YELLOW));
+                        return;
+                    }
+                    if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
+                    rewards.add(cursor.getType().name() + ":" + cursor.getAmount() + ":1:Common");
+                    p.sendMessage(Component.text("Added " + cursor.getType().name() + " x" + cursor.getAmount() + ". Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
+                    Bukkit.getScheduler().runTask(plugin, () -> openRewardEditor(p, type));
+                    return;
+                }
                 if (raw >= 0 && raw < 45 && raw < rewards.size()) {
                     String removed = rewards.remove(raw);
                     p.sendMessage(Component.text("Removed reward " + removed + ". Click SAVE REWARDS to persist.", NamedTextColor.YELLOW));
@@ -620,7 +638,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         return remaining <= 0 || player.getInventory().firstEmpty() != -1;
     }
 
-    @EventHandler public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
+    @EventHandler(priority = EventPriority.HIGHEST) public void drag(InventoryDragEvent e){if(protectedInventories.contains(e.getView().getTopInventory()))e.setCancelled(true);}
     @EventHandler public void close(org.bukkit.event.inventory.InventoryCloseEvent e){protectedInventories.remove(e.getInventory()); if(e.getPlayer() instanceof Player p && e.getView().getTitle().startsWith("KELVORA | EDIT ") && !e.getView().getTitle().equals("KELVORA | EDIT ")) { /* edits remain in memory until save/cancel; reconnecting cannot persist them */ }}
     @EventHandler public void quit(org.bukkit.event.player.PlayerQuitEvent e) {
         openCrate.remove(e.getPlayer().getUniqueId());
