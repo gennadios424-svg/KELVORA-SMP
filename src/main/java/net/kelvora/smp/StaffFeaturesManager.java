@@ -232,7 +232,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 ItemStack head=new ItemStack(Material.PLAYER_HEAD); SkullMeta meta=(SkullMeta)head.getItemMeta();
                 Player online=Bukkit.getPlayer(id); if(online!=null) meta.setOwningPlayer(online);
                 String reason=suspects.getString(uuidText+".reason","Suspicious mining pattern");
-                meta.setDisplayName((reason.contains("ancient debris")?ChatColor.LIGHT_PURPLE:reason.contains("diamond")?ChatColor.AQUA:ChatColor.RED)+ChatColor.BOLD+name);
+                meta.setDisplayName((reason.contains("ancient debris")?ChatColor.LIGHT_PURPLE:reason.contains("diamond")?ChatColor.AQUA:ChatColor.RED).toString()+ChatColor.BOLD+name);
                 meta.setLore(List.of(ChatColor.GRAY+reason,ChatColor.GRAY+"World: "+suspects.getString(uuidText+".world","unknown"),ChatColor.GRAY+"Coords: "+suspects.getInt(uuidText+".x")+", "+suspects.getInt(uuidText+".y")+", "+suspects.getInt(uuidText+".z"),ChatColor.GRAY+"Tool: "+suspects.getString(uuidText+".tool","unknown"),ChatColor.YELLOW+"Left-click: teleport in vanish",ChatColor.YELLOW+"Right-click: inspect details"));
                 head.setItemMeta(meta); inv.setItem(slot,head); suspectGuiTargets.put(id,id); slot++;
             }
