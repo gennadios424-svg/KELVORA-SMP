@@ -236,37 +236,26 @@ implements Listener {
     private void updatePlayer(Player player) {
         if (this.economy == null) this.economy = this.resolveEconomyProvider();
         String serverAddress = this.getConfig().getString("server-address", "kelvorasmp.mcsh.gg");
-        String rank = this.displayRankKey(player);
-        String defaultRankLabel = rank.equals("staff") ? "Staff" : rank.equals("media") ? "Media" : rank.toUpperCase(Locale.ROOT);
+        String rank = this.rankKey(player);
+        String defaultRankLabel = rank.toUpperCase(Locale.ROOT);
         String rankLabel = this.getConfig().getString("ranks." + rank + ".label", defaultRankLabel);
-        String rankColor = this.getConfig().getString("ranks." + rank + ".color", rank.equals("staff") ? "&c" : rank.equals("media") ? "&d" : "&a");
-        String prefix = null;
-        if (this.luckPerms != null) {
-            User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
-            if (user != null) prefix = user.getCachedData().getMetaData().getPrefix();
-        }
-        if (prefix == null || prefix.isBlank()) prefix = rankColor + "[" + rankLabel + "] ";
+        String rankColor = this.getConfig().getString("ranks." + rank + ".color", "&a");
         ShardShopManager cosmetics = this.shardShopManager;
-        String cosmeticTitle = cosmetics == null ? null : cosmetics.equippedTitle(player);
-        String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTag(player);
-        String cosmeticSuffix = cosmeticTag == null ? "" : this.color(" &b[" + cosmeticTag + "]");
-        // Always show the actual progression rank, and retain a separate LuckPerms staff/media prefix if it is different.
-        String plainPrefix = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', prefix));
-        boolean prefixShowsProgression = plainPrefix != null && plainPrefix.toLowerCase(Locale.ROOT).contains(rankLabel.toLowerCase(Locale.ROOT));
-        String progressionPrefix = this.color(rankColor + "[" + rankLabel + "] ");
-        // Temporary ShardShop ranks are cosmetics, never actual TAB ranks. Keep the player list clean.
+        String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTagFormatted(player);
+        String cosmeticSuffix = cosmeticTag == null ? "" : " " + cosmeticTag;
         String extraRoles = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
         String liveLabel = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.liveTabLabel(player);
-        player.setPlayerListName(progressionPrefix + (extraRoles.isBlank() ? "" : this.color(extraRoles) + " ") + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
+        player.setPlayerListName(this.color(rankColor + "[" + rankLabel + "] ") + (extraRoles.isBlank() ? "" : this.color(extraRoles) + " ") + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
         String kelvoras = this.getKelvoras(player);
-        Component rotatingMessage = switch (this.tabFrame) {
-            case 0 -> Component.text("🌿 KELVORA SMP", net.kyori.adventure.text.format.TextColor.color(0x008000));
-            case 1 -> Component.text("🌿 KELVORA SMP", NamedTextColor.DARK_GREEN);
-            default -> Component.text("🌿 KELVORA SMP", net.kyori.adventure.text.format.TextColor.color(0x7CFC00));
-        };
+        Component rotatingMessage = Component.text("\n\n🌿 KELVORA SMP\n\n",
+            switch (this.tabFrame) {
+                case 0 -> net.kyori.adventure.text.format.TextColor.color(0x008000);
+                case 1 -> NamedTextColor.DARK_GREEN;
+                default -> net.kyori.adventure.text.format.TextColor.color(0x7CFC00);
+            }).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD);
         Component footerMessage = switch (this.footerFrame) {
             case 0 -> Component.text("💬 JOIN OUR DISCORD", NamedTextColor.LIGHT_PURPLE)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
@@ -372,13 +361,6 @@ implements Listener {
     ShardShopManager getShardShopManager() { return this.shardShopManager; }
 
     private String displayRankKey(Player player) {
-        if (this.luckPerms != null) {
-            User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
-            if (user != null) {
-                String primary = user.getPrimaryGroup();
-                if (primary != null && Set.of("staff", "media").contains(primary.toLowerCase(Locale.ROOT))) return primary.toLowerCase(Locale.ROOT);
-            }
-        }
         return this.rankKey(player);
     }
     boolean hasRoleGroup(Player player, String groupName) {
@@ -391,12 +373,11 @@ implements Listener {
     void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
 
     Component chatRankPrefix(Player player) {
-        String key = this.displayRankKey(player);
-        String defaultLabel = key.equals("staff") ? "Staff" : key.equals("media") ? "Media" : key.toUpperCase(Locale.ROOT);
-        String label = this.getConfig().getString("ranks." + key + ".label", defaultLabel);
-        String colour = this.getConfig().getString("ranks." + key + ".color", key.equals("staff") ? "&c" : key.equals("media") ? "&d" : "&a");
+        String key = this.rankKey(player);
+        String label = this.getConfig().getString("ranks." + key + ".label", key.toUpperCase(Locale.ROOT));
+        String colour = this.getConfig().getString("ranks." + key + ".color", "&a");
         String roleLabels = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
-        String combined = colour + "[" + label + "] " + (roleLabels.isBlank() ? "" : roleLabels.replace(ChatColor.RESET.toString(), ChatColor.RESET.toString()) + " ");
+        String combined = colour + "[" + label + "] " + (roleLabels.isBlank() ? "" : roleLabels + " ");
         return LegacyComponentSerializer.legacyAmpersand().deserialize(combined);
     }
 
