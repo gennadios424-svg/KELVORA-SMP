@@ -46,7 +46,7 @@ final class RankKitManager implements Listener {
         Map.entry("emerald", "Emerald"), Map.entry("sovereign", "Sovereign"),
         Map.entry("ascendant", "Ascendant"), Map.entry("helper", "Helper"),
         Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"),
-        Map.entry("admin", "Admin"), Map.entry("manager", "Manager"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"), Map.entry("media", "Media"), Map.entry("member", "Member"),
+        Map.entry("admin", "Admin"), Map.entry("manager", "Manager"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"), Map.entry("media", "Media"),
         Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
     );
     private final KelvoraSMP plugin;
