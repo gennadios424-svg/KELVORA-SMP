@@ -184,6 +184,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
             if (!moderator(sender)) { sender.sendMessage(ChatColor.RED + "Only moderators and above can use /suslist."); return true; }
             ConfigurationSection suspects=data.getConfigurationSection("suspects");
             if (args.length == 1 && args[0].equalsIgnoreCase("reload")) { sender.sendMessage(ChatColor.GREEN + "Suslist evidence and staff settings reloaded from the saved file."); return true; }
+            if (args.length == 1 && args[0].equalsIgnoreCase("tp")) { sender.sendMessage(ChatColor.YELLOW + "Usage: /suslist tp <player>"); return true; }
             if (args.length == 1) {
                 ConfigurationSection all = data.getConfigurationSection("suspects");
                 String found = null;
