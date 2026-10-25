@@ -148,7 +148,7 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
     private String label(String type){return switch(type){case "kills"->"⚔ Kills";case "deaths"->"☠ Deaths";case "playtime"->"⏱ Playtime";case "money"->"💰 Money";case "kelvoras"->"💎 Kelvoras";default->"⭐ Rank";};}
     private NamedTextColor color(String type){return switch(type){case "kills"->NamedTextColor.RED;case "deaths"->NamedTextColor.DARK_RED;case "playtime"->NamedTextColor.AQUA;case "money"->NamedTextColor.GOLD;case "kelvoras"->NamedTextColor.LIGHT_PURPLE;default->NamedTextColor.GREEN;};}
 
-    @EventHandler public void click(InventoryClickEvent e) {
+    @EventHandler(priority = EventPriority.HIGHEST) public void click(InventoryClickEvent e) {
         if(e.getView().getTitle()==null||!e.getView().getTitle().startsWith(TITLE))return;
         e.setCancelled(true);
         if(!(e.getWhoClicked() instanceof Player p)||e.getClickedInventory()!=e.getView().getTopInventory())return;
@@ -172,7 +172,7 @@ final class LeaderboardManager implements Listener, CommandExecutor, TabComplete
         else if(e.getRawSlot()==48&&page>0)openBoard(p,type,page-1);
         else if(e.getRawSlot()==50)openBoard(p,type,page+1);
     }
-    @EventHandler public void drag(InventoryDragEvent e){if(e.getView().getTitle()!=null&&e.getView().getTitle().startsWith(TITLE))e.setCancelled(true);}
+    @EventHandler(priority = EventPriority.HIGHEST) public void drag(InventoryDragEvent e){if(e.getView().getTitle()!=null&&e.getView().getTitle().toUpperCase(Locale.ROOT).contains("LEADERBOARDS"))e.setCancelled(true);}
     @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){if(args.length==1)return TYPES; if(args.length==2)return List.of("1","2","3");return List.of();}
     private record Entry(UUID id,String name,double value,String display) {}
 }
