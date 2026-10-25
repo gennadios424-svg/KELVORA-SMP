@@ -237,7 +237,10 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         data.set(path+".name",p.getName()); data.set(path+".reason",reason); data.set(path+".world",ore.getWorld().getName());
         data.set(path+".x",ore.getX()); data.set(path+".y",ore.getY()); data.set(path+".z",ore.getZ());
         data.set(path+".tool",p.getInventory().getItemInMainHand().getType().name());
-        data.set(path+".time",System.currentTimeMillis()); data.set(path+".count",reason.replaceAll("[^0-9]", "")); save();
+        data.set(path+".ore", reason.toLowerCase(Locale.ROOT).contains("ancient debris") ? "ANCIENT_DEBRIS" : reason.toLowerCase(Locale.ROOT).contains("diamond") ? "DIAMOND_ORE" : "BLOCK_RATE");
+        java.util.regex.Matcher countMatcher = java.util.regex.Pattern.compile("(\\d+)").matcher(reason);
+        data.set(path+".count", countMatcher.find() ? Integer.parseInt(countMatcher.group(1)) : 0);
+        data.set(path+".time",System.currentTimeMillis()); save();
         for (Player staff:Bukkit.getOnlinePlayers()) if (moderator(staff)) staff.sendMessage(ChatColor.RED+"[SUS] "+p.getName()+": "+reason+" — /suslist tp "+p.getName());
     }
     private void openSuspectGui(CommandSender sender, ConfigurationSection suspects) {
