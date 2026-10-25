@@ -696,7 +696,7 @@ ranks:
   media: { label: "Media", color: "&d", description: "Approved content creators" }
   mod: { label: "Moderator", color: "&9" }
   vip: { label: "Verdant", color: "&a" }
-  member: { label: "Sprout", color: "&7" }
+  member: { label: "Member", color: "&7" }
 
 rank-up:
   enabled: false
