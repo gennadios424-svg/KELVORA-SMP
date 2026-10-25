@@ -82,6 +82,13 @@ implements Listener {
     public void onEnable() {
         this.saveDefaultConfig();
         this.getConfig().options().copyDefaults(true);
+        // One-time economy price migration: keep /worth and shop pricing aligned on existing servers.
+        if (this.getConfig().getInt("economy.price-schema-version", 0) < 1) {
+            for (String item : java.util.List.of("TOTEM_OF_UNDYING", "SHULKER_SHELL", "SHULKER_BOX", "WHITE_SHULKER_BOX", "ORANGE_SHULKER_BOX", "MAGENTA_SHULKER_BOX", "LIGHT_BLUE_SHULKER_BOX", "YELLOW_SHULKER_BOX", "LIME_SHULKER_BOX", "PINK_SHULKER_BOX", "GRAY_SHULKER_BOX", "LIGHT_GRAY_SHULKER_BOX", "CYAN_SHULKER_BOX", "PURPLE_SHULKER_BOX", "BLUE_SHULKER_BOX", "BROWN_SHULKER_BOX", "GREEN_SHULKER_BOX", "RED_SHULKER_BOX", "BLACK_SHULKER_BOX")) {
+                this.getConfig().set("prices." + item, 250);
+            }
+            this.getConfig().set("economy.price-schema-version", 1);
+        }
         this.saveConfig();
         this.setupIntegrations();
         this.kelvorasManager = new KelvorasManager(this);
