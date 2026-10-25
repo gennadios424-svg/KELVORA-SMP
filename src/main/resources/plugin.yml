@@ -144,6 +144,14 @@ commands:
   report:
     description: Report a player to online staff
     usage: /report <user> <reason>
+  ban:
+    description: Ban a player by username
+    usage: /ban <player> <reason>
+    permission: kelvora.staff.ban
+  banip:
+    description: Ban an online player's IP or a provided IP address
+    usage: /banip <online-player|IP-address> <reason>
+    permission: kelvora.staff.ban
   media:
     description: View Media rank requirements and application information
     usage: /media
@@ -179,6 +187,12 @@ permissions:
   kelvora.report:
     description: Submit player reports
     default: true
+  kelvora.staff.ban:
+    description: Ban players and IP addresses
+    default: op
+  kelvora.staff.zstaff:
+    description: Pick up and use the protected ZStaff tool
+    default: op
   kelvora.live:
     description: Use Media live status
     default: false
