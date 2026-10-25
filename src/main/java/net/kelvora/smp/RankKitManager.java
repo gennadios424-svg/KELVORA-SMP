@@ -354,8 +354,18 @@ final class RankKitManager implements Listener {
                 result.add(stack); remaining-=count;
             }
         }
+        // Always enforce the intended starter loadout even when a server already has an older config.yml.
+        if ("member".equalsIgnoreCase(kit.getName())) {
+            Set<Material> present = new HashSet<>();
+            for (ItemStack item : result) if (item != null) present.add(item.getType());
+            Material[] starter = { Material.IRON_PICKAXE, Material.IRON_AXE, Material.IRON_SWORD, Material.IRON_SHOVEL,
+                Material.CHAINMAIL_HELMET, Material.CHAINMAIL_CHESTPLATE, Material.CHAINMAIL_LEGGINGS,
+                Material.CHAINMAIL_BOOTS, Material.TOTEM_OF_UNDYING, Material.GOLDEN_APPLE, Material.OBSIDIAN,
+                Material.END_CRYSTAL, Material.ENDER_PEARL, Material.EXPERIENCE_BOTTLE, Material.COOKED_BEEF };
+            int[] starterAmounts = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 16, 8, 8, 16, 32 };
+            for (int i = 0; i < starter.length; i++) if (!present.contains(starter[i])) result.add(new ItemStack(starter[i], starterAmounts[i]));
+        }
         // Combat kits use remaining slots for useful CPvP supplies, never a full inventory of Totems.
-        // The basic Member kit remains a starter kit and is not artificially filled.
         if (!"member".equalsIgnoreCase(kit.getName())) {
             Material[] filler = {
                 Material.END_CRYSTAL, Material.GOLDEN_APPLE, Material.ENDER_PEARL,
