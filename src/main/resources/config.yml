@@ -692,12 +692,12 @@ rank-up:
 shardshop:
   catalogue:
     tags:
-      pvp: { name: "PvP", description: "Show your PvP style", icon: IRON_SWORD, price: 2500, duration-seconds: 0, available: true }
-      warrior: { name: "Warrior", description: "A battle-ready tag", icon: DIAMOND_SWORD, price: 4000, duration-seconds: 0, available: true }
-      miner: { name: "Miner", description: "For dedicated miners", icon: IRON_PICKAXE, price: 2000, duration-seconds: 0, available: true }
-      elite: { name: "Elite", description: "A premium cosmetic tag", icon: NETHER_STAR, price: 8000, duration-seconds: 0, available: true }
-      legend: { name: "Legend", description: "A legendary cosmetic tag", icon: DRAGON_HEAD, price: 15000, duration-seconds: 0, available: true }
-      og: { name: "OG", description: "Classic community tag", icon: GOLD_INGOT, price: 10000, duration-seconds: 0, available: true }
+      pvp: { name: "⚔ PvP", description: "Show your PvP style", icon: IRON_SWORD, color: "&c", bold: true, price: 2500, duration-seconds: 0, available: true }
+      warrior: { name: "🛡 Warrior", description: "A battle-ready tag", icon: DIAMOND_SWORD, color: "&6", bold: true, price: 4000, duration-seconds: 0, available: true }
+      miner: { name: "⛏ Miner", description: "For dedicated miners", icon: IRON_PICKAXE, color: "&a", bold: true, price: 2000, duration-seconds: 0, available: true }
+      elite: { name: "✨ Elite", description: "A premium cosmetic tag", icon: NETHER_STAR, color: "&d", bold: true, price: 8000, duration-seconds: 0, available: true }
+      legend: { name: "👑 Legend", description: "A legendary cosmetic tag", icon: DRAGON_HEAD, color: "&6", bold: true, price: 15000, duration-seconds: 0, available: true }
+      og: { name: "🏆 OG", description: "Classic community tag", icon: GOLD_INGOT, color: "&b", bold: true, price: 10000, duration-seconds: 0, available: true }
     titles:
       title_1d: { name: "Supporter", description: "Temporary cosmetic title only", icon: NAME_TAG, price: 500, duration-seconds: 86400, available: true }
       title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: DIAMOND_HELMET, price: 2500, duration-seconds: 604800, available: true }
