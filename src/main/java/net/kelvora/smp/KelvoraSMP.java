@@ -377,7 +377,7 @@ implements Listener {
         String label = this.getConfig().getString("ranks." + key + ".label", key.toUpperCase(Locale.ROOT));
         String colour = this.getConfig().getString("ranks." + key + ".color", "&a");
         String roleLabels = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
-        String combined = roleLabels.isBlank() ? "" : roleLabels + " ";
+        String combined = colour + "[" + label + "] " + (roleLabels.isBlank() ? "" : roleLabels + " ");
         return LegacyComponentSerializer.legacyAmpersand().deserialize(combined);
     }
 
