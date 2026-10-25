@@ -250,7 +250,7 @@ final class ShardShopManager implements Listener {
                 if (expired) lore.add("&cExpired — click to renew");
                 lore.add(equipped ? "&aEquipped" : owned ? "&eOwned — click to equip" : expired ? "&eClick to renew" : available ? "&aClick to purchase" : "&cComing Soon");
                 Material icon = material(entry.getString("icon", "NAME_TAG"));
-                String displayName = (equipped ? "&a" : "&f") + name;
+                String displayName = (equipped ? "&a" : "&f") + name + (category.equalsIgnoreCase("ranks") && duration>0 ? " &7(" + durationLabel(duration) + ")" : "");
                 if (category.equalsIgnoreCase("tags")) {
                     String tagColour = entry.getString("color", "");
                     if (tagColour.isBlank()) {
@@ -262,7 +262,17 @@ final class ShardShopManager implements Listener {
                 add(inv, slot++, icon, displayName, lore, "item:" + category + ":" + id);
             }
         }
+        if (category.equalsIgnoreCase("ranks")) {
+            int rankSlot=10;
+            for(int i=0;i<54;i++) {
+                ItemStack listed=inv.getItem(i);
+                if(listed==null || !listed.hasItemMeta()) continue;
+                String action=listed.getItemMeta().getPersistentDataContainer().get(actionKey,PersistentDataType.STRING);
+                if(action!=null && action.startsWith("item:ranks:")) { inv.setItem(i,null); if(rankSlot<45) { inv.setItem(rankSlot,listed); rankSlot+=9; } }
+            }
+        }
         if (ownedOnly && slot == 10) add(inv, 22, Material.PAPER, "&7No owned cosmetics", List.of("Purchase cosmetics in /shardshop"), "info");
+        if (ownedOnly && activeCosmetic(player.getUniqueId(),category)!=null) add(inv,31,Material.BARRIER,category.equals("glows")?"&cDisable Glow":"&cDisable Tag",List.of("Remove currently equipped cosmetic"),"disable:"+category);
         add(inv, 45, Material.ARROW, "&eBack", List.of("Return to categories"), "back");
         add(inv, 49, Material.AMETHYST_SHARD, "&bYour Balance", List.of("✦" + KelvorasManager.format(currency.balance(player)) + " Kelvoras"), "info");
         add(inv, 53, Material.BARRIER, "&cClose", List.of(), "close");
@@ -587,6 +597,14 @@ final class ShardShopManager implements Listener {
         String action = item.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
         if (action == null) return;
         if (action.equals("close")) { player.closeInventory(); return; }
+        if (action.startsWith("disable:")) {
+            String category=action.substring("disable:".length());
+            data.set(player.getUniqueId()+".equipped."+category,null);
+            if(!saveData()) { player.sendMessage(Component.text("Could not save cosmetic setting.",NamedTextColor.RED)); return; }
+            applyCosmetic(player,category,null,null);
+            player.sendMessage(Component.text((category.equals("glows")?"Glow":"Tag")+" disabled.",NamedTextColor.YELLOW));
+            plugin.refreshSidebar(player); openOwnedItems(player,category); return;
+        }
         if (action.equals("cancel")) { String category = openCategory.getOrDefault(player.getUniqueId(), "categories"); openItems(player, category); return; }
         if (action.equals("back")) { openCategories(player); return; }
         if (action.startsWith("category:")) { openItems(player, action.substring(9)); return; }
