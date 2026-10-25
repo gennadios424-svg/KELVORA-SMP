@@ -259,7 +259,7 @@ implements Listener {
         String cosmeticSuffix = cosmeticTag == null ? "" : " " + cosmeticTag;
         String extraRoles = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
         String liveLabel = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.liveTabLabel(player);
-        player.setPlayerListName(this.color(rankColor + "[" + rankLabel + "] ") + (extraRoles.isBlank() ? "" : this.color(extraRoles) + " ") + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
+        player.setPlayerListName((extraRoles.isBlank() ? this.color(rankColor + "[" + rankLabel + "]") : this.color(extraRoles)) + " " + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
@@ -403,7 +403,7 @@ implements Listener {
         String label = this.getConfig().getString("ranks." + key + ".label", key.toUpperCase(Locale.ROOT));
         String colour = this.getConfig().getString("ranks." + key + ".color", "&a");
         String roleLabels = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
-        String combined = colour + "[" + label + "] " + (roleLabels.isBlank() ? "" : roleLabels + " ");
+        String combined = roleLabels.isBlank() ? colour + "[" + label + "] " : roleLabels + " ";
         return LegacyComponentSerializer.legacyAmpersand().deserialize(combined);
     }
 
