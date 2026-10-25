@@ -452,15 +452,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             }
             if (e.getClickedInventory() == e.getView().getTopInventory()) {
                 if (raw == 53) {
-                    ItemStack cursor = e.getCursor();
-                    if (cursor == null || cursor.getType().isAir() || !isAllowedReward(cursor.getType())) {
-                        p.sendMessage(Component.text("Pick up an allowed item onto your cursor first, then click ADD FROM INVENTORY.", NamedTextColor.YELLOW));
-                        return;
-                    }
-                    if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
-                    rewards.add(cursor.getType().name() + ":" + cursor.getAmount() + ":1:Common");
-                    p.sendMessage(Component.text("Added " + cursor.getType().name() + " x" + cursor.getAmount() + ". Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
-                    Bukkit.getScheduler().runTask(plugin, () -> openRewardEditor(p, type));
+                    p.sendMessage(Component.text("To add a reward, click the item in your lower inventory. Click a reward above to remove it, then SAVE REWARDS.", NamedTextColor.YELLOW));
                     return;
                 }
                 if (raw >= 0 && raw < 45 && raw < rewards.size()) {
@@ -471,12 +463,13 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 return;
             }
             if (e.getClickedInventory() == e.getView().getBottomInventory()) {
-                ItemStack cursorItem = e.getCurrentItem();
-                if (cursorItem == null || cursorItem.getType().isAir() || !isAllowedReward(cursorItem.getType())) return;
-                if (cursorItem.getAmount() > cursorItem.getType().getMaxStackSize()) return;
+                ItemStack source = e.getCurrentItem();
+                if (source == null || source.getType().isAir() || !isAllowedReward(source.getType())) {
+                    p.sendMessage(Component.text("That item cannot be a crate reward.", NamedTextColor.RED)); return;
+                }
                 if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
-                rewards.add(cursorItem.getType().name() + ":" + cursorItem.getAmount() + ":1:Common");
-                p.sendMessage(Component.text("Added " + cursorItem.getType().name() + " x" + cursorItem.getAmount() + " as a reward template. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
+                rewards.add(source.getType().name() + ":" + source.getAmount() + ":1:Common");
+                p.sendMessage(Component.text("Added " + source.getType().name() + " x" + source.getAmount() + " as a reward copy. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
                 Bukkit.getScheduler().runTask(plugin, () -> openRewardEditor(p, type));
             }
             return;
