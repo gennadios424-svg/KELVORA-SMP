@@ -17,7 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /** Persistent, rank-checked daily digital crate-key claims. */
 final class RankDailyKeysManager {
-    private static final List<String> RANKS = List.of("sprout", "verdant", "emerald", "sovereign", "ascendant");
+    private static final List<String> RANKS = List.of("sprout", "booster", "verdant", "emerald", "sovereign", "ascendant");
     private final JavaPlugin plugin;
     private final CrateManager crates;
     private final File file;
@@ -38,6 +38,7 @@ final class RankDailyKeysManager {
         }
         plugin.getConfig().addDefault("rank-daily-keys.cooldown-hours", 24);
         plugin.getConfig().addDefault("rank-daily-keys.rewards.sprout", List.of("common:1"));
+        plugin.getConfig().addDefault("rank-daily-keys.rewards.booster", List.of("common:1", "kelvora:1"));
         plugin.getConfig().addDefault("rank-daily-keys.rewards.verdant", List.of("common:1", "kelvora:1"));
         plugin.getConfig().addDefault("rank-daily-keys.rewards.emerald", List.of("kelvora:2", "gold:1"));
         plugin.getConfig().addDefault("rank-daily-keys.rewards.sovereign", List.of("gold:2", "spawner:1"));
