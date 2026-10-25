@@ -51,7 +51,7 @@ final class ShopSellManager implements Listener {
         connectEconomy();
         if (plugin.getCommand("shop") != null) plugin.getCommand("shop").setExecutor((sender, command, label, args) -> {
             if (args.length > 0 && (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove"))) {
-                boolean allowed = sender.isOp() || sender.hasPermission("kelvora.shop.edit") || sender.hasPermission("kelvora.roles.manage");
+                boolean allowed = sender.isOp() || sender.hasPermission("kelvora.shop.edit") || sender.hasPermission("kelvora.roles.manage") || (sender instanceof Player editor && plugin instanceof KelvoraSMP k && (k.hasRoleGroup(editor, "owner") || k.hasRoleGroup(editor, "admin") || k.hasRoleGroup(editor, "manager") || k.hasRoleGroup(editor, "moderator") || k.hasRoleGroup(editor, "staff")));
                 if (!allowed) { sender.sendMessage(Component.text("You do not have permission to edit the shop.", NamedTextColor.RED)); return true; }
                 if (args[0].equalsIgnoreCase("add") && args.length == 4) {
                     String cat = normalizeShopCategory(args[1]);
