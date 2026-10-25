@@ -46,7 +46,7 @@ final class RankKitManager implements Listener {
         Map.entry("emerald", "Emerald"), Map.entry("sovereign", "Sovereign"),
         Map.entry("ascendant", "Ascendant"), Map.entry("helper", "Helper"),
         Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"),
-        Map.entry("admin", "Admin"), Map.entry("manager", "Manager"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"), Map.entry("media", "Media"),
+        Map.entry("admin", "Admin"), Map.entry("manager", "Manager"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"), Map.entry("media", "Media"), Map.entry("member", "Member"),
         Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
     );
     private final KelvoraSMP plugin;
@@ -237,7 +237,7 @@ final class RankKitManager implements Listener {
     }
 
     private void openKits(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 36, Component.text("Kelvora | Kits", NamedTextColor.DARK_GREEN));
+        Inventory inv = Bukkit.createInventory(null, 54, Component.text("Kelvora | Kits", NamedTextColor.DARK_GREEN));
         int[] slots={9,10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
@@ -250,8 +250,10 @@ final class RankKitManager implements Listener {
             lore.add(allowed ? (readyAt>System.currentTimeMillis() ? "Cooldown: "+duration(readyAt-System.currentTimeMillis()) : "Ready to claim") : "Locked — rank required");
             put(inv,slots[i],allowed?Material.CHEST:Material.BARRIER,(allowed?"&a":"&c")+kit,lore,"kit:"+key);
         }
-        put(inv,22,Material.BOOK,"&ePreview kit",List.of("Use /kit preview <name>"),"info");
-        put(inv,31,Material.BARRIER,"&cClose",List.of("Close menu"),"close");
+        if (plugin.getConfig().isConfigurationSection("kits.member")) put(inv,20,canClaimRank(player,"member")?Material.CHEST:Material.BARRIER,(canClaimRank(player,"member")?"&a":"&c")+plugin.getConfig().getString("kits.member.display","Member Kit"),List.of(plugin.getConfig().getString("kits.member.summary","Basic starter supplies"),canClaimRank(player,"member")?"Ready to claim":"Locked"),"kit:member");
+        if (plugin.getConfig().isConfigurationSection("kits.media")) put(inv,22,canClaimRank(player,"media")?Material.CHEST:Material.BARRIER,(canClaimRank(player,"media")?"&d":"&c")+plugin.getConfig().getString("kits.media.display","Media Kit"),List.of(plugin.getConfig().getString("kits.media.summary","Creator supplies"),canClaimRank(player,"media")?"Media role verified":"Locked — Media role required"),"kit:media");
+        put(inv,40,Material.BOOK,"&ePreview kit",List.of("Use /kit preview <name>"),"info");
+        put(inv,49,Material.BARRIER,"&cClose",List.of("Close menu"),"close");
         player.openInventory(inv);
     }
 
@@ -265,7 +267,7 @@ final class RankKitManager implements Listener {
     }
 
     private void claimKit(Player player, String key) {
-        if (!PROGRESSION.contains(key) || !plugin.getConfig().isConfigurationSection("kits."+key)) {
+        if ((!PROGRESSION.contains(key) && !List.of("member","media").contains(key)) || !plugin.getConfig().isConfigurationSection("kits."+key)) {
             player.sendMessage(Component.text("Unknown kit.", NamedTextColor.RED)); return;
         }
         if (!canClaimRank(player,key)) { player.sendMessage(Component.text("Your rank cannot claim this kit.", NamedTextColor.RED)); return; }
@@ -335,6 +337,8 @@ final class RankKitManager implements Listener {
     }
 
     private boolean canClaimRank(Player player,String kit) {
+        if (kit.equals("member")) return true;
+        if (kit.equals("media")) return player.hasPermission("kelvora.live") || player.hasPermission("kelvora.role.media") || player.hasPermission("group.media") || player.hasPermission("kelvora.role.creator") || player.hasPermission("group.creator");
         int playerRank=PROGRESSION.indexOf(progressionRank(player.getUniqueId()));
         int required=PROGRESSION.indexOf(kit);
         return playerRank>=required && (playerRank==required || plugin.getConfig().getBoolean("kits.allow-lower-rank-kits",false));
