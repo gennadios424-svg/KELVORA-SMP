@@ -50,6 +50,45 @@ final class ShopSellManager implements Listener {
     void register() {
         connectEconomy();
         if (plugin.getCommand("shop") != null) plugin.getCommand("shop").setExecutor((sender, command, label, args) -> {
+            if (args.length > 0 && (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove"))) {
+                boolean allowed = sender.isOp() || sender.hasPermission("kelvora.shop.edit") || sender.hasPermission("kelvora.roles.manage");
+                if (!allowed) { sender.sendMessage(Component.text("You do not have permission to edit the shop.", NamedTextColor.RED)); return true; }
+                if (args[0].equalsIgnoreCase("add") && args.length == 4) {
+                    String cat = normalizeShopCategory(args[1]);
+                    Material material = Material.matchMaterial(args[2].toUpperCase(Locale.ROOT));
+                    double cost;
+                    try { cost = Double.parseDouble(args[3]); } catch (NumberFormatException ex) { cost = -1; }
+                    if (cat == null || material == null || !material.isItem() || !Double.isFinite(cost) || cost <= 0) {
+                        sender.sendMessage(Component.text("Usage: /shop add <blocks|food|pvp|redstone|farm|nether|end> <MATERIAL> <price>", NamedTextColor.RED)); return true;
+                    }
+                    List<String> additions = new ArrayList<>(plugin.getConfig().getStringList("shop-catalog." + cat + ".add"));
+                    if (!additions.contains(material.name())) additions.add(material.name());
+                    List<String> removals = new ArrayList<>(plugin.getConfig().getStringList("shop-catalog." + cat + ".remove"));
+                    removals.removeIf(v -> v.equalsIgnoreCase(material.name()));
+                    plugin.getConfig().set("shop-catalog." + cat + ".add", additions);
+                    plugin.getConfig().set("shop-catalog." + cat + ".remove", removals);
+                    plugin.getConfig().set("shop-prices." + material.name(), cost);
+                    plugin.saveConfig();
+                    sender.sendMessage(Component.text("Added " + material.name() + " to /shop " + cat + " at $" + MONEY.format(cost) + ".", NamedTextColor.GREEN));
+                    return true;
+                }
+                if (args[0].equalsIgnoreCase("remove") && args.length == 3) {
+                    String cat = normalizeShopCategory(args[1]);
+                    Material material = Material.matchMaterial(args[2].toUpperCase(Locale.ROOT));
+                    if (cat == null || material == null) { sender.sendMessage(Component.text("Usage: /shop remove <category> <MATERIAL>", NamedTextColor.RED)); return true; }
+                    List<String> removals = new ArrayList<>(plugin.getConfig().getStringList("shop-catalog." + cat + ".remove"));
+                    if (!removals.stream().anyMatch(v -> v.equalsIgnoreCase(material.name()))) removals.add(material.name());
+                    List<String> additions = new ArrayList<>(plugin.getConfig().getStringList("shop-catalog." + cat + ".add"));
+                    additions.removeIf(v -> v.equalsIgnoreCase(material.name()));
+                    plugin.getConfig().set("shop-catalog." + cat + ".remove", removals);
+                    plugin.getConfig().set("shop-catalog." + cat + ".add", additions);
+                    plugin.saveConfig();
+                    sender.sendMessage(Component.text("Removed " + material.name() + " from /shop " + cat + ".", NamedTextColor.GREEN));
+                    return true;
+                }
+                sender.sendMessage(Component.text("Usage: /shop add <category> <MATERIAL> <price> | /shop remove <category> <MATERIAL>", NamedTextColor.YELLOW));
+                return true;
+            }
             if (!(sender instanceof Player p)) { sender.sendMessage("Use this command in-game."); return true; }
             if (!p.hasPermission("kelvora.shop")) { p.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
             openShop(p); return true;
@@ -108,7 +147,7 @@ final class ShopSellManager implements Listener {
         for (int i = 0; i < pageSize; i++) {
             int index = page * pageSize + i;
             if (index >= entries.size()) break;
-            inv.setItem(i, entries.get(index).createDisplay(actionKey, price(entries.get(index).material)));
+            inv.setItem(i, entries.get(index).createDisplay(actionKey, shopPrice(entries.get(index).material)));
         }
         put(inv, controls, Material.ARROW, "Back", "back", "Return to categories");
         if (page > 0) put(inv, controls + 2, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
@@ -120,6 +159,7 @@ final class ShopSellManager implements Listener {
 
     private List<ShopEntry> categoryEntries(String cat) {
         LinkedHashMap<Material, ShopEntry> entries = new LinkedHashMap<>();
+        Set<Material> customCategoryItems = new HashSet<>();
         List<ShopEntry> specialEntries = new ArrayList<>();
         String csv = switch (cat) {
             case "blocks" -> "STONE,COBBLESTONE,STONE_BRICKS,CRACKED_STONE_BRICKS,MOSSY_STONE_BRICKS,CHISELED_STONE_BRICKS,ANDESITE,DIORITE,GRANITE,DEEPSLATE,COBBLED_DEEPSLATE,DEEPSLATE_BRICKS,DEEPSLATE_TILES,DIRT,COARSE_DIRT,ROOTED_DIRT,GRASS_BLOCK,SAND,RED_SAND,GRAVEL,CLAY,BRICKS,BRICK,GLASS,GLASS_PANE,TERRACOTTA,SANDSTONE,CUT_SANDSTONE,SMOOTH_SANDSTONE,RED_SANDSTONE,PRISMARINE,PRISMARINE_BRICKS,DARK_PRISMARINE,SEA_LANTERN,BOOKSHELF,CRAFTING_TABLE,CHEST,BARREL";
@@ -147,17 +187,33 @@ final class ShopSellManager implements Listener {
                 }
             }
         }
+        // Admin-managed additions/removals are persisted in config.yml and survive restarts.
+        for (String raw : plugin.getConfig().getStringList("shop-catalog." + cat + ".add")) {
+            Material material = Material.matchMaterial(raw.toUpperCase(Locale.ROOT));
+            if (material != null && material.isItem()) {
+                entries.put(material, new ShopEntry(material, null, 0));
+                customCategoryItems.add(material);
+            }
+        }
+        Set<String> removed = new HashSet<>();
+        for (String raw : plugin.getConfig().getStringList("shop-catalog." + cat + ".remove")) removed.add(raw.toUpperCase(Locale.ROOT));
         List<ShopEntry> result = new ArrayList<>(entries.values());
         result.addAll(specialEntries);
         result.removeIf(entry -> entry.material == Material.POTION || entry.material == Material.SPLASH_POTION || entry.material == Material.LINGERING_POTION);
-        // A single authoritative category assignment prevents duplicates, and this blacklist
-        // prevents future catalogue edits from bypassing survival progression.
+        // Keep survival progression restrictions even for staff-added items.
         result.removeIf(entry -> isProgressionRestricted(entry.material)
             || entry.material.name().endsWith("_SHULKER_BOX")
-            || !cat.equals(categoryFor(entry)));
-        // One canonical shulker entry only: the uncoloured standard SHULKER_BOX in Blocks.
+            || removed.contains(entry.material.name())
+            || (!cat.equals(categoryFor(entry)) && !customCategoryItems.contains(entry.material)));
         if (cat.equals("blocks")) result.removeIf(entry -> entry.material != Material.SHULKER_BOX && entry.material.name().endsWith("SHULKER_BOX"));
         return result;
+    }
+
+    private String normalizeShopCategory(String raw) {
+        if (raw == null) return null;
+        String cat = raw.toLowerCase(Locale.ROOT);
+        if (cat.equals("crystalpvp") || cat.equals("cpvp")) cat = "pvp";
+        return Set.of("blocks", "food", "pvp", "redstone", "farm", "nether", "end").contains(cat) ? cat : null;
     }
 
     private boolean isProgressionRestricted(Material material) {
