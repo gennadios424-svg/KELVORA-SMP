@@ -162,7 +162,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     private boolean admin(CommandSender sender) {
         if (sender.isOp() || sender.hasPermission("kelvora.crate.admin") || sender.hasPermission("kelvora.crate.edit") || sender.hasPermission("kelvora.roles.manage")) return true;
         if (sender instanceof Player p && plugin instanceof KelvoraSMP k) {
-            return k.hasRoleGroup(p, "owner") || k.hasRoleGroup(p, "admin") || k.hasRoleGroup(p, "manager") || k.hasRoleGroup(p, "moderator") || k.hasRoleGroup(p, "helper");
+            return k.hasRoleGroup(p, "owner") || k.hasRoleGroup(p, "admin") || k.hasRoleGroup(p, "manager") || k.hasRoleGroup(p, "moderator") || k.hasRoleGroup(p, "helper") || k.hasRoleGroup(p, "staff");
         }
         return false;
     }
