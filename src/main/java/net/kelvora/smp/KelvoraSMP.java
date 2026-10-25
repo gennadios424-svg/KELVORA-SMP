@@ -106,6 +106,7 @@ implements Listener {
         new CoinflipManager(this, combatManager).register();
         new RtpManager(this, combatManager).register();
         new HomesManager(this, combatManager).register();
+        new TeleportSettingsManager(this, combatManager).register();
         this.teamManager = new TeamManager(this);
         this.teamManager.register();
         new RankKitManager(this).register();

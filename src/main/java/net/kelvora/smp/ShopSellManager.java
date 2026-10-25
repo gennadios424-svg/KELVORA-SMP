@@ -317,7 +317,10 @@ final class ShopSellManager implements Listener {
             } else if (action.equals("confirm")) confirmPurchase(p, session);
             else if (action.equals("back")) {
                 quantitySessions.remove(p.getUniqueId());
-                openCategory(p, session.category, session.page);
+                // Open next tick so the click event cannot close the reopened shop.
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (p.isOnline()) openCategory(p, session.category, session.page);
+            });
             } else if (action.equals("cancel")) {
                 quantitySessions.remove(p.getUniqueId());
                 openCategory(p, session.category, session.page);

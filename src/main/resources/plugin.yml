@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.23.5
+version: 2.24.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -121,6 +121,28 @@ commands:
     description: Open the random teleport dimension menu
     usage: /rtp
     aliases: [randomteleport, wild]
+  settings:
+    description: Open personal Kelvora settings
+    usage: /settings
+    permission: kelvora.settings
+  tpa:
+    description: Request to teleport to another player
+    usage: /tpa <player>
+    permission: kelvora.teleport.requests
+  tpahere:
+    description: Request another player to teleport to you
+    usage: /tpahere <player>
+    permission: kelvora.teleport.requests
+  tpaccept:
+    description: Accept an incoming teleport request
+    usage: /tpaccept
+    aliases: [tpyes]
+    permission: kelvora.teleport.requests
+  tpdeny:
+    description: Deny an incoming teleport request
+    usage: /tpdeny
+    aliases: [tpno]
+    permission: kelvora.teleport.requests
   team:
     description: Create and manage survival teams
     usage: /team [create|invite|join|leave|kick|promote|info|list|disband]
@@ -249,6 +271,12 @@ permissions:
     default: op
   kelvora.rtp:
     description: Use random teleport
+    default: true
+  kelvora.settings:
+    description: Open personal settings
+    default: true
+  kelvora.teleport.requests:
+    description: Send and accept player teleport requests
     default: true
   kelvora.team.admin:
     description: Moderate teams

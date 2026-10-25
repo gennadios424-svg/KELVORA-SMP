@@ -33,8 +33,8 @@ import org.bukkit.event.player.PlayerTeleportEvent;
  * World-border centers are deliberately preserved; only the diameter is normalized.
  */
 final class RtpManager implements Listener, CommandExecutor, TabCompleter {
-    private static final double BORDER_SIZE = 100000.0;
-    private static final int MAX_ATTEMPTS = 8;
+    private static final double DEFAULT_RADIUS = 5000.0;
+    private static final int MAX_ATTEMPTS = 4;
     private static final int ATTEMPTS_PER_REQUEST = 1;
     private static final String GUI_TITLE = "KELVORA // RANDOM TELEPORT";
     private static final long REQUEST_TIMEOUT_TICKS = 20L * 20L;
@@ -78,12 +78,6 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
             }
             if (world != null) {
                 dimensions.put(dimension, world);
-                WorldBorder border = world.getWorldBorder();
-                if (Math.abs(border.getSize() - BORDER_SIZE) > 0.01) {
-                    border.setSize(BORDER_SIZE);
-                    plugin.getLogger().info("RTP border set to 100000 blocks for " + world.getName()
-                        + "; preserved center " + border.getCenter().getBlockX() + ", " + border.getCenter().getBlockZ() + ".");
-                }
             } else {
                 dimensions.remove(dimension);
             }
@@ -161,8 +155,8 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
         final World selectedWorld = target;
         Location origin = player.getLocation().clone();
         countdownOrigins.put(player.getUniqueId(), origin.clone());
-        final int[] seconds = {5};
-        player.sendActionBar(Component.text("RTP in 5s — Don't move!", NamedTextColor.YELLOW));
+        final int[] seconds = {2};
+        player.sendActionBar(Component.text("RTP in 2s — Don't move!", NamedTextColor.YELLOW));
         BukkitTask countdown = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             @Override public void run() {
                 UUID id = player.getUniqueId();
@@ -213,9 +207,11 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
             return;
         }
         WorldBorder border = world.getWorldBorder();
-        Location center = border.getCenter();
-        double half = Math.min(BORDER_SIZE / 2.0, border.getSize() / 2.0) - 32.0;
-        if (half <= 0) {
+        Location center = world.getSpawnLocation();
+        double configuredRadius = plugin.getConfig().getDouble("rtp." + dimension + "-radius",
+            dimension.equals("nether") ? 2000.0 : DEFAULT_RADIUS);
+        double half = Math.min(Math.max(128.0, configuredRadius), border.getSize() / 2.0 - 32.0);
+        if (!Double.isFinite(half) || half <= 0) {
             searching.remove(player.getUniqueId());
             player.sendMessage(ChatColor.RED + "Random teleport is unavailable in that dimension."); return;
         }
@@ -262,19 +258,27 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
     }
 
     private Location findSafeLocation(World world, int x, int z) {
-        // Use this dimension's own heightmap and never search down into caves.
-        int floorY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
-        int feetY = floorY + 1;
-        if (feetY <= world.getMinHeight() + 1 || feetY + 1 >= world.getMaxHeight()) return null;
-        Location feet = new Location(world, x + 0.5, feetY, z + 0.5);
-        if (!insideBorderWithMargin(world.getWorldBorder(), feet)) return null;
-        if (!safeFloor(world.getBlockAt(x, floorY, z))) return null;
-        if (!safeBody(world.getBlockAt(x, feetY, z)) || !safeBody(world.getBlockAt(x, feetY + 1, z))) return null;
-        int support = 0;
-        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
-            if (safeFloor(world.getBlockAt(x + dx, floorY, z + dz))) support++;
+        // Nether heightmaps often point at the bedrock roof. Scan down for a real
+        // walkable floor instead of repeatedly selecting the roof and timing out.
+        int minY = world.getMinHeight() + 1;
+        int maxFloorY = world.getEnvironment() == World.Environment.NETHER
+            ? Math.min(world.getMaxHeight() - 3, 125)
+            : world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+        for (int floorY = maxFloorY; floorY >= minY; floorY--) {
+            int feetY = floorY + 1;
+            if (feetY + 1 >= world.getMaxHeight()) continue;
+            if (!safeFloor(world.getBlockAt(x, floorY, z))) continue;
+            if (!safeBody(world.getBlockAt(x, feetY, z)) || !safeBody(world.getBlockAt(x, feetY + 1, z))) continue;
+            Location feet = new Location(world, x + 0.5, feetY, z + 0.5);
+            if (!insideBorderWithMargin(world.getWorldBorder(), feet)) continue;
+            int support = 0;
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+                if (safeFloor(world.getBlockAt(x + dx, floorY, z + dz))) support++;
+            }
+            if (support >= 5) return feet;
+            if (world.getEnvironment() != World.Environment.NETHER) return null;
         }
-        return support >= 5 ? feet : null;
+        return null;
     }
 
     private boolean safeFloor(Block block) {
