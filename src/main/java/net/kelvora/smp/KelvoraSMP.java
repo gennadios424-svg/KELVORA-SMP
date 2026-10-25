@@ -112,6 +112,12 @@ implements Listener {
         new LeaderboardManager(this, this.kelvorasManager).register();
         new StatsManager(this, this.kelvorasManager).register(this);
         new SpecialToolsManager(this, this.kelvorasManager, this.worthManager).register();
+        if (this.getCommand("discord") != null) this.getCommand("discord").setExecutor((sender, command, label, args) -> {
+            sender.sendMessage(Component.text("Join the Kelvora SMP Discord: ", NamedTextColor.LIGHT_PURPLE)
+                .append(Component.text("https://discord.gg/gUt2uGcwe", NamedTextColor.AQUA)
+                    .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"))));
+            return true;
+        });
         if (this.getCommand("bal") != null) {
             this.getCommand("bal").setExecutor((sender, command, label, args) -> {
                 if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
@@ -250,33 +256,46 @@ implements Listener {
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
         String kelvoras = this.getKelvoras(player);
-        Component rotatingMessage = Component.text("\n\n🌿 KELVORA SMP\n\n",
+        Component rotatingColor = Component.text("\n\n🌿 K E L V O R A  S M P",
             switch (this.tabFrame) {
                 case 0 -> net.kyori.adventure.text.format.TextColor.color(0x008000);
                 case 1 -> NamedTextColor.DARK_GREEN;
                 default -> net.kyori.adventure.text.format.TextColor.color(0x7CFC00);
-            }).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD);
+            }).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
+              .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED);
+        Component rotatingMessage = rotatingColor.append(Component.text("\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n", NamedTextColor.DARK_GREEN));
         Component footerMessage = switch (this.footerFrame) {
-            case 0 -> Component.text("💬 JOIN OUR DISCORD", NamedTextColor.LIGHT_PURPLE)
+            case 0 -> Component.text("💬 JOIN OUR DISCORD\nType /discord to get the invite and join us", NamedTextColor.LIGHT_PURPLE)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
-            case 1 -> Component.text("🛡️ APPLY FOR STAFF", NamedTextColor.GOLD);
-            case 2 -> Component.text("🎥 APPLY FOR MEDIA", NamedTextColor.AQUA);
-            case 3 -> Component.text("⚔️ JOIN KELVORA SMP", NamedTextColor.GREEN);
-            default -> Component.text("🌐 kelvorasmp.mcsh.gg", NamedTextColor.YELLOW);
+            case 1 -> Component.text("🛡️ APPLY FOR STAFF\nOpen a Discord ticket to apply", NamedTextColor.GOLD)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
+            case 2 -> Component.text("🎥 APPLY FOR MEDIA\nMeet the requirements, then open a ticket", NamedTextColor.AQUA)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
+            case 3 -> Component.text("⚔️ JOIN KELVORA SMP\nJava + Bedrock • Cracked players welcome", NamedTextColor.GREEN);
+            default -> Component.text("🌐 kelvorasmp.mcsh.gg\nJoin with Java or Bedrock", NamedTextColor.YELLOW);
         };
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
+            Scoreboard externalBoard = player.getScoreboard();
             board = Bukkit.getScoreboardManager().getNewScoreboard();
+            for (Team sourceTeam : externalBoard.getTeams()) {
+                if (board.getTeam(sourceTeam.getName()) != null) continue;
+                Team targetTeam = board.registerNewTeam(sourceTeam.getName());
+                targetTeam.setPrefix(sourceTeam.getPrefix());
+                targetTeam.setSuffix(sourceTeam.getSuffix());
+                targetTeam.setColor(sourceTeam.getColor());
+                for (String entry : sourceTeam.getEntries()) targetTeam.addEntry(entry);
+            }
             Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
-            for (int i = 0; i < 9; ++i) {
+            for (int i = 0; i < 6; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
                 org.bukkit.scoreboard.Score score = created.getScore(entry);
-                score.setScore(9 - i);
+                score.setScore(6 - i);
                 score.numberFormat(io.papermc.paper.scoreboard.numbers.NumberFormat.blank());
             }
             this.playerBoards.put(player.getUniqueId(), board);
@@ -296,13 +315,10 @@ implements Listener {
         // Keep the two authoritative currencies immediately under the server title.
         String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
-            this.color("&6&l⭐ RANK: &e&l" + rankDisplay),
+            this.color("&6&l⭐ RANK: " + rankColor + "&l" + rankDisplay),
             this.color("&a&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
             this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
             this.color("&3🛡 Team: &b" + teamName),
-            this.color("&c⚔ Kills: &f" + kills),
-            this.color("&4☠ Deaths: &c" + deaths),
-            this.color("&9⏱ Playtime: &b" + playtime),
             this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
             this.color("&7🌐 IP: &f" + serverAddress)
         };
@@ -315,7 +331,7 @@ implements Listener {
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
         }
-        clearNameplateInfo(board);
+        // Do not wipe external scoreboard teams: head/nameplate plugins rely on their entries.
         if (this.shardShopManager != null) this.shardShopManager.refreshCosmetics(player);
     }
 
@@ -335,7 +351,7 @@ implements Listener {
 
     private String rankKey(Player player) {
         if (this.luckPerms == null) {
-            return "sprout";
+            return "member";
         }
         User user = this.luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) {
@@ -350,11 +366,11 @@ implements Listener {
                 return progression.equals("i_sprout") ? "sprout" : progression;
             }
         }
-        if (Set.of("helper", "moderator", "mod", "admin", "owner", "creator", "default", "member", "i_sprout").contains(group)) return "sprout";
+        if (Set.of("helper", "moderator", "mod", "admin", "owner", "creator", "default", "member", "i_sprout").contains(group)) return "member";
         if (group.equals("vip")) return "verdant";
         ConfigurationSection ranks = this.getConfig().getConfigurationSection("ranks");
         if (ranks != null && ranks.contains(group) && !Set.of("helper", "moderator", "admin", "owner", "creator").contains(group)) return group;
-        return "sprout";
+        return "member";
     }
 
     KelvorasManager passiveKelvorasManager() { return this.kelvorasManager; }

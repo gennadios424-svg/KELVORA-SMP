@@ -114,7 +114,6 @@ final class ShopSellManager implements Listener {
         if (page > 0) put(inv, controls + 2, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
         put(inv, controls + 3, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
         if (page + 1 < pages) put(inv, controls + 4, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
-        put(inv, controls + 5, Material.EMERALD, "Balance", "balance", "Current Money balance");
         put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
     }
@@ -277,7 +276,7 @@ final class ShopSellManager implements Listener {
             playUiSound(p, action.startsWith("page:") ? Sound.UI_BUTTON_CLICK : Sound.UI_BUTTON_CLICK);
             if (action.equals("back")) openShop(p);
             else if (action.equals("close")) p.closeInventory();
-            else if (action.equals("balance")) tellBalance(p);
+            
             else if (action.startsWith("page:")) {
                 String[] bits = action.split(":");
                 if (bits.length == 3) openCategory(p, bits[1], parsePage(bits[2]));
@@ -457,8 +456,8 @@ final class ShopSellManager implements Listener {
         fill(inv, Material.GRAY_STAINED_GLASS_PANE, " ");
         refreshQuantityView(p, inv, session);
         put(inv, 20, Material.LIME_CONCRETE, "Buy 1", "qty:1", "Total: $" + MONEY.format(session.unitPrice));
-        if (session.prototype.getMaxStackSize() >= 32) put(inv, 21, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
-        if (session.prototype.getMaxStackSize() >= 64) put(inv, 22, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
+        if (session.prototype.getMaxStackSize() >= 32) put(inv, 22, Material.LIME_CONCRETE, "Buy 32", "qty:32", "Total: $" + MONEY.format(session.unitPrice * 32));
+        if (session.prototype.getMaxStackSize() >= 64) put(inv, 24, Material.LIME_CONCRETE, "Buy 64", "qty:64", "Total: $" + MONEY.format(session.unitPrice * 64));
         put(inv, 29, Material.ARROW, "Back", "back", "Return to " + session.category + " shop");
         put(inv, 31, Material.EMERALD, "Confirm Purchase", "confirm", "Pay $" + MONEY.format(session.unitPrice * session.quantity));
         put(inv, 33, Material.BARRIER, "Cancel", "cancel", "Return without buying");
@@ -649,6 +648,8 @@ final class ShopSellManager implements Listener {
 
     private double shopPrice(Material material) {
         if (material == null || material.isAir()) return 0;
+        if (material == Material.TOTEM_OF_UNDYING) return 250.0;
+        if (material.name().equals("SHULKER_BOX") || material.name().endsWith("_SHULKER_BOX") || material == Material.SHULKER_SHELL) return 250.0;
         double worth = price(material);
         double configured = plugin.getConfig().getDouble("shop-prices." + material.name(), 0);
         if (worth > 0) return Math.max(Math.max(worth * 1.5, worth + 0.01), configured);

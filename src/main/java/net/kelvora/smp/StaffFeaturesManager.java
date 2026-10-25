@@ -54,15 +54,15 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
             data.set("roles.staff.label", "Staff"); data.set("roles.staff.color", "&c&l");
             data.set("roles.media.label", "Media"); data.set("roles.media.color", "&d&l");
         }
-        if (!data.contains("media.follower-count")) data.set("media.follower-count", "Set by staff");
+        if (!data.contains("media.follower-count") || data.getString("media.follower-count", "").equalsIgnoreCase("Set by staff")) data.set("media.follower-count", "300 followers");
         if (!data.contains("media.content")) data.set("media.content", "Minecraft content, no stolen clips");
         if (!data.contains("media.activity")) data.set("media.activity", "Consistent recent uploads or streams");
-        if (!data.contains("media.requirements")) data.set("media.requirements", List.of("Minimum follower / view requirement: set by staff", "Content quality and activity are reviewed"));
+        if (!data.contains("media.requirements") || data.getStringList("media.requirements").stream().anyMatch(x -> x.toLowerCase(Locale.ROOT).contains("set by staff"))) data.set("media.requirements", List.of("At least 2,000 views on a video featuring Kelvora SMP", "Live streams average at least 5 viewers", "At least 300 followers", "If all requirements are met, open a ticket in the Kelvora Discord."));
         if (!data.contains("media.application")) data.set("media.application", "Open a ticket in the Kelvora Discord");
         if (!data.contains("media.discord-url")) data.set("media.discord-url", "https://discord.gg/gUt2uGcwe");
         save();
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        for (String command : List.of("live", "media", "role", "suslist", "vanish")) {
+        for (String command : List.of("live", "media", "role", "suslist", "vanish", "report")) {
             if (plugin.getCommand(command) != null) {
                 plugin.getCommand(command).setExecutor(this);
                 plugin.getCommand(command).setTabCompleter(this);
@@ -122,8 +122,8 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
             for (String requirement : data.getStringList("media.requirements")) mediaLore.add(ChatColor.GRAY + requirement);
             mediaLore.add(ChatColor.GRAY + "Content: " + data.getString("media.content", "Reviewed by staff"));
             mediaLore.add(ChatColor.GRAY + "Activity: " + data.getString("media.activity", "Reviewed by staff"));
-            mediaLore.add(ChatColor.GRAY + "Application: " + data.getString("media.application", "Open a Discord ticket"));
-            mediaLore.add(ChatColor.YELLOW + "Media is never granted automatically.");
+            mediaLore.add(ChatColor.GRAY + "Application: Open a ticket if all requirements are met.");
+            mediaLore.add(ChatColor.YELLOW + "If you meet all requirements, open a Discord ticket.");
             rm.setLore(mediaLore);
             requirements.setItemMeta(rm); inv.setItem(11, requirements);
             org.bukkit.inventory.ItemStack apply = new org.bukkit.inventory.ItemStack(Material.BOOK);
@@ -185,9 +185,39 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
             else { vanished.add(p.getUniqueId()); applyVanishVisibility(p); p.sendMessage(ChatColor.GREEN+"Vanish enabled."); }
             return true;
         }
+        if (cmd.equals("report")) {
+            if (!(sender instanceof Player reporter)) { sender.sendMessage("Players only."); return true; }
+            if (args.length < 2) { reporter.sendMessage(ChatColor.RED + "Usage: /report <user> <reason> (reason must be at least 10 characters)"); return true; }
+            String target = args[0];
+            if (!target.matches("[A-Za-z0-9_]{3,16}")) { reporter.sendMessage(ChatColor.RED + "Enter a valid Minecraft username."); return true; }
+            if (target.equalsIgnoreCase(reporter.getName())) { reporter.sendMessage(ChatColor.RED + "You cannot report yourself."); return true; }
+            String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim();
+            if (reason.length() < 10) { reporter.sendMessage(ChatColor.RED + "Your reason must be at least 10 characters."); return true; }
+            long now = System.currentTimeMillis();
+            String reportPath = "reports." + now;
+            data.set(reportPath + ".by", reporter.getName());
+            data.set(reportPath + ".target", target);
+            data.set(reportPath + ".reason", reason);
+            data.set(reportPath + ".time", now);
+            save();
+            reporter.sendMessage(ChatColor.GREEN + "Report submitted. Staff have been notified.");
+            String notice = ChatColor.RED + "[REPORT] Report by " + reporter.getName() + " against " + target + ": " + reason + " — /suslist reports";
+            for (Player staff : Bukkit.getOnlinePlayers()) if (moderator(staff)) staff.sendMessage(notice);
+            plugin.getLogger().info("[REPORT] Report by " + reporter.getName() + " against " + target + ": " + reason);
+            return true;
+        }
         if (cmd.equals("suslist")) {
             if (!moderator(sender)) { sender.sendMessage(ChatColor.RED + "Only moderators and above can use /suslist."); return true; }
             ConfigurationSection suspects=data.getConfigurationSection("suspects");
+            if (args.length == 1 && args[0].equalsIgnoreCase("reports")) {
+                ConfigurationSection reports = data.getConfigurationSection("reports");
+                if (reports == null || reports.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY + "No player reports saved."); return true; }
+                sender.sendMessage(ChatColor.GOLD + "Recent player reports:");
+                List<String> ids = new ArrayList<>(reports.getKeys(false));
+                ids.sort((a,b) -> Long.compare(parseLongSafe(b), parseLongSafe(a)));
+                for (String id : ids.stream().limit(15).toList()) sender.sendMessage(ChatColor.RED + "Report by " + reports.getString(id + ".by", "Unknown") + ChatColor.GRAY + " → " + ChatColor.YELLOW + reports.getString(id + ".target", "Unknown") + ChatColor.GRAY + ": " + reports.getString(id + ".reason", "No reason"));
+                return true;
+            }
             if (args.length == 1 && args[0].equalsIgnoreCase("reload")) { try { data.load(file); sender.sendMessage(ChatColor.GREEN + "Suslist evidence and staff settings reloaded."); } catch (Exception ex) { sender.sendMessage(ChatColor.RED + "Could not reload staff-features.yml: " + ex.getMessage()); } return true; }
             if (args.length == 1 && args[0].equalsIgnoreCase("tp")) { sender.sendMessage(ChatColor.YELLOW + "Usage: /suslist tp <player>"); return true; }
             if (args.length == 1) {
@@ -195,11 +225,11 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 String found = null;
                 if (all != null) for (String id : all.getKeys(false)) if (all.getString(id + ".name", "").equalsIgnoreCase(args[0])) { found = id; break; }
                 if (found == null) { sender.sendMessage(ChatColor.RED + "No saved suspicious-mining evidence for that player."); return true; }
-                sender.sendMessage(ChatColor.GOLD + "Investigation: " + all.getString(found + ".name", args[0]));
+                sender.sendMessage(ChatColor.GOLD + "Suspect: " + all.getString(found + ".name", args[0]) + ChatColor.GRAY + " | Flags: " + all.getInt(found + ".flags", 1));
                 sender.sendMessage(ChatColor.YELLOW + "Reason: " + all.getString(found + ".reason", "Suspicious mining pattern"));
-                sender.sendMessage(ChatColor.GRAY + "World / coordinates: " + all.getString(found + ".world", "unknown") + " " + all.getInt(found + ".x") + ", " + all.getInt(found + ".y") + ", " + all.getInt(found + ".z"));
-                sender.sendMessage(ChatColor.GRAY + "Tool: " + all.getString(found + ".tool", "unknown") + " | Time: " + new java.util.Date(all.getLong(found + ".time", 0)));
-                sender.sendMessage(ChatColor.YELLOW + "Review evidence manually; flags never trigger automatic punishment. Teleport: /suslist tp " + all.getString(found + ".name", args[0]));
+                long expiresAt = all.getLong(found + ".expires", all.getLong(found + ".time", 0) + 5L * 60L * 60L * 1000L);
+                long remaining = Math.max(0, expiresAt - System.currentTimeMillis());
+                sender.sendMessage(ChatColor.GRAY + "Evidence expires in " + (remaining / 3600000L) + "h " + ((remaining % 3600000L) / 60000L) + "m. Teleport: /suslist tp " + all.getString(found + ".name", args[0]));
                 return true;
             }
             if (args.length >= 2 && args[0].equalsIgnoreCase("tp")) {
@@ -214,6 +244,8 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         }
         return false;
     }
+
+    private long parseLongSafe(String value) { try { return Long.parseLong(value); } catch (NumberFormatException ignored) { return 0L; } }
 
     private void purgeExpiredFlags() {
         ConfigurationSection suspects=data.getConfigurationSection("suspects"); if(suspects==null) return;
@@ -320,7 +352,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (command.getName().equalsIgnoreCase("role") && args.length==2 && (args[0].equalsIgnoreCase("add")||args[0].equalsIgnoreCase("remove"))) return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(x->x.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         if (command.getName().equalsIgnoreCase("role") && args.length==3) { ConfigurationSection sec=data.getConfigurationSection("roles"); return sec==null?List.of():sec.getKeys(false).stream().filter(x->x.startsWith(args[2].toLowerCase(Locale.ROOT))).toList(); }
         if (command.getName().equalsIgnoreCase("suslist") && args.length==1) {
-            List<String> choices = new ArrayList<>(List.of("reload", "tp"));
+            List<String> choices = new ArrayList<>(List.of("reload", "tp", "reports"));
             ConfigurationSection suspects = data.getConfigurationSection("suspects");
             if (suspects != null) for (String id : suspects.getKeys(false)) choices.add(suspects.getString(id + ".name", id));
             return choices.stream().filter(x -> x.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT))).toList();

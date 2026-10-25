@@ -129,7 +129,7 @@ final class ShardShopManager implements Listener {
      * newly implemented cosmetic catalog once while preserving all configured prices.
      */
     private synchronized void migrateCosmeticCatalogue() {
-        if (plugin.getConfig().getInt("shardshop.schema-version", 0) >= 2) return;
+        if (plugin.getConfig().getInt("shardshop.schema-version", 0) >= 3) return;
         for (String category : List.of("tags", "glows", "chat")) {
             ConfigurationSection entries = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category);
             if (entries == null) continue;
@@ -140,7 +140,20 @@ final class ShardShopManager implements Listener {
                 }
             }
         }
-        plugin.getConfig().set("shardshop.schema-version", 2);
+        ConfigurationSection rankEntries = plugin.getConfig().getConfigurationSection("shardshop.catalogue.ranks");
+        if (rankEntries != null) for (String id : rankEntries.getKeys(false)) {
+            ConfigurationSection entry = rankEntries.getConfigurationSection(id);
+            if (entry == null) continue;
+            String rank = entry.getString("rank", "").trim();
+            if (rank.isBlank()) continue;
+            String displayRank = rank.substring(0, 1).toUpperCase(Locale.ROOT) + rank.substring(1).toLowerCase(Locale.ROOT);
+            long seconds = entry.getLong("duration-seconds", 0);
+            String duration = seconds % 86400 == 0 ? (seconds / 86400) + (seconds == 86400 ? " day" : " days") : durationLabel(seconds);
+            entry.set("name", displayRank + " Rank — " + duration);
+            entry.set("description", "Grants the actual " + displayRank + " rank and its permissions for " + duration + ".");
+            entry.set("available", true);
+        }
+        plugin.getConfig().set("shardshop.schema-version", 3);
         plugin.saveConfig();
     }
 
@@ -347,7 +360,9 @@ final class ShardShopManager implements Listener {
             }
             if (category.equals("ranks")) grantTimedRank(player, entry, duration);
             applyCosmetic(player, category, id, entry);
-            player.sendMessage(Component.text("Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
+            player.sendMessage(Component.text(category.equals("ranks")
+                ? "Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras. Your rank permissions are active for the listed duration."
+                : "Purchased " + entry.getString("name", id) + " for ✦" + KelvorasManager.format(price) + " Kelvoras.", NamedTextColor.GREEN));
             openItems(player, category);
         } finally { processing.remove(uuid); }
     }

@@ -415,6 +415,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 Component headline = Component.text("🌿 KELVORA SMP", NamedTextColor.GREEN);
                 Component subtitle = Component.text(frames[step], colors[step]);
                 current.showTitle(net.kyori.adventure.title.Title.title(headline, subtitle));
+                current.playSound(current.getLocation(), step == frames.length - 1 ? Sound.UI_TOAST_CHALLENGE_COMPLETE : Sound.BLOCK_NOTE_BLOCK_PLING, 0.85f, 0.8f + (step * 0.18f));
+                current.getWorld().spawnParticle(org.bukkit.Particle.END_ROD, current.getLocation().add(0, 1.0, 0), step == frames.length - 1 ? 32 : 8, 0.45, 0.55, 0.45, 0.02);
                 if (step == frames.length - 1) {
                     current.sendMessage(Component.text("You received exactly " + amount + " " + titleCase(type) + " key(s).", NamedTextColor.GREEN));
                     Bukkit.getScheduler().cancelTask(task[0].getTaskId()); return;

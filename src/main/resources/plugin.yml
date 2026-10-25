@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.22.0
+version: 2.23.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
@@ -138,6 +138,12 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 
+  discord:
+    description: Get the Kelvora SMP Discord invite
+    usage: /discord
+  report:
+    description: Report a player to online staff
+    usage: /report <user> <reason>
   media:
     description: View Media rank requirements and application information
     usage: /media
@@ -148,8 +154,8 @@ commands:
     description: Manager role creation and assignment
     usage: /role <list|create|add|remove>
   suslist:
-    description: Moderator suspicious mining review list
-    usage: /suslist [player|tp <player>|reload]
+    description: Moderator suspicious mining and player report review list
+    usage: /suslist [player|tp <player>|reports|reload]
   vanish:
     description: Toggle staff vanish
     usage: /vanish
@@ -170,6 +176,9 @@ permissions:
   kelvora.vanish:
     description: Toggle vanish mode
     default: op
+  kelvora.report:
+    description: Submit player reports
+    default: true
   kelvora.live:
     description: Use Media live status
     default: false

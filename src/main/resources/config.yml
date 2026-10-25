@@ -32,7 +32,7 @@ ranks:
   # Compatibility aliases for existing groups
   mod: { label: "Moderator", color: "&9" }
   vip: { label: "Verdant", color: "&a" }
-  member: { label: "Sprout", color: "&7" }
+  member: { label: "Member", color: "&7" }
   bootstrap-groups: true
 kelvoras:
   placeholder: "%kelvoras_balance%"
@@ -237,8 +237,25 @@ prices:
   MAGMA_CREAM: 25
   PHANTOM_MEMBRANE: 30
   PRISMARINE_CRYSTALS: 15
-  SHULKER_SHELL: 1500
-  TOTEM_OF_UNDYING: 12000
+  SHULKER_SHELL: 250
+  SHULKER_BOX: 250
+  WHITE_SHULKER_BOX: 250
+  ORANGE_SHULKER_BOX: 250
+  MAGENTA_SHULKER_BOX: 250
+  LIGHT_BLUE_SHULKER_BOX: 250
+  YELLOW_SHULKER_BOX: 250
+  LIME_SHULKER_BOX: 250
+  PINK_SHULKER_BOX: 250
+  GRAY_SHULKER_BOX: 250
+  LIGHT_GRAY_SHULKER_BOX: 250
+  CYAN_SHULKER_BOX: 250
+  PURPLE_SHULKER_BOX: 250
+  BLUE_SHULKER_BOX: 250
+  BROWN_SHULKER_BOX: 250
+  GREEN_SHULKER_BOX: 250
+  RED_SHULKER_BOX: 250
+  BLACK_SHULKER_BOX: 250
+  TOTEM_OF_UNDYING: 250
   ELYTRA: 25000
   HEART_OF_THE_SEA: 500
   NAUTILUS_SHELL: 80
@@ -703,15 +720,15 @@ shardshop:
       title_7d: { name: "Champion", description: "Temporary cosmetic title only", icon: DIAMOND_HELMET, price: 2500, duration-seconds: 604800, available: true }
       title_30d: { name: "Mythic", description: "Temporary cosmetic title only", icon: NETHER_STAR, price: 8000, duration-seconds: 2592000, available: true }
     ranks:
-      verdant_1d: { name: "Verdant Style 1d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 8000, duration-seconds: 86400, available: true }
-      verdant_3d: { name: "Verdant Style 3d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 13000, duration-seconds: 259200, available: true }
-      verdant_7d: { name: "Verdant Style 7d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: verdant, price: 21000, duration-seconds: 604800, available: true }
-      emerald_1d: { name: "Emerald Style 1d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 12000, duration-seconds: 86400, available: true }
-      emerald_3d: { name: "Emerald Style 3d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 17000, duration-seconds: 259200, available: true }
-      emerald_7d: { name: "Emerald Style 7d", description: "Cosmetic title only; no rank permissions", icon: EMERALD, rank: emerald, price: 25000, duration-seconds: 604800, available: true }
-      sovereign_1d: { name: "Sovereign Style 1d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 17000, duration-seconds: 86400, available: true }
-      sovereign_3d: { name: "Sovereign Style 3d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 28000, duration-seconds: 259200, available: true }
-      sovereign_7d: { name: "Sovereign Style 7d", description: "Cosmetic title only; no rank permissions", icon: NETHER_STAR, rank: sovereign, price: 36000, duration-seconds: 604800, available: true }
+      verdant_1d: { name: "Verdant Rank — 1 day", description: "Grants the actual Verdant rank and its permissions for 1 day.", icon: EMERALD, rank: verdant, price: 8000, duration-seconds: 86400, available: true }
+      verdant_3d: { name: "Verdant Rank — 3 days", description: "Grants the actual Verdant rank and its permissions for 3 days.", icon: EMERALD, rank: verdant, price: 13000, duration-seconds: 259200, available: true }
+      verdant_7d: { name: "Verdant Rank — 7 days", description: "Grants the actual Verdant rank and its permissions for 7 days.", icon: EMERALD, rank: verdant, price: 21000, duration-seconds: 604800, available: true }
+      emerald_1d: { name: "Emerald Rank — 1 day", description: "Grants the actual Emerald rank and its permissions for 1 day.", icon: EMERALD, rank: emerald, price: 12000, duration-seconds: 86400, available: true }
+      emerald_3d: { name: "Emerald Rank — 3 days", description: "Grants the actual Emerald rank and its permissions for 3 days.", icon: EMERALD, rank: emerald, price: 17000, duration-seconds: 259200, available: true }
+      emerald_7d: { name: "Emerald Rank — 7 days", description: "Grants the actual Emerald rank and its permissions for 7 days.", icon: EMERALD, rank: emerald, price: 25000, duration-seconds: 604800, available: true }
+      sovereign_1d: { name: "Sovereign Rank — 1 day", description: "Grants the actual Sovereign rank and its permissions for 1 day.", icon: NETHER_STAR, rank: sovereign, price: 17000, duration-seconds: 86400, available: true }
+      sovereign_3d: { name: "Sovereign Rank — 3 days", description: "Grants the actual Sovereign rank and its permissions for 3 days.", icon: NETHER_STAR, rank: sovereign, price: 28000, duration-seconds: 259200, available: true }
+      sovereign_7d: { name: "Sovereign Rank — 7 days", description: "Grants the actual Sovereign rank and its permissions for 7 days.", icon: NETHER_STAR, rank: sovereign, price: 36000, duration-seconds: 604800, available: true }
     glows:
       green: { name: "Green Glow", description: "Emerald glow effect", icon: LIME_DYE, color: GREEN, price: 5000, duration-seconds: 0, available: true }
       cyan: { name: "Cyan Glow", description: "Cool cyan glow effect", icon: CYAN_DYE, color: AQUA, price: 5000, duration-seconds: 0, available: true }

@@ -47,7 +47,7 @@ final class RankKitManager implements Listener {
         Map.entry("ascendant", "Ascendant"), Map.entry("helper", "Helper"),
         Map.entry("moderator", "Moderator"), Map.entry("mod", "Moderator"),
         Map.entry("admin", "Admin"), Map.entry("manager", "Manager"), Map.entry("owner", "Owner"), Map.entry("creator", "Creator"), Map.entry("media", "Media"),
-        Map.entry("default", "Sprout"), Map.entry("member", "Sprout")
+        Map.entry("default", "Member"), Map.entry("member", "Member")
     );
     private final KelvoraSMP plugin;
     private final NamespacedKey actionKey;
@@ -85,7 +85,7 @@ final class RankKitManager implements Listener {
     }
 
     private void bootstrapGroups() {
-        for (String key : List.of("booster","sprout","verdant","emerald","sovereign","ascendant","helper","moderator","manager","admin","owner","creator","media")) {
+        for (String key : List.of("member","booster","sprout","verdant","emerald","sovereign","ascendant","helper","moderator","manager","admin","owner","creator","media")) {
             try {
                 Group group = luckPerms.getGroupManager().getGroup(key);
                 if (group == null) {
@@ -117,7 +117,7 @@ final class RankKitManager implements Listener {
 
     private String defaultColor(String key) {
         return switch (key) {
-            case "booster", "creator", "media" -> "&d"; case "sprout", "i_sprout" -> "&7";
+            case "booster", "creator", "media" -> "&d"; case "member", "sprout", "i_sprout" -> "&7";
             case "verdant", "helper" -> "&a"; case "emerald" -> "&2"; case "sovereign" -> "&b";
             case "ascendant" -> "&6"; case "moderator" -> "&9"; case "manager", "admin" -> "&c";
             case "owner" -> "&a"; default -> "&7";
@@ -159,6 +159,7 @@ final class RankKitManager implements Listener {
                 String previous = progressionRank(targetId);
                 for (String key : PROGRESSION) user.data().remove(InheritanceNode.builder(key).build());
                 user.data().remove(InheritanceNode.builder("i_sprout").build());
+                user.data().remove(InheritanceNode.builder("member").build());
                 user.data().add(InheritanceNode.builder(targetRank).build());
                 String primary = user.getPrimaryGroup() == null ? "" : user.getPrimaryGroup().toLowerCase(Locale.ROOT);
                 if (PROGRESSION.contains(primary) || primary.equals("i_sprout") || primary.equals("default") || primary.equals("member")) user.setPrimaryGroup(targetRank);
@@ -213,6 +214,26 @@ final class RankKitManager implements Listener {
         return true;
     }
 
+    @EventHandler
+    public void onMemberJoin(PlayerJoinEvent event) {
+        if (luckPerms == null) return;
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                User user = luckPerms.getUserManager().getUser(player.getUniqueId());
+                if (user == null) user = luckPerms.getUserManager().loadUser(player.getUniqueId()).join();
+                boolean hasProgression = user.getNodes().stream().anyMatch(n -> n instanceof InheritanceNode in && PROGRESSION.contains(in.getGroupName().toLowerCase(Locale.ROOT)));
+                if (!hasProgression && user.getNodes().stream().noneMatch(n -> n instanceof InheritanceNode in && in.getGroupName().equalsIgnoreCase("member"))) {
+                    user.data().add(InheritanceNode.builder("member").build());
+                    String primary = user.getPrimaryGroup() == null ? "default" : user.getPrimaryGroup().toLowerCase(Locale.ROOT);
+                    if (primary.equals("default") || primary.equals("member")) user.setPrimaryGroup("member");
+                    luckPerms.getUserManager().saveUser(user).join();
+                }
+                Bukkit.getScheduler().runTask(plugin, () -> { if (player.isOnline() && plugin instanceof KelvoraSMP k) k.refreshSidebar(player); });
+            } catch (Exception ex) { plugin.getLogger().warning("Could not assign default Member role to " + player.getName() + ": " + ex.getMessage()); }
+        });
+    }
+
     private void openRanks(Player player) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
         int[] slots = {9,10,11,12,13,14};
@@ -227,7 +248,7 @@ final class RankKitManager implements Listener {
         put(inv, 39, Material.EMERALD, "&aOwner", List.of("Server leadership", "Assigned by authorized staff"), "info");
         put(inv, 40, Material.MAGENTA_DYE, "&dMedia / Creator", List.of("For YouTubers, TikTokers and streamers", "Assigned by authorized staff"), "info");
         put(inv, 22, Material.BOOK, "&bPurchase Ranks on Discord", List.of("Ranks are purchased, not earned", "Click for the server Discord"), "discord");
-        put(inv, 40, Material.BARRIER, "&cClose", List.of("Close menu"), "close");
+        put(inv, 44, Material.BARRIER, "&cClose", List.of("Close menu"), "close");
         player.openInventory(inv);
     }
 
@@ -333,18 +354,7 @@ final class RankKitManager implements Listener {
                 result.add(stack); remaining-=count;
             }
         }
-        String kitKey=kit.getName();
-        if (PROGRESSION.contains(kitKey)) {
-            Material[] supplies={Material.OBSIDIAN,Material.END_CRYSTAL,Material.RESPAWN_ANCHOR,Material.GLOWSTONE,
-                Material.TOTEM_OF_UNDYING,Material.GOLDEN_APPLE,Material.ENDER_PEARL,Material.EXPERIENCE_BOTTLE,
-                Material.COOKED_BEEF,Material.FIREWORK_ROCKET};
-            int i=0;
-            while(result.size()<36) {
-                Material m=supplies[i++%supplies.length];
-                int amount=m==Material.TOTEM_OF_UNDYING?1:m==Material.END_CRYSTAL?16:m==Material.RESPAWN_ANCHOR?16:m==Material.GLOWSTONE?32:m==Material.OBSIDIAN?32:16;
-                result.add(new ItemStack(m,amount));
-            }
-        }
+        while (result.size() < 36) result.add(new ItemStack(Material.TOTEM_OF_UNDYING, 1));
         return result;
     }
 
@@ -354,7 +364,8 @@ final class RankKitManager implements Listener {
             || plugin instanceof KelvoraSMP k && (k.hasRoleGroup(player,"media") || k.hasRoleGroup(player,"creator"));
         int playerRank=PROGRESSION.indexOf(progressionRank(player.getUniqueId()));
         int required=PROGRESSION.indexOf(kit);
-        return playerRank>=required && (playerRank==required || plugin.getConfig().getBoolean("kits.allow-lower-rank-kits",false));
+        if (playerRank >= required && (playerRank == required || plugin.getConfig().getBoolean("kits.allow-lower-rank-kits", false))) return true;
+        return plugin instanceof KelvoraSMP k && k.hasRoleGroup(player, kit);
     }
 
     private String progressionRank(UUID id) {
@@ -382,16 +393,16 @@ final class RankKitManager implements Listener {
                         return candidate;
                     }
                 }
-                // Give accounts without a progression node the free Sprout rank while keeping
-                // their separate staff/media primary group untouched.
-                user.data().add(InheritanceNode.builder("sprout").build());
+                // Accounts without a paid progression rank use the free Member role.
+                user.data().add(InheritanceNode.builder("member").build());
+                if (primary.equals("default") || primary.equals("member")) user.setPrimaryGroup("member");
                 try { luckPerms.getUserManager().saveUser(user).join(); }
-                catch (Exception ex) { plugin.getLogger().warning("Could not assign default Sprout rank for " + id + ": " + ex.getMessage()); }
-                cacheRank(id, "sprout");
-                return "sprout";
+                catch (Exception ex) { plugin.getLogger().warning("Could not assign default Member role for " + id + ": " + ex.getMessage()); }
+                cacheRank(id, "member");
+                return "member";
             }
         }
-        return cached == null || cached.equalsIgnoreCase("i_sprout") ? "sprout" : cached;
+        return cached == null || cached.equalsIgnoreCase("i_sprout") ? "member" : cached;
     }
 
     private boolean setProgressionRank(Player player,String target) {
