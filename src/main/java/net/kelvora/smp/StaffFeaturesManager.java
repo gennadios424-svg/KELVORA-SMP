@@ -95,10 +95,10 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         return p.hasPermission("group." + wanted) || p.hasPermission("kelvora.staff." + wanted) || (plugin instanceof KelvoraSMP k && k.hasRoleGroup(p, wanted));
     }
     String tabLabels(Player player) {
-        boolean staff = isStaffOrMediaGroup(player, "staff") || isStaffOrMediaGroup(player, "manager")
+        boolean staff = isStaffOrMediaGroup(player, "staff") || isStaffOrMediaGroup(player, "helper") || isStaffOrMediaGroup(player, "manager")
             || isStaffOrMediaGroup(player, "moderator") || isStaffOrMediaGroup(player, "admin")
             || isStaffOrMediaGroup(player, "owner") || roles(player).stream().anyMatch(r ->
-                Set.of("manager", "moderator", "mod", "admin", "owner", "staff").contains(key(r)));
+                Set.of("helper", "manager", "moderator", "mod", "admin", "owner", "staff").contains(key(r)));
         boolean media = isStaffOrMediaGroup(player, "media")
             || roles(player).stream().anyMatch(r -> Set.of("media", "creator").contains(key(r)));
         // Keep both badges when a player has both roles; order is progression rank, Media, Staff.
