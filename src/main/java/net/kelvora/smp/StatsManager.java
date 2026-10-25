@@ -82,13 +82,13 @@ final class StatsManager implements Listener, CommandExecutor, TabCompleter {
         inv.setItem(slot, item);
     }
 
-    @EventHandler public void click(InventoryClickEvent event) {
+    @EventHandler(priority = EventPriority.HIGHEST) public void click(InventoryClickEvent event) {
         if (event.getView().getTitle() == null || !event.getView().getTitle().startsWith(TITLE_PREFIX)) return;
         event.setCancelled(true);
         if (event.getClickedInventory() == event.getView().getTopInventory() && event.getRawSlot() == 22) event.getWhoClicked().closeInventory();
     }
 
-    @EventHandler public void drag(InventoryDragEvent event) {
+    @EventHandler(priority = EventPriority.HIGHEST) public void drag(InventoryDragEvent event) {
         if (event.getView().getTitle() != null && event.getView().getTitle().startsWith(TITLE_PREFIX)) event.setCancelled(true);
     }
 
