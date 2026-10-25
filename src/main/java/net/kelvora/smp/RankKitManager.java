@@ -40,7 +40,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 final class RankKitManager implements Listener {
-    private static final List<String> PROGRESSION = List.of("booster", "sprout", "verdant", "emerald", "sovereign", "ascendant");
+    private static final List<String> PROGRESSION = List.of("sprout", "booster", "verdant", "emerald", "sovereign", "ascendant");
     private static final Map<String, String> LABELS = Map.ofEntries(
         Map.entry("booster", "Booster"), Map.entry("sprout", "Sprout"), Map.entry("i_sprout", "Sprout"), Map.entry("verdant", "Verdant"),
         Map.entry("emerald", "Emerald"), Map.entry("sovereign", "Sovereign"),
@@ -131,7 +131,7 @@ final class RankKitManager implements Listener {
                 return true;
             }
             if (args.length != 3) {
-                sender.sendMessage(Component.text("Usage: /rank set <player> <sprout|verdant|emerald|sovereign|ascendant>", NamedTextColor.RED));
+                sender.sendMessage(Component.text("Usage: /rank set <player> <sprout|booster|verdant|emerald|sovereign|ascendant>", NamedTextColor.RED));
                 return true;
             }
             String targetRank = normalize(args[2]);
@@ -215,11 +215,11 @@ final class RankKitManager implements Listener {
 
     private void openRanks(Player player) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
-        int[] slots = {10,11,12,13,14};
+        int[] slots = {9,10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
             String desc=plugin.getConfig().getString("ranks." + key + ".description", "Survival progression rank");
-            put(inv, slots[i], rankMaterial(i), prefixFor(key) + LABELS.get(key), List.of(desc, "Progression " + (i+1) + "/5", "Ranks are purchased through Discord"), "rank:" + key);
+            put(inv, slots[i], rankMaterial(i), prefixFor(key) + LABELS.get(key), List.of(desc, "Progression " + (i+1) + "/6", "Ranks are purchased through Discord"), "rank:" + key);
         }
         put(inv, 28, Material.LIME_DYE, "&aHelper", List.of("Answers questions and helps players", "Assigned by authorized staff"), "info");
         put(inv, 29, Material.BLUE_DYE, "&9Moderator", List.of("Handles chat and rule enforcement", "Assigned by authorized staff"), "info");
@@ -232,13 +232,13 @@ final class RankKitManager implements Listener {
     }
 
     private Material rankMaterial(int i) {
-        return switch(i) { case 0 -> Material.OAK_SAPLING; case 1 -> Material.MOSS_BLOCK; case 2 -> Material.EMERALD;
-            case 3 -> Material.PRISMARINE_SHARD; default -> Material.GOLD_INGOT; };
+        return switch(i) { case 0 -> Material.OAK_SAPLING; case 1 -> Material.PINK_DYE; case 2 -> Material.MOSS_BLOCK; case 3 -> Material.EMERALD;
+            case 4 -> Material.PRISMARINE_SHARD; default -> Material.GOLD_INGOT; };
     }
 
     private void openKits(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text("Kelvora | Kits", NamedTextColor.DARK_GREEN));
-        int[] slots={10,11,12,13,14};
+        Inventory inv = Bukkit.createInventory(null, 36, Component.text("Kelvora | Kits", NamedTextColor.DARK_GREEN));
+        int[] slots={9,10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
             String kit=plugin.getConfig().getString("kits." + key + ".display", LABELS.get(key) + " Kit");
@@ -251,7 +251,7 @@ final class RankKitManager implements Listener {
             put(inv,slots[i],allowed?Material.CHEST:Material.BARRIER,(allowed?"&a":"&c")+kit,lore,"kit:"+key);
         }
         put(inv,22,Material.BOOK,"&ePreview kit",List.of("Use /kit preview <name>"),"info");
-        put(inv,26,Material.BARRIER,"&cClose",List.of("Close menu"),"close");
+        put(inv,31,Material.BARRIER,"&cClose",List.of("Close menu"),"close");
         player.openInventory(inv);
     }
 
