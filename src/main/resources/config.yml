@@ -529,6 +529,27 @@ rank-up:
 
 kits:
   allow-lower-rank-kits: true
+  member:
+    display: "Member Kit"
+    summary: "Basic starter supplies for every player"
+    cooldown-seconds: 86400
+    items:
+      - { material: STONE_PICKAXE, amount: 1 }
+      - { material: STONE_SWORD, amount: 1 }
+      - { material: BREAD, amount: 16 }
+      - { material: TORCH, amount: 32 }
+      - { material: OAK_LOG, amount: 16 }
+  booster:
+    display: "Booster Kit"
+    summary: "Extra supplies for the Booster rank"
+    cooldown-seconds: 86400
+    items:
+      - { material: IRON_PICKAXE, amount: 1, enchants: { EFFICIENCY: 2, UNBREAKING: 2 } }
+      - { material: IRON_SWORD, amount: 1, enchants: { SHARPNESS: 2, UNBREAKING: 2 } }
+      - { material: GOLDEN_APPLE, amount: 4 }
+      - { material: ENDER_PEARL, amount: 4 }
+      - { material: OBSIDIAN, amount: 8 }
+      - { material: COOKED_BEEF, amount: 32 }
   sprout:
     display: "Sprout Kit"
     summary: "Starter enchanted diamond combat bundle"
