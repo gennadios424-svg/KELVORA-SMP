@@ -99,8 +99,12 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
             || isStaffOrMediaGroup(player, "moderator") || isStaffOrMediaGroup(player, "admin")
             || isStaffOrMediaGroup(player, "owner") || roles(player).stream().anyMatch(r ->
                 Set.of("manager", "moderator", "mod", "admin", "owner", "staff").contains(key(r)));
+        boolean media = isStaffOrMediaGroup(player, "media")
+            || roles(player).stream().anyMatch(r -> Set.of("media", "creator").contains(key(r)));
+        // Keep both badges when a player has both roles; order is progression rank, Media, Staff.
+        if (media && staff) return "&d&l[Media]&r &c&l[Staff]&r";
+        if (media) return "&d&l[Media]&r";
         if (staff) return "&c&l[Staff]&r";
-        if (isStaffOrMediaGroup(player, "media") || roles(player).stream().anyMatch(r -> Set.of("media", "creator").contains(key(r)))) return "&d&l[Media]&r";
         return "";
     }
     String liveTabLabel(Player player) {
