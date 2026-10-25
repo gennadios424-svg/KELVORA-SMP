@@ -146,7 +146,7 @@ commands:
     usage: /role <list|create|add|remove>
   suslist:
     description: Moderator suspicious mining review list
-    usage: /suslist [tp <player>]
+    usage: /suslist [player|tp <player>|reload]
   vanish:
     description: Toggle staff vanish
     usage: /vanish
