@@ -215,7 +215,7 @@ final class RankKitManager implements Listener {
 
     private void openRanks(Player player) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
-        int[] slots = {10,19,28,29,30,31};
+        int[] slots = {9,10,11,12,13,14};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
             String desc=plugin.getConfig().getString("ranks." + key + ".description", "Survival progression rank");
