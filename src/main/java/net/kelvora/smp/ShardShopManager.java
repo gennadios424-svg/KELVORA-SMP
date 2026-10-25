@@ -269,6 +269,27 @@ final class ShardShopManager implements Listener {
         player.openInventory(inv);
     }
 
+    private void openPurchaseConfirmation(Player player, String category, String id) {
+        ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category + "." + id);
+        if (entry == null || !entry.getBoolean("available", false)) {
+            player.sendMessage(Component.text("This cosmetic is not available yet.", NamedTextColor.YELLOW));
+            openItems(player, category); return;
+        }
+        double price = entry.getDouble("price", -1);
+        if (price < 0 || !Double.isFinite(price)) { openItems(player, category); return; }
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text(TITLE + " | Confirm Purchase", NamedTextColor.DARK_GREEN));
+        Material icon = material(entry.getString("icon", "NAME_TAG"));
+        add(inv, 13, icon, "&f" + entry.getString("name", id), List.of(
+            entry.getString("description", "Cosmetic"),
+            "&eExact price: ✦" + KelvorasManager.format(price) + " Kelvoras",
+            entry.getLong("duration-seconds", 0) > 0 ? "&eDuration: " + durationLabel(entry.getLong("duration-seconds", 0)) : "&ePermanent ownership",
+            "&7No currency is taken until you confirm."
+        ), "info");
+        add(inv, 11, Material.EMERALD_BLOCK, "&aConfirm Purchase", List.of("&ePay ✦" + KelvorasManager.format(price) + " Kelvoras", "&7This action cannot be undone."), "confirm:" + category + ":" + id);
+        add(inv, 15, Material.BARRIER, "&cCancel", List.of("Return without spending Kelvoras"), "cancel");
+        player.openInventory(inv);
+    }
+
     private synchronized void handleItem(Player player, String category, String id) {
         ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue." + category + "." + id);
         if (entry == null) return;
@@ -566,11 +587,20 @@ final class ShardShopManager implements Listener {
         String action = item.getItemMeta().getPersistentDataContainer().get(actionKey, PersistentDataType.STRING);
         if (action == null) return;
         if (action.equals("close")) { player.closeInventory(); return; }
+        if (action.equals("cancel")) { String category = openCategory.getOrDefault(player.getUniqueId(), "categories"); openItems(player, category); return; }
         if (action.equals("back")) { openCategories(player); return; }
         if (action.startsWith("category:")) { openItems(player, action.substring(9)); return; }
-        if (action.startsWith("item:")) {
+        if (action.startsWith("confirm:")) {
             String[] parts = action.split(":", 3);
             if (parts.length == 3) handleItem(player, parts[1], parts[2]);
+            return;
+        }
+        if (action.startsWith("item:")) {
+            String[] parts = action.split(":", 3);
+            if (parts.length == 3) {
+                if (owns(player.getUniqueId(), parts[1], parts[2])) handleItem(player, parts[1], parts[2]);
+                else { openCategory.put(player.getUniqueId(), parts[1]); openPurchaseConfirmation(player, parts[1], parts[2]); }
+            }
         }
     }
     @EventHandler public void onDrag(InventoryDragEvent event) {
