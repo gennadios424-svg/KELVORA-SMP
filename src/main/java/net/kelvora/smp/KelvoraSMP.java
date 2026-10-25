@@ -153,6 +153,7 @@ implements Listener {
             this.updatePlayer(player);
         }
         new PassiveKelvorasManager(this).register();
+        this.registerModerationCommands();
         this.getLogger().info("Kelvora SMP presentation enabled.");
     }
 
@@ -248,7 +249,6 @@ implements Listener {
 
     private void updatePlayer(Player player) {
         if (this.economy == null) this.economy = this.resolveEconomyProvider();
-        String serverAddress = this.getConfig().getString("server-address", "kelvorasmp.mcsh.gg");
         String rank = this.rankKey(player);
         String defaultRankLabel = rank.toUpperCase(Locale.ROOT);
         String rankLabel = this.getConfig().getString("ranks." + rank + ".label", defaultRankLabel);
@@ -279,7 +279,7 @@ implements Listener {
             case 2 -> Component.text("🎥 APPLY FOR MEDIA\nMeet the requirements, then open a ticket", NamedTextColor.AQUA)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
             case 3 -> Component.text("⚔️ JOIN KELVORA SMP\nJava + Bedrock • Cracked players welcome", NamedTextColor.GREEN);
-            default -> Component.text("🌐 kelvorasmp.mcsh.gg\nJoin with Java or Bedrock", NamedTextColor.YELLOW);
+            default -> Component.text("🌿 Join Kelvora SMP\nJava + Bedrock • Cracked players welcome", NamedTextColor.YELLOW);
         };
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
@@ -297,7 +297,7 @@ implements Listener {
             }
             Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
-            for (int i = 0; i < 6; ++i) {
+            for (int i = 0; i < 8; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
@@ -325,9 +325,11 @@ implements Listener {
             this.color("&6&l⭐ RANK: " + rankColor + "&l" + rankDisplay),
             this.color("&a&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
             this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
+            this.color("&c⚔ Kills: &f" + kills),
+            this.color("&4☠ Deaths: &f" + deaths),
+            this.color("&b⏱ Playtime: &f" + playtime),
             this.color("&3🛡 Team: &b" + teamName),
-            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7🌐 IP: &f" + serverAddress)
+            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers())
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
@@ -444,5 +446,56 @@ implements Listener {
         }
         return value.substring(0, maxLength);
     }
-}
 
+    private void registerModerationCommands() {
+        if (this.getCommand("ban") != null) this.getCommand("ban").setExecutor((sender, command, label, args) -> {
+            if (!sender.isOp() && !sender.hasPermission("kelvora.staff.ban")) {
+                sender.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true;
+            }
+            if (args.length < 2 || !args[0].matches("[A-Za-z0-9_]{3,16}")) {
+                sender.sendMessage(Component.text("Usage: /ban <player> <reason>", NamedTextColor.RED)); return true;
+            }
+            String target = args[0];
+            String reason = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+            Bukkit.getBanList(org.bukkit.BanList.Type.NAME).addBan(target, reason, null, sender.getName());
+            Player online = Bukkit.getPlayerExact(target);
+            if (online != null) online.kick(Component.text("You are banned from Kelvora SMP.\nReason: " + reason, NamedTextColor.RED));
+            sender.sendMessage(Component.text("Banned " + target + ". Reason: " + reason, NamedTextColor.GREEN));
+            return true;
+        });
+        if (this.getCommand("banip") != null) this.getCommand("banip").setExecutor((sender, command, label, args) -> {
+            if (!sender.isOp() && !sender.hasPermission("kelvora.staff.ban")) {
+                sender.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true;
+            }
+            if (args.length < 2) {
+                sender.sendMessage(Component.text("Usage: /banip <online-player|IP-address> <reason>", NamedTextColor.RED)); return true;
+            }
+            String target = args[0];
+            Player online = Bukkit.getPlayerExact(target);
+            String ip = target;
+            if (online != null && online.getAddress() != null && online.getAddress().getAddress() != null) {
+                ip = online.getAddress().getAddress().getHostAddress();
+            } else if (!target.matches("[0-9a-fA-F:.]{3,45}")) {
+                sender.sendMessage(Component.text("Target must be online or you must provide an IP address.", NamedTextColor.RED)); return true;
+            }
+            String reason = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+            Bukkit.getBanList(org.bukkit.BanList.Type.IP).addBan(ip, reason, null, sender.getName());
+            if (online != null) online.kick(Component.text("Your IP is banned from Kelvora SMP.\nReason: " + reason, NamedTextColor.RED));
+            sender.sendMessage(Component.text("IP ban added.", NamedTextColor.GREEN));
+            return true;
+        });
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST, ignoreCancelled = true)
+    public void preventZStaffPickup(org.bukkit.event.entity.EntityPickupItemEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        ItemStack stack = event.getItem().getItemStack();
+        if (stack == null || !stack.hasItemMeta() || stack.getItemMeta().displayName() == null) return;
+        String itemName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+            .serialize(stack.getItemMeta().displayName()).toLowerCase(Locale.ROOT);
+        if (itemName.contains("zstaff") && !player.isOp() && !player.hasPermission("kelvora.staff.zstaff")) {
+            event.setCancelled(true);
+        }
+    }
+
+}
