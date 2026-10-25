@@ -79,13 +79,15 @@ final class ShardShopManager implements Listener {
      * matching those recorded purchases. Permanent inheritance nodes are never removed.
      */
     private synchronized void migrateLegacyTemporaryRanks() {
-        if (data.getBoolean("_migration.temporary-ranks-cosmetic", false)) return;
+        // Repair old timed-rank purchases without stripping their real LuckPerms inheritance.
+        // This also restores an unexpired rank if an older plugin build incorrectly removed it.
         LuckPerms lp;
         try { lp = LuckPermsProvider.get(); }
         catch (IllegalStateException ex) {
-            plugin.getLogger().warning("Legacy temporary-rank migration deferred because LuckPerms is unavailable.");
+            plugin.getLogger().warning("Temporary-rank repair deferred because LuckPerms is unavailable.");
             return;
         }
+        boolean migrationNeeded = !data.getBoolean("_migration.temporary-ranks-cosmetic", false);
         long now = System.currentTimeMillis();
         for (String uuidText : new ArrayList<>(data.getKeys(false))) {
             UUID uuid;
@@ -96,28 +98,33 @@ final class ShardShopManager implements Listener {
             try {
                 User user = lp.getUserManager().getUser(uuid);
                 if (user == null) user = lp.getUserManager().loadUser(uuid).join();
-                boolean changed = false;
+                boolean userRepaired = false;
                 for (String rank : legacy.getKeys(false)) {
                     long expires = legacy.getLong(rank + ".expires", 0);
                     String product = legacy.getString(rank + ".last-product", "");
-                    if (expires > now && !product.isBlank()
+                    if (expires <= now) continue;
+                    if (migrationNeeded && !product.isBlank()
                             && plugin.getConfig().isConfigurationSection("shardshop.catalogue.ranks." + product)) {
                         data.set(uuidText + ".owned.ranks." + product, expires);
                         data.set(uuidText + ".equipped.ranks", product);
                     }
-                    for (Node node : new ArrayList<>(user.getNodes())) {
-                        if (node instanceof InheritanceNode inherited
-                                && inherited.getGroupName().equalsIgnoreCase(rank)
-                                && !node.getExpiry().equals(java.time.Instant.MAX)) {
-                            user.data().remove(node);
-                            changed = true;
-                        }
+                    String rankKey = rank.toLowerCase(Locale.ROOT);
+                    if (!Set.of("verdant", "emerald", "sovereign").contains(rankKey)) continue;
+                    boolean hasPermanent = user.getNodes().stream().anyMatch(node ->
+                        node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(rankKey)
+                            && node.getExpiry().equals(java.time.Instant.MAX));
+                    boolean hasTimed = user.getNodes().stream().anyMatch(node ->
+                        node instanceof InheritanceNode inherited && inherited.getGroupName().equalsIgnoreCase(rankKey)
+                            && !node.getExpiry().equals(java.time.Instant.MAX) && node.getExpiry().isAfter(java.time.Instant.now()));
+                    if (!hasPermanent && !hasTimed) {
+                        user.data().add(InheritanceNode.builder(rankKey).expiry(expires - now, TimeUnit.MILLISECONDS).build());
+                        userRepaired = true;
+                        plugin.getLogger().info("Restored active temporary " + rankKey + " rank for " + uuidText + ".");
                     }
                 }
-                if (changed) lp.getUserManager().saveUser(user).join();
+                if (userRepaired) lp.getUserManager().saveUser(user).join();
             } catch (Exception ex) {
-                plugin.getLogger().warning("Could not migrate temporary cosmetic rank for " + uuidText + ": " + ex.getMessage());
-                return;
+                plugin.getLogger().warning("Could not repair temporary rank for " + uuidText + ": " + ex.getMessage());
             }
         }
         data.set("_migration.temporary-ranks-cosmetic", true);
