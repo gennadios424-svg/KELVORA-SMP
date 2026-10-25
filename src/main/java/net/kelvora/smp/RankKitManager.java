@@ -105,7 +105,7 @@ final class RankKitManager implements Listener {
         return switch (key) {
             case "owner" -> 120; case "admin" -> 110; case "manager" -> 100; case "moderator" -> 90; case "helper" -> 80;
             case "creator", "media" -> 70; case "ascendant" -> 60; case "sovereign" -> 50;
-            case "emerald" -> 40; case "verdant" -> 30; case "sprout" -> 20; default -> 10;
+            case "emerald" -> 40; case "verdant" -> 30; case "booster" -> 25; case "sprout" -> 20; default -> 10;
         };
     }
 
