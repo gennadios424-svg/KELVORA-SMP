@@ -53,8 +53,14 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (roles == null) {
             data.set("roles.staff.label", "Staff"); data.set("roles.staff.color", "&c&l");
             data.set("roles.media.label", "Media"); data.set("roles.media.color", "&d&l");
-            save();
         }
+        if (!data.contains("media.follower-count")) data.set("media.follower-count", "Set by staff");
+        if (!data.contains("media.content")) data.set("media.content", "Minecraft content, no stolen clips");
+        if (!data.contains("media.activity")) data.set("media.activity", "Consistent recent uploads or streams");
+        if (!data.contains("media.requirements")) data.set("media.requirements", List.of("Minimum follower / view requirement: set by staff", "Content quality and activity are reviewed"));
+        if (!data.contains("media.application")) data.set("media.application", "Open a ticket in the Kelvora Discord");
+        if (!data.contains("media.discord-url")) data.set("media.discord-url", "https://discord.gg/gUt2uGcwe");
+        save();
         Bukkit.getPluginManager().registerEvents(this, plugin);
         for (String command : List.of("live", "media", "role", "suslist", "vanish")) {
             if (plugin.getCommand(command) != null) {
@@ -106,12 +112,19 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
             org.bukkit.inventory.ItemStack requirements = new org.bukkit.inventory.ItemStack(Material.WRITABLE_BOOK);
             org.bukkit.inventory.meta.ItemMeta rm = requirements.getItemMeta();
             rm.setDisplayName(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Media Requirements");
-            rm.setLore(List.of(ChatColor.GRAY + "Creator eligibility is reviewed by staff.", ChatColor.GRAY + "Follower / view requirements: configure in", ChatColor.GRAY + "staff-features.yml under media.requirements.", ChatColor.GRAY + "Activity and content quality are reviewed.", ChatColor.YELLOW + "Media is never granted automatically."));
+            List<String> mediaLore = new ArrayList<>();
+            mediaLore.add(ChatColor.GRAY + "Follower / view target: " + data.getString("media.follower-count", "Set by staff"));
+            for (String requirement : data.getStringList("media.requirements")) mediaLore.add(ChatColor.GRAY + requirement);
+            mediaLore.add(ChatColor.GRAY + "Content: " + data.getString("media.content", "Reviewed by staff"));
+            mediaLore.add(ChatColor.GRAY + "Activity: " + data.getString("media.activity", "Reviewed by staff"));
+            mediaLore.add(ChatColor.GRAY + "Application: " + data.getString("media.application", "Open a Discord ticket"));
+            mediaLore.add(ChatColor.YELLOW + "Media is never granted automatically.");
+            rm.setLore(mediaLore);
             requirements.setItemMeta(rm); inv.setItem(11, requirements);
             org.bukkit.inventory.ItemStack apply = new org.bukkit.inventory.ItemStack(Material.BOOK);
             org.bukkit.inventory.meta.ItemMeta am = apply.getItemMeta();
             am.setDisplayName(ChatColor.GREEN + "" + ChatColor.BOLD + "Apply for Media");
-            am.setLore(List.of(ChatColor.GRAY + "Join the Discord and contact staff.", ChatColor.AQUA + "https://discord.gg/gUt2uGcwe", ChatColor.YELLOW + "Click to open Discord"));
+            am.setLore(List.of(ChatColor.GRAY + "Join the Discord and contact staff.", ChatColor.AQUA + data.getString("media.discord-url", "https://discord.gg/gUt2uGcwe"), ChatColor.YELLOW + "Click to open Discord"));
             am.setCustomModelData(null); apply.setItemMeta(am); inv.setItem(15, apply);
             org.bukkit.inventory.ItemStack close = new org.bukkit.inventory.ItemStack(Material.BARRIER);
             org.bukkit.inventory.meta.ItemMeta cm = close.getItemMeta(); cm.setDisplayName(ChatColor.RED + "Close"); close.setItemMeta(cm); inv.setItem(22, close);
@@ -245,7 +258,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         e.setCancelled(true);
         if (e.getClickedInventory() == null || e.getClickedInventory() != e.getView().getTopInventory()) return;
         if (e.getSlot() == 15) p.closeInventory();
-        if (e.getSlot() == 15) p.sendMessage(ChatColor.AQUA + "Apply for Media on Discord: https://discord.gg/gUt2uGcwe");
+        if (e.getSlot() == 15) p.sendMessage(ChatColor.AQUA + "Apply for Media on Discord: " + data.getString("media.discord-url", "https://discord.gg/gUt2uGcwe"));
         if (e.getSlot() == 22) p.closeInventory();
     }
     @EventHandler public void onSuspectClick(InventoryClickEvent e) {
