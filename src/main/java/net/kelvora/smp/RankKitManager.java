@@ -117,10 +117,10 @@ final class RankKitManager implements Listener {
 
     private String defaultColor(String key) {
         return switch (key) {
-            case "booster" -> "&d"; case "sprout", "i_sprout" -> "&7"; case "verdant", "helper" -> "&a";
-            case "emerald" -> "&2"; case "sovereign" -> "&b";
-            case "ascendant" -> "&6"; case "moderator" -> "&9"; case "manager" -> "&5";
-            case "admin" -> "&c"; case "owner" -> "&4"; case "creator", "media" -> "&d"; default -> "&7";
+            case "booster", "creator", "media" -> "&d"; case "sprout", "i_sprout" -> "&7";
+            case "verdant", "helper" -> "&a"; case "emerald" -> "&2"; case "sovereign" -> "&b";
+            case "ascendant" -> "&6"; case "moderator" -> "&9"; case "manager", "admin" -> "&c";
+            case "owner" -> "&a"; default -> "&7";
         };
     }
 
@@ -215,17 +215,17 @@ final class RankKitManager implements Listener {
 
     private void openRanks(Player player) {
         Inventory inv = Bukkit.createInventory(null, 45, Component.text("Kelvora | Ranks", NamedTextColor.DARK_GREEN));
-        int[] slots = {9,10,11,12,13,14};
+        int[] slots = {10,19,28,29,30,31};
         for (int i=0;i<PROGRESSION.size();i++) {
             String key=PROGRESSION.get(i);
             String desc=plugin.getConfig().getString("ranks." + key + ".description", "Survival progression rank");
             put(inv, slots[i], rankMaterial(i), prefixFor(key) + LABELS.get(key), List.of(desc, "Progression " + (i+1) + "/6", "Ranks are purchased through Discord"), "rank:" + key);
         }
-        put(inv, 28, Material.LIME_DYE, "&aHelper", List.of("Answers questions and helps players", "Assigned by authorized staff"), "info");
-        put(inv, 29, Material.BLUE_DYE, "&9Moderator", List.of("Handles chat and rule enforcement", "Assigned by authorized staff"), "info");
-        put(inv, 30, Material.PURPLE_DYE, "&5Admin", List.of("Manages server operations", "Assigned by authorized staff"), "info");
-        put(inv, 31, Material.RED_DYE, "&cOwner", List.of("Server leadership", "Assigned by authorized staff"), "info");
-        put(inv, 33, Material.MAGENTA_DYE, "&dCreator", List.of("For YouTubers, TikTokers and streamers", "Assigned by authorized staff"), "info");
+        put(inv, 12, Material.LIME_DYE, "&aHelper", List.of("Answers questions and helps players", "Assigned by authorized staff"), "info");
+        put(inv, 21, Material.BLUE_DYE, "&9Moderator", List.of("Handles chat and rule enforcement", "Assigned by authorized staff"), "info");
+        put(inv, 30, Material.RED_DYE, "&cManager / Admin", List.of("Manages server operations", "Assigned by authorized staff"), "info");
+        put(inv, 39, Material.EMERALD, "&aOwner", List.of("Server leadership", "Assigned by authorized staff"), "info");
+        put(inv, 40, Material.MAGENTA_DYE, "&dMedia / Creator", List.of("For YouTubers, TikTokers and streamers", "Assigned by authorized staff"), "info");
         put(inv, 22, Material.BOOK, "&bPurchase Ranks on Discord", List.of("Ranks are purchased, not earned", "Click for the server Discord"), "discord");
         put(inv, 40, Material.BARRIER, "&cClose", List.of("Close menu"), "close");
         player.openInventory(inv);
@@ -250,8 +250,8 @@ final class RankKitManager implements Listener {
             lore.add(allowed ? (readyAt>System.currentTimeMillis() ? "Cooldown: "+duration(readyAt-System.currentTimeMillis()) : "Ready to claim") : "Locked — rank required");
             put(inv,slots[i],allowed?Material.CHEST:Material.BARRIER,(allowed?"&a":"&c")+kit,lore,"kit:"+key);
         }
-        if (plugin.getConfig().isConfigurationSection("kits.member")) put(inv,20,canClaimRank(player,"member")?Material.CHEST:Material.BARRIER,(canClaimRank(player,"member")?"&a":"&c")+plugin.getConfig().getString("kits.member.display","Member Kit"),List.of(plugin.getConfig().getString("kits.member.summary","Basic starter supplies"),canClaimRank(player,"member")?"Ready to claim":"Locked"),"kit:member");
-        if (plugin.getConfig().isConfigurationSection("kits.media")) put(inv,22,canClaimRank(player,"media")?Material.CHEST:Material.BARRIER,(canClaimRank(player,"media")?"&d":"&c")+plugin.getConfig().getString("kits.media.display","Media Kit"),List.of(plugin.getConfig().getString("kits.media.summary","Creator supplies"),canClaimRank(player,"media")?"Media role verified":"Locked — Media role required"),"kit:media");
+        if (plugin.getConfig().isConfigurationSection("kits.member")) put(inv,29,canClaimRank(player,"member")?Material.CHEST:Material.BARRIER,(canClaimRank(player,"member")?"&a":"&c")+plugin.getConfig().getString("kits.member.display","Member Kit"),List.of(plugin.getConfig().getString("kits.member.summary","Basic starter supplies"),canClaimRank(player,"member")?"Ready to claim":"Locked"),"kit:member");
+        if (plugin.getConfig().isConfigurationSection("kits.media") && canClaimRank(player,"media")) put(inv,30,Material.BUNDLE,"&d&lMedia Kit",List.of(plugin.getConfig().getString("kits.media.summary","Creator supplies"),"&dMedia role verified"),"kit:media");
         put(inv,40,Material.BOOK,"&ePreview kit",List.of("Use /kit preview <name>"),"info");
         put(inv,49,Material.BARRIER,"&cClose",List.of("Close menu"),"close");
         player.openInventory(inv);
@@ -333,12 +333,25 @@ final class RankKitManager implements Listener {
                 result.add(stack); remaining-=count;
             }
         }
+        String kitKey=kit.getName();
+        if (PROGRESSION.contains(kitKey)) {
+            Material[] supplies={Material.OBSIDIAN,Material.END_CRYSTAL,Material.RESPAWN_ANCHOR,Material.GLOWSTONE,
+                Material.TOTEM_OF_UNDYING,Material.GOLDEN_APPLE,Material.ENDER_PEARL,Material.EXPERIENCE_BOTTLE,
+                Material.COOKED_BEEF,Material.FIREWORK_ROCKET};
+            int i=0;
+            while(result.size()<36) {
+                Material m=supplies[i++%supplies.length];
+                int amount=m==Material.TOTEM_OF_UNDYING?1:m==Material.END_CRYSTAL?16:m==Material.RESPAWN_ANCHOR?16:m==Material.GLOWSTONE?32:m==Material.OBSIDIAN?32:16;
+                result.add(new ItemStack(m,amount));
+            }
+        }
         return result;
     }
 
     private boolean canClaimRank(Player player,String kit) {
         if (kit.equals("member")) return true;
-        if (kit.equals("media")) return player.hasPermission("kelvora.live") || player.hasPermission("kelvora.role.media") || player.hasPermission("group.media") || player.hasPermission("kelvora.role.creator") || player.hasPermission("group.creator");
+        if (kit.equals("media")) return player.hasPermission("kelvora.live") || player.hasPermission("kelvora.role.media") || player.hasPermission("group.media")
+            || plugin instanceof KelvoraSMP k && (k.hasRoleGroup(player,"media") || k.hasRoleGroup(player,"creator"));
         int playerRank=PROGRESSION.indexOf(progressionRank(player.getUniqueId()));
         int required=PROGRESSION.indexOf(kit);
         return playerRank>=required && (playerRank==required || plugin.getConfig().getBoolean("kits.allow-lower-rank-kits",false));
