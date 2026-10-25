@@ -494,7 +494,7 @@ implements Listener {
         if (stack == null || !stack.hasItemMeta() || stack.getItemMeta().displayName() == null) return;
         String itemName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
             .serialize(stack.getItemMeta().displayName()).toLowerCase(Locale.ROOT);
-        if (itemName.contains("zstaff") && !player.isOp() && !player.hasPermission("kelvora.staff.zstaff")) {
+        if (itemName.contains("zstaff") && !player.isOp() && !player.hasPermission("kelvora.staff.zstaff") && !player.hasPermission("kelvora.staff.mod") && !player.hasPermission("kelvora.staff.manager") && !player.hasPermission("kelvora.roles.manage") && !player.hasPermission("kelvora.suslist") && !this.hasRoleGroup(player, "helper") && !this.hasRoleGroup(player, "moderator") && !this.hasRoleGroup(player, "manager") && !this.hasRoleGroup(player, "admin") && !this.hasRoleGroup(player, "owner")) {
             event.setCancelled(true);
         }
     }
