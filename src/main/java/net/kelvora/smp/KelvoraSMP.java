@@ -223,7 +223,17 @@ implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Bukkit.getScheduler().runTask((Plugin)this, () -> this.updatePlayer(event.getPlayer()));
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask((Plugin)this, () -> {
+            this.updatePlayer(player);
+            String ip = this.getConfig().getString("server-address", "Configure server-address");
+            player.sendTitle("§a§lJOIN KELVORA SMP", "§fIP: §e" + ip, 10, 80, 20);
+            player.sendMessage(Component.text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.DARK_GREEN));
+            player.sendMessage(Component.text("🌿 JOIN KELVORA SMP", NamedTextColor.GREEN).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD));
+            player.sendMessage(Component.text("Server IP: ", NamedTextColor.WHITE).append(Component.text(ip, NamedTextColor.YELLOW).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)));
+            player.sendMessage(Component.text("Java + Bedrock • Use /discord to join our community.", NamedTextColor.GRAY));
+            player.sendMessage(Component.text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.DARK_GREEN));
+        });
     }
 
     @EventHandler
@@ -273,8 +283,7 @@ implements Listener {
                 default -> net.kyori.adventure.text.format.TextColor.color(0x7CFC00);
             }).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
               .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED);
-        Component rotatingMessage = rotatingColor.append(Component.text("\n━━━━━━━━━━━━━━━━━━━━━━━━\n", NamedTextColor.DARK_GREEN))
-            .append(Component.text("IP: " + this.getConfig().getString("server-address", "Configure server-address") + "\n\n", NamedTextColor.WHITE));
+        Component rotatingMessage = rotatingColor.append(Component.text("\n━━━━━━━━━━━━━━━━━━━━━━━━\n", NamedTextColor.DARK_GREEN));
         Component footerMessage = switch (this.footerFrame) {
             case 0 -> Component.text("💬 JOIN OUR DISCORD\nType /discord to get the invite and join us", NamedTextColor.LIGHT_PURPLE)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
@@ -283,7 +292,7 @@ implements Listener {
             case 2 -> Component.text("🎥 APPLY FOR MEDIA\nMeet the requirements, then open a ticket", NamedTextColor.AQUA)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
             case 3 -> Component.text("⚔️ JOIN KELVORA SMP\nJava + Bedrock • Cracked players welcome", NamedTextColor.GREEN);
-            default -> Component.text("🌿 Join Kelvora SMP\nJava + Bedrock • Cracked players welcome\nIP: " + this.getConfig().getString("server-address", "Configure server-address"), NamedTextColor.YELLOW);
+            default -> Component.text("🌿 Join Kelvora SMP\nJava + Bedrock • Cracked players welcome", NamedTextColor.YELLOW);
         };
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
