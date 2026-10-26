@@ -120,6 +120,7 @@ implements Listener {
         this.shardShopManager.register();
         this.staffFeaturesManager = new StaffFeaturesManager(this);
         this.staffFeaturesManager.register();
+        new ChatSpamProtectionManager(this).register();
         CrateManager crateManager = new CrateManager(this);
         crateManager.register();
         new RankDailyKeysManager(this, crateManager).register();
