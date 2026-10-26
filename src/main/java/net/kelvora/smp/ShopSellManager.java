@@ -151,8 +151,8 @@ final class ShopSellManager implements Listener {
         }
         put(inv, controls, Material.ARROW, "Back", "back", "Return to categories");
         if (page > 0) put(inv, controls + 2, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
-        put(inv, controls + 3, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
-        if (page + 1 < pages) put(inv, controls + 4, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
+        put(inv, controls + 4, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
+        if (page + 1 < pages) put(inv, controls + 5, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
         put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
     }
