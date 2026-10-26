@@ -24,6 +24,7 @@ import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
@@ -46,6 +47,7 @@ final class TeleportSettingsManager implements Listener {
     private final Map<UUID, Boolean> joinQuitMessages = new HashMap<>();
     private final Map<UUID, Boolean> sidebarEnabled = new HashMap<>();
     private final Map<UUID, Boolean> receivePrivateMessages = new HashMap<>();
+    private final Map<UUID, Boolean> showDeathMessages = new HashMap<>();
     private final File file;
     private final YamlConfiguration data;
 
@@ -93,6 +95,9 @@ final class TeleportSettingsManager implements Listener {
         boolean tpa = allowTpa.getOrDefault(player.getUniqueId(), true);
         boolean here = allowTpahere.getOrDefault(player.getUniqueId(), true);
         boolean reduceSpawns = reduceNearbySpawns.getOrDefault(player.getUniqueId(), false);
+        boolean deaths = showDeathMessages.getOrDefault(player.getUniqueId(), true);
+        inventory.setItem(9, named(deaths ? Material.SKELETON_SKULL : Material.GRAY_DYE,
+            "Death messages: " + (deaths ? "ON" : "OFF"), "death-messages"));
         inventory.setItem(10, named(chatSounds.getOrDefault(player.getUniqueId(), true) ? Material.NOTE_BLOCK : Material.GRAY_DYE,
             "Chat sounds: " + (chatSounds.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "chat-sounds"));
         inventory.setItem(11, named(tpa ? Material.LIME_DYE : Material.GRAY_DYE,
@@ -249,6 +254,12 @@ final class TeleportSettingsManager implements Listener {
                 saveSettings(); refreshSettings(player, event.getView().getTopInventory());
                 player.sendMessage(ChatColor.GREEN + "Private messages " + (receivePrivateMessages.get(id) ? "enabled." : "muted."));
             }
+            case "death-messages" -> {
+                showDeathMessages.put(id, !showDeathMessages.getOrDefault(id, true));
+                data.set("players." + id + ".death-messages", showDeathMessages.get(id));
+                saveSettings(); refreshSettings(player, event.getView().getTopInventory());
+                player.sendMessage(ChatColor.GREEN + "Death messages " + (showDeathMessages.get(id) ? "shown." : "hidden."));
+            }
             case "close" -> player.closeInventory();
         }
     }
@@ -262,6 +273,20 @@ final class TeleportSettingsManager implements Listener {
         return sidebarEnabled.getOrDefault(player.getUniqueId(), data.getBoolean("players." + player.getUniqueId() + ".sidebar-enabled", true));
     }
 
+
+
+    @EventHandler
+    public void onDeathMessage(PlayerDeathEvent event) {
+        Component deathMessage = event.deathMessage();
+        if (deathMessage == null) return;
+        event.deathMessage(null);
+        for (Player recipient : Bukkit.getOnlinePlayers()) {
+            if (showDeathMessages.getOrDefault(recipient.getUniqueId(),
+                    data.getBoolean("players." + recipient.getUniqueId() + ".death-messages", true))) {
+                recipient.sendMessage(deathMessage);
+            }
+        }
+    }
 
     @EventHandler(ignoreCancelled = true)
     public void onPrivateMessageCommand(PlayerCommandPreprocessEvent event) {
@@ -326,6 +351,7 @@ final class TeleportSettingsManager implements Listener {
                 joinQuitMessages.put(id, data.getBoolean("players." + raw + ".join-quit-messages", true));
                 sidebarEnabled.put(id, data.getBoolean("players." + raw + ".sidebar-enabled", true));
                 receivePrivateMessages.put(id, data.getBoolean("players." + raw + ".private-messages", true));
+                showDeathMessages.put(id, data.getBoolean("players." + raw + ".death-messages", true));
             } catch (IllegalArgumentException ignored) { }
         }
     }
