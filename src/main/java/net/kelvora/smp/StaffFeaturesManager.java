@@ -223,6 +223,50 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (cmd.equals("suslist")) {
             if (!moderator(sender)) { sender.sendMessage(ChatColor.RED + "Only moderators and above can use /suslist."); return true; }
             ConfigurationSection suspects=data.getConfigurationSection("suspects");
+            if (args.length == 1 && args[0].equalsIgnoreCase("alerts")) {
+                ConfigurationSection all = data.getConfigurationSection("suspects");
+                sender.sendMessage(ChatColor.GOLD + "Kelvora Suslist | Active alerts");
+                if (all == null || all.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY + "No active alerts."); return true; }
+                List<String> ids = new ArrayList<>(all.getKeys(false));
+                ids.sort((a,b) -> Integer.compare(all.getInt(b + ".score"), all.getInt(a + ".score")));
+                for (String id : ids.stream().limit(20).toList()) sender.sendMessage(scoreColour(all.getInt(id + ".score"))
+                    + all.getString(id + ".name", id) + ChatColor.GRAY + " — " + all.getInt(id + ".score") + "/100 | "
+                    + all.getString(id + ".reason", "Suspicious activity")
+                    + (all.getBoolean(id + ".reviewed") ? ChatColor.GREEN + " [REVIEWED]" : ChatColor.YELLOW + " [UNREVIEWED]"));
+                return true;
+            }
+            if (args.length == 2 && args[0].equalsIgnoreCase("history")) {
+                String id = findSuspectId(args[1]);
+                if (id == null) { sender.sendMessage(ChatColor.RED + "No saved evidence for that player."); return true; }
+                ConfigurationSection history = data.getConfigurationSection("suspects." + id + ".history");
+                sender.sendMessage(ChatColor.GOLD + "Evidence history: " + data.getString("suspects." + id + ".name", args[1]));
+                if (history == null || history.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY + "No detailed history saved."); return true; }
+                List<String> entries = new ArrayList<>(history.getKeys(false));
+                entries.sort((a,b) -> Long.compare(parseLongSafe(b), parseLongSafe(a)));
+                for (String entry : entries.stream().limit(10).toList()) sender.sendMessage(ChatColor.GRAY
+                    + new java.text.SimpleDateFormat("MM-dd HH:mm:ss").format(new java.util.Date(parseLongSafe(entry)))
+                    + ChatColor.YELLOW + " — " + history.getString(entry + ".reason", "Alert")
+                    + ChatColor.GRAY + " | score " + history.getInt(entry + ".score") + "/100");
+                return true;
+            }
+            if (args.length == 2 && args[0].equalsIgnoreCase("review")) {
+                String id = findSuspectId(args[1]);
+                if (id == null) { sender.sendMessage(ChatColor.RED + "No saved evidence for that player."); return true; }
+                String base = "suspects." + id;
+                data.set(base + ".reviewed", true); data.set(base + ".reviewed-by", sender.getName());
+                data.set(base + ".reviewed-at", System.currentTimeMillis()); save();
+                sender.sendMessage(ChatColor.GREEN + "Marked " + data.getString(base + ".name", args[1]) + "'s alert as reviewed.");
+                return true;
+            }
+            if (args.length >= 3 && args[0].equalsIgnoreCase("note")) {
+                String id = findSuspectId(args[1]);
+                if (id == null) { sender.sendMessage(ChatColor.RED + "No saved evidence for that player."); return true; }
+                String note = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+                data.set("suspects." + id + ".staff-note", note); data.set("suspects." + id + ".note-by", sender.getName());
+                data.set("suspects." + id + ".note-at", System.currentTimeMillis()); save();
+                sender.sendMessage(ChatColor.GREEN + "Saved staff note for " + data.getString("suspects." + id + ".name", args[1]) + ".");
+                return true;
+            }
             if (args.length == 1 && args[0].equalsIgnoreCase("reports")) {
                 ConfigurationSection reports = data.getConfigurationSection("reports");
                 if (reports == null || reports.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY + "No player reports saved."); return true; }
@@ -240,7 +284,10 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 if (all != null) for (String id : all.getKeys(false)) if (all.getString(id + ".name", "").equalsIgnoreCase(args[0])) { found = id; break; }
                 if (found == null) { sender.sendMessage(ChatColor.RED + "No saved suspicious-mining evidence for that player."); return true; }
                 sender.sendMessage(ChatColor.GOLD + "Suspect: " + all.getString(found + ".name", args[0]) + ChatColor.GRAY + " | Flags: " + all.getInt(found + ".flags", 1));
+                sender.sendMessage(scoreColour(all.getInt(found + ".score")) + "Suspicion score: " + all.getInt(found + ".score") + "/100"
+                    + (all.getBoolean(found + ".reviewed") ? ChatColor.GREEN + " | Reviewed by " + all.getString(found + ".reviewed-by", "staff") : ChatColor.YELLOW + " | Needs review"));
                 sender.sendMessage(ChatColor.YELLOW + "Reason: " + all.getString(found + ".reason", "Suspicious mining pattern"));
+                if (!all.getString(found + ".staff-note", "").isBlank()) sender.sendMessage(ChatColor.GRAY + "Staff note: " + all.getString(found + ".staff-note"));
                 long expiresAt = all.getLong(found + ".expires", all.getLong(found + ".time", 0) + 5L * 60L * 60L * 1000L);
                 long remaining = Math.max(0, expiresAt - System.currentTimeMillis());
                 sender.sendMessage(ChatColor.GRAY + "Evidence expires in " + (remaining / 3600000L) + "h " + ((remaining % 3600000L) / 60000L) + "m. Teleport: /suslist tp " + all.getString(found + ".name", args[0]));
@@ -358,8 +405,38 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         data.set(path+".ore", reason.toLowerCase(Locale.ROOT).contains("ancient debris") ? "ANCIENT_DEBRIS" : reason.toLowerCase(Locale.ROOT).contains("diamond") ? "DIAMOND_ORE" : "BLOCK_RATE");
         java.util.regex.Matcher countMatcher = java.util.regex.Pattern.compile("(\\d+)").matcher(reason);
         data.set(path+".count", countMatcher.find() ? Integer.parseInt(countMatcher.group(1)) : 0);
-        data.set(path+".flags",flags); data.set(path+".time",now); data.set(path+".expires",now+5L*60L*60L*1000L); save();
-        for (Player staff:Bukkit.getOnlinePlayers()) if (moderator(staff)) staff.sendMessage(ChatColor.RED+"[SUS] "+p.getName()+": "+reason+" | Flags: "+flags+" | Expires in 5h — /suslist tp "+p.getName());
+        long previousTime = data.getLong(path + ".last-score-time", now);
+        int previousScore = Math.max(0, data.getInt(path + ".score", 0) - (int)(Math.max(0, now - previousTime) / 3_600_000L) * 5);
+        int points = reason.toLowerCase(Locale.ROOT).contains("ancient debris") ? 30
+            : reason.toLowerCase(Locale.ROOT).contains("diamond") ? 22 : 18;
+        int score = Math.min(100, previousScore + points);
+        data.set(path + ".score", score); data.set(path + ".last-score-time", now);
+        data.set(path+".flags",flags); data.set(path+".time",now); data.set(path+".expires",now+5L*60L*60L*1000L);
+        data.set(path + ".reviewed", false);
+        String historyPath = path + ".history." + now;
+        data.set(historyPath + ".reason", reason); data.set(historyPath + ".score", score);
+        data.set(historyPath + ".world", ore.getWorld().getName()); data.set(historyPath + ".x", ore.getX());
+        data.set(historyPath + ".y", ore.getY()); data.set(historyPath + ".z", ore.getZ());
+        data.set(historyPath + ".tool", p.getInventory().getItemInMainHand().getType().name());
+        ConfigurationSection history = data.getConfigurationSection(path + ".history");
+        if (history != null) for (String key : new ArrayList<>(history.getKeys(false))) {
+            if (parseLongSafe(key) > 0 && now - parseLongSafe(key) > 7L * 24L * 60L * 60L * 1000L) data.set(path + ".history." + key, null);
+        }
+        save();
+        for (Player staff:Bukkit.getOnlinePlayers()) if (moderator(staff) && score >= 30)
+            staff.sendMessage(scoreColour(score) + "[SUS] " + p.getName() + ": " + reason + " | Score: " + score + "/100 | /suslist " + p.getName());
+    }
+    private String findSuspectId(String name) {
+        ConfigurationSection all = data.getConfigurationSection("suspects");
+        if (all == null) return null;
+        for (String id : all.getKeys(false)) if (all.getString(id + ".name", "").equalsIgnoreCase(name) || id.equalsIgnoreCase(name)) return id;
+        return null;
+    }
+    private ChatColor scoreColour(int score) {
+        if (score >= 80) return ChatColor.DARK_RED;
+        if (score >= 60) return ChatColor.RED;
+        if (score >= 30) return ChatColor.GOLD;
+        return ChatColor.GREEN;
     }
     private void openSuspectGui(CommandSender sender, ConfigurationSection suspects) {
         purgeExpiredFlags(); suspects=data.getConfigurationSection("suspects");
@@ -373,7 +450,9 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         suspectGuiTargets.clear();
         if (suspects!=null) {
             int slot=0;
-            for (String uuidText:suspects.getKeys(false)) {
+            List<String> ordered = new ArrayList<>(suspects.getKeys(false));
+            ordered.sort((a,b) -> Integer.compare(suspects.getInt(b + ".score"), suspects.getInt(a + ".score")));
+            for (String uuidText:ordered) {
                 if(slot>=45) break;
                 UUID id; try { id=UUID.fromString(uuidText); } catch(IllegalArgumentException ex) { continue; }
                 String name=suspects.getString(uuidText+".name",uuidText);
@@ -385,7 +464,15 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 String left=(remaining/3600000L)+"h "+((remaining%3600000L)/60000L)+"m";
                 int flags=suspects.getInt(uuidText+".flags",1);
                 meta.setDisplayName((reason.toLowerCase(Locale.ROOT).contains("ancient debris")?ChatColor.LIGHT_PURPLE:reason.toLowerCase(Locale.ROOT).contains("diamond")?ChatColor.AQUA:ChatColor.RED).toString()+ChatColor.BOLD+name);
-                meta.setLore(List.of(ChatColor.GRAY+reason,ChatColor.RED+"Flags: "+flags,ChatColor.YELLOW+"Expires in: "+left,ChatColor.GRAY+"World: "+suspects.getString(uuidText+".world","unknown"),ChatColor.GRAY+"Coords: "+suspects.getInt(uuidText+".x")+", "+suspects.getInt(uuidText+".y")+", "+suspects.getInt(uuidText+".z"),ChatColor.GRAY+"Tool: "+suspects.getString(uuidText+".tool","unknown"),ChatColor.YELLOW+"Left-click: teleport in vanish",ChatColor.YELLOW+"Right-click: inspect details"));
+                int score = suspects.getInt(uuidText + ".score", 0);
+                String note = suspects.getString(uuidText + ".staff-note", "");
+                meta.setLore(List.of(scoreColour(score) + "Suspicion: " + score + "/100", ChatColor.GRAY+reason,
+                    ChatColor.RED+"Flags: "+flags,
+                    suspects.getBoolean(uuidText + ".reviewed") ? ChatColor.GREEN + "Reviewed by " + suspects.getString(uuidText + ".reviewed-by", "staff") : ChatColor.YELLOW + "Needs review",
+                    ChatColor.GRAY+"Expires in: "+left,ChatColor.GRAY+"World: "+suspects.getString(uuidText+".world","unknown"),
+                    ChatColor.GRAY+"Coords: "+suspects.getInt(uuidText+".x")+", "+suspects.getInt(uuidText+".y")+", "+suspects.getInt(uuidText+".z"),
+                    ChatColor.GRAY+"Tool: "+suspects.getString(uuidText+".tool","unknown"), ChatColor.GRAY+"Note: "+(note.isBlank()?"None":note),
+                    ChatColor.YELLOW+"Left-click: teleport in vanish",ChatColor.YELLOW+"Right-click: inspect details"));
                 head.setItemMeta(meta); inv.setItem(slot,head); suspectGuiTargets.put(id,id); slot++;
             }
         }
@@ -423,12 +510,18 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (command.getName().equalsIgnoreCase("role") && args.length==2 && (args[0].equalsIgnoreCase("add")||args[0].equalsIgnoreCase("remove"))) return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(x->x.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         if (command.getName().equalsIgnoreCase("role") && args.length==3) { ConfigurationSection sec=data.getConfigurationSection("roles"); return sec==null?List.of():sec.getKeys(false).stream().filter(x->x.startsWith(args[2].toLowerCase(Locale.ROOT))).toList(); }
         if (command.getName().equalsIgnoreCase("suslist") && args.length==1) {
-            List<String> choices = new ArrayList<>(List.of("reload", "tp", "reports"));
+            List<String> choices = new ArrayList<>(List.of("alerts", "history", "review", "note", "reload", "tp", "reports"));
             ConfigurationSection suspects = data.getConfigurationSection("suspects");
             if (suspects != null) for (String id : suspects.getKeys(false)) choices.add(suspects.getString(id + ".name", id));
             return choices.stream().filter(x -> x.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
         }
         if (command.getName().equalsIgnoreCase("suslist") && args.length==2 && args[0].equalsIgnoreCase("tp")) return Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(x->x.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+        if (command.getName().equalsIgnoreCase("suslist") && args.length==2 && List.of("history","review","note").contains(args[0].toLowerCase(Locale.ROOT))) {
+            ConfigurationSection all = data.getConfigurationSection("suspects");
+            if (all == null) return List.of();
+            return all.getKeys(false).stream().map(id -> all.getString(id + ".name", id))
+                .filter(x -> x.toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+        }
         if (command.getName().equalsIgnoreCase("live") && args.length==1) return List.of("on","off");
         return Collections.emptyList();
     }
