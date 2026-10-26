@@ -273,7 +273,8 @@ implements Listener {
                 default -> net.kyori.adventure.text.format.TextColor.color(0x7CFC00);
             }).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)
               .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED);
-        Component rotatingMessage = rotatingColor.append(Component.text("\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n", NamedTextColor.DARK_GREEN));
+        Component rotatingMessage = rotatingColor.append(Component.text("\n━━━━━━━━━━━━━━━━━━━━━━━━\n", NamedTextColor.DARK_GREEN))
+            .append(Component.text("IP: " + this.getConfig().getString("server-address", "Configure server-address") + "\n\n", NamedTextColor.WHITE));
         Component footerMessage = switch (this.footerFrame) {
             case 0 -> Component.text("💬 JOIN OUR DISCORD\nType /discord to get the invite and join us", NamedTextColor.LIGHT_PURPLE)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
