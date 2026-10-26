@@ -4,6 +4,28 @@ currency-format: compact
 
 server-address: "kelvorasmp.mcsh.gg"
 
+# Per-world Paper distance settings applied at plugin startup and with /optimize.
+performance:
+  view-distance: 16
+  simulation-distance: 8
+
+# Optional Money rewards for killing hostile mobs. Set enabled: false to disable globally.
+mob-payments:
+  enabled: true
+  rewards:
+    ZOMBIE: 3.0
+    SKELETON: 3.0
+    CREEPER: 4.0
+    SPIDER: 2.0
+    ENDERMAN: 8.0
+    BLAZE: 6.0
+    WITCH: 5.0
+    PHANTOM: 4.0
+    DROWNED: 3.0
+    PILLAGER: 4.0
+    HOGLIN: 5.0
+    PIGLIN_BRUTE: 8.0
+
 # Passive income uses continuous online seconds; offline time is not paid.
 # AFK eligibility is configurable; without an AFK integration the plugin cannot detect AFK state.
 passive-kelvoras:
@@ -318,7 +340,7 @@ kits:
   allow-lower-rank-kits: true
   member:
     display: "Member Kit"
-    summary: "Iron starter tools, chainmail armor and basic CPvP supplies"
+    summary: "Starter tools, armor, food, blocks, healing and basic CPvP supplies"
     cooldown-seconds: 86400
     items:
       - { material: IRON_PICKAXE, amount: 1 }
@@ -339,6 +361,14 @@ kits:
       - { material: BREAD, amount: 16 }
       - { material: TORCH, amount: 32 }
       - { material: OAK_LOG, amount: 16 }
+      - { material: WATER_BUCKET, amount: 1 }
+      - { material: SHIELD, amount: 1 }
+      - { material: COBWEB, amount: 4 }
+      - { material: COOKED_CHICKEN, amount: 16 }
+      - { material: GOLDEN_CARROT, amount: 16 }
+      - { material: CRAFTING_TABLE, amount: 1 }
+      - { material: FURNACE, amount: 1 }
+      - { material: BUCKET, amount: 1 }
   booster:
     display: "Booster Kit"
     summary: "Extra supplies for the Booster rank"
