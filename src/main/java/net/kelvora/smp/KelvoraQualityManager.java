@@ -76,7 +76,7 @@ final class KelvoraQualityManager implements Listener {
     }
 
     private void openGuide(Player p) {
-        Inventory inv = Bukkit.createInventory(null, 27, org.bukkit.inventory.MenuType.GENERIC_9X3 == null ? net.kyori.adventure.text.Component.text(GUIDE_TITLE) : net.kyori.adventure.text.Component.text(GUIDE_TITLE));
+        Inventory inv = Bukkit.createInventory(null, 27, net.kyori.adventure.text.Component.text(GUIDE_TITLE));
         for (int i=0;i<27;i++) inv.setItem(i, named(Material.GREEN_STAINED_GLASS_PANE, " ", null, List.of()));
         inv.setItem(10, named(Material.EMERALD, "&a&lECONOMY", "guide", List.of("&7Money: &f/bal", "&7Separate cosmetics currency: &f/kelvoras", "&7Browse purchases: &f/shop", "&7Sell items: &f/sell", "&7Check values: &f/worth", "&7Auction House: &f/ah")));
         inv.setItem(12, named(Material.NAME_TAG, "&2&lRANKS & COSMETICS", "guide", List.of("&7Ranks are purchased, not levelled up.", "&7Cosmetics: &f/shardshop", "&7Equip tags: &f/tags", "&7Glows: &f/glow", "&7Chat colours: &f/chatcolour")));
