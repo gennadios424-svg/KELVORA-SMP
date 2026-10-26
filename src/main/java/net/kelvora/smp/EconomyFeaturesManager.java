@@ -96,6 +96,7 @@ final class EconomyFeaturesManager implements Listener {
                 economy.getClass().getMethod("depositPlayer", org.bukkit.OfflinePlayer.class, double.class).invoke(economy, player, amount);
                 player.sendMessage(ChatColor.RED + "Payment failed and your Money was refunded."); return true;
             }
+            KelvoraQualityManager.logTransfer(plugin, "Money", player.getName(), target.getName(), amount);
             player.sendMessage(ChatColor.GREEN + "Paid $" + money.format(amount) + " to " + target.getName() + ".");
             target.sendMessage(ChatColor.GREEN + "You received $" + money.format(amount) + " from " + player.getName() + ".");
         } catch (ReflectiveOperationException ex) {
