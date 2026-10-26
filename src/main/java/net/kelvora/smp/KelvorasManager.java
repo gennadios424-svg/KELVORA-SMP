@@ -85,6 +85,7 @@ final class KelvorasManager {
                     player.sendMessage(Component.text("Transfer could not be saved. No transfer was completed; contact staff if this repeats.", NamedTextColor.RED));
                     return true;
                 }
+                KelvoraQualityManager.logTransfer(plugin, "Kelvoras", player.getName(), target.getName(), amount);
                 player.sendMessage(Component.text("Sent ✦" + format(amount) + " Kelvoras to " + target.getName() + ". Balance: ✦" + format(balance(player)) + ".", NamedTextColor.GREEN));
                 target.sendMessage(Component.text("Received ✦" + format(amount) + " Kelvoras from " + player.getName() + ".", NamedTextColor.AQUA));
                 return true;
