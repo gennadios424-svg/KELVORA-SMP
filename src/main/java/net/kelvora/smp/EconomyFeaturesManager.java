@@ -12,6 +12,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
+import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -29,6 +31,8 @@ final class EconomyFeaturesManager implements Listener {
     private final YamlConfiguration settings;
     private Object economy;
     private final DecimalFormat money = new DecimalFormat("#,##0.##");
+    private static final long CLEAN_INTERVAL_TICKS = 20L * 60L * 10L;
+    private static final long ITEM_MAX_AGE_TICKS = 20L * 60L * 10L;
     private static final Map<String, Double> DEFAULT_MOB_REWARDS = Map.ofEntries(
         Map.entry("ZOMBIE", 3.0), Map.entry("SKELETON", 3.0), Map.entry("CREEPER", 4.0),
         Map.entry("SPIDER", 2.0), Map.entry("ENDERMAN", 8.0), Map.entry("BLAZE", 6.0),
@@ -50,6 +54,7 @@ final class EconomyFeaturesManager implements Listener {
         if (plugin.getCommand("lagcleaner") != null) plugin.getCommand("lagcleaner").setExecutor(this::cleanCommand);
         if (plugin.getCommand("optimize") != null) plugin.getCommand("optimize").setExecutor(this::optimizeCommand);
         applyWorldDistances();
+        Bukkit.getScheduler().runTaskTimer(plugin, this::cleanOldDroppedItems, CLEAN_INTERVAL_TICKS, CLEAN_INTERVAL_TICKS);
     }
 
     private void connectEconomy() {
@@ -144,22 +149,43 @@ final class EconomyFeaturesManager implements Listener {
         }
     }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onNaturalMobSpawn(CreatureSpawnEvent event) {
+        if (event.getSpawnReason() != CreatureSpawnEvent.SpawnReason.NATURAL) return;
+        if (!plugin.getConfig().getBoolean("settings.nearby-mob-spawn-toggle-enabled", true)) return;
+        if (!(event.getEntity() instanceof Monster)) return;
+        double radius = Math.max(8.0, Math.min(64.0, plugin.getConfig().getDouble("settings.nearby-mob-spawn-radius", 24.0)));
+        double radiusSquared = radius * radius;
+        for (Player player : event.getLocation().getWorld().getPlayers()) {
+            if (player.getLocation().distanceSquared(event.getLocation()) > radiusSquared) continue;
+            if (settings.getBoolean("players." + player.getUniqueId() + ".reduce-nearby-hostile-spawns", false)) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    private int cleanOldDroppedItems() {
+        int removed = 0;
+        for (World world : Bukkit.getWorlds()) {
+            for (Item item : world.getEntitiesByClass(Item.class)) {
+                if (item.isDead() || item.getTicksLived() < ITEM_MAX_AGE_TICKS || item.isInvulnerable()) continue;
+                if (item.getItemStack().hasItemMeta()) continue;
+                item.remove();
+                removed++;
+            }
+        }
+        return removed;
+    }
+
     private boolean cleanCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.isOp() && !sender.hasPermission("kelvora.admin.optimize")) {
             sender.sendMessage(ChatColor.RED + "Only administrators can run the lag cleaner."); return true;
         }
-        int removed = 0;
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntitiesByClass(Item.class)) {
-                Item item = (Item) entity;
-                if (!item.isDead() && item.getTicksLived() >= 1200 && !item.getItemStack().hasItemMeta() && !item.isInvulnerable()) {
-                    item.remove();
-                    removed++;
-                }
-            }
-        }
-        sender.sendMessage(ChatColor.GREEN + "Lag cleaner removed " + removed + " unprotected dropped item entities.");
-        sender.sendMessage(ChatColor.GRAY + "Named items, mobs, villagers, XP orbs, and player inventories were left untouched.");
+        int removed = cleanOldDroppedItems();
+        sender.sendMessage(ChatColor.GREEN + "Lag cleaner removed " + removed + " ordinary dropped item entities older than 10 minutes.");
+        sender.sendMessage(ChatColor.GRAY + "Mobs (including zombies and snow golems), snowballs, boats, villagers, bosses, armor stands, XP orbs, named/custom drops and player inventories are untouched.");
+        sender.sendMessage(ChatColor.GRAY + "Automatic cleanup runs every 10 minutes.");
         return true;
     }
 
