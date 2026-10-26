@@ -107,6 +107,7 @@ implements Listener {
         new RtpManager(this, combatManager).register();
         new HomesManager(this, combatManager).register();
         new TeleportSettingsManager(this, combatManager).register();
+        new EconomyFeaturesManager(this).register();
         this.teamManager = new TeamManager(this);
         this.teamManager.register();
         new RankKitManager(this).register();
@@ -281,7 +282,7 @@ implements Listener {
             case 2 -> Component.text("🎥 APPLY FOR MEDIA\nMeet the requirements, then open a ticket", NamedTextColor.AQUA)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl("https://discord.gg/gUt2uGcwe"));
             case 3 -> Component.text("⚔️ JOIN KELVORA SMP\nJava + Bedrock • Cracked players welcome", NamedTextColor.GREEN);
-            default -> Component.text("🌿 Join Kelvora SMP\nJava + Bedrock • Cracked players welcome", NamedTextColor.YELLOW);
+            default -> Component.text("🌿 Join Kelvora SMP\nJava + Bedrock • Cracked players welcome\nIP: " + this.getConfig().getString("server-address", "Configure server-address"), NamedTextColor.YELLOW);
         };
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
@@ -299,12 +300,12 @@ implements Listener {
             }
             Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
-            for (int i = 0; i < 8; ++i) {
+            for (int i = 0; i < 9; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
                 Team team = board.registerNewTeam("line" + i);
                 team.addEntry(entry);
                 org.bukkit.scoreboard.Score score = created.getScore(entry);
-                score.setScore(6 - i);
+                score.setScore(7 - i);
                 score.numberFormat(io.papermc.paper.scoreboard.numbers.NumberFormat.blank());
             }
             this.playerBoards.put(player.getUniqueId(), board);
@@ -331,7 +332,8 @@ implements Listener {
             this.color("&4☠ Deaths: &f" + deaths),
             this.color("&b⏱ Playtime: &f" + playtime),
             this.color("&3🛡 Team: &b" + teamName),
-            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers())
+            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
+            this.color("&7IP: &f" + this.getConfig().getString("server-address", "Configure server-address"))
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
