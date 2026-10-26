@@ -137,22 +137,23 @@ final class ShopSellManager implements Listener {
     private void openCategory(Player p, String cat, int page) {
         currentCategoryPages.put(p.getUniqueId(), page);
         List<ShopEntry> entries = categoryEntries(cat);
-        // Use the smallest chest that fits this category plus a protected navigation row.
-        int guiSize = entries.size() <= 18 ? 27 : entries.size() <= 27 ? 36 : entries.size() <= 36 ? 45 : 54;
-        int pageSize = guiSize - 9;
+        // Always use the same 6-row layout so navigation never shifts between categories.
+        // Rows 1-5 contain 45 products; the final row is reserved for controls.
+        int guiSize = 54;
+        int pageSize = 45;
         int pages = Math.max(1, (entries.size() + pageSize - 1) / pageSize);
         page = Math.max(0, Math.min(page, pages - 1));
-        int controls = guiSize - 9;
+        int controls = 45;
         Inventory inv = Bukkit.createInventory(null, guiSize, Component.text(CATEGORY + (cat.equals("pvp") ? "CRYSTAL PVP" : cat.toUpperCase(Locale.ROOT)), NamedTextColor.DARK_GREEN));
         for (int i = 0; i < pageSize; i++) {
             int index = page * pageSize + i;
             if (index >= entries.size()) break;
             inv.setItem(i, entries.get(index).createDisplay(actionKey, shopPrice(entries.get(index).material)));
         }
-        put(inv, controls, Material.ARROW, "Back", "back", "Return to categories");
-        if (page > 0) put(inv, controls + 2, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Previous items");
-        put(inv, controls + 4, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", entries.size() + " shop items");
-        if (page + 1 < pages) put(inv, controls + 5, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "More items");
+        put(inv, controls, Material.ARROW, "Back to Categories", "back", "Return to shop categories");
+        if (page > 0) put(inv, controls + 3, Material.SPECTRAL_ARROW, "Previous Page", "page:" + cat + ":" + (page - 1), "Go to page " + page);
+        put(inv, controls + 4, Material.PAPER, "Page " + (page + 1) + " / " + pages, "noop", entries.size() + " items in this category");
+        if (page + 1 < pages) put(inv, controls + 5, Material.SPECTRAL_ARROW, "Next Page", "page:" + cat + ":" + (page + 1), "Go to page " + (page + 2));
         put(inv, controls + 8, Material.BARRIER, "Close", "close", "Close the shop");
         p.openInventory(inv);
     }
