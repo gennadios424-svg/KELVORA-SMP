@@ -23,6 +23,9 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.Event;
+import org.bukkit.event.EventPriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -41,6 +44,8 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
     private final Map<UUID, UUID> suspectGuiTargets = new HashMap<>();
     private static final String SUS_TITLE = ChatColor.DARK_GREEN + "Kelvora | Suslist";
     private final Set<UUID> vanished = new HashSet<>();
+    private final Map<String, Long> recentGrimFlags = new HashMap<>();
+    private static final List<String> BANNED_WORDS = List.of("fuck", "fucker", "fucking", "motherfucker", "shit", "shitty", "bullshit", "bitch", "bastard", "asshole", "arsehole", "dick", "dickhead", "cock", "pussy", "cunt", "slut", "whore", "nigger", "nigga", "retard", "faggot");
 
     StaffFeaturesManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -62,6 +67,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (!data.contains("media.discord-url")) data.set("media.discord-url", "https://discord.gg/gUt2uGcwe");
         save();
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        registerGrimFlagHook();
         for (String command : List.of("live", "media", "role", "suslist", "vanish", "report")) {
             if (plugin.getCommand(command) != null) {
                 plugin.getCommand(command).setExecutor(this);
@@ -264,6 +270,63 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         }
         save();
     }
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void filterProfanity(AsyncPlayerChatEvent event) {
+        if (!containsBannedWord(event.getMessage())) return;
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(ChatColor.RED + "That word is blocked on Kelvora SMP. Keep chat respectful."));
+        plugin.getLogger().info("[CHAT FILTER] Blocked profanity from " + player.getName());
+    }
+
+    private boolean containsBannedWord(String message) {
+        String normalized = message.toLowerCase(Locale.ROOT).replace("0","o").replace("1","i").replace("!","i").replace("3","e").replace("4","a").replace("@","a").replace("5","s").replace("$","s").replace("7","t").replace("8","b");
+        String[] tokens = normalized.split("[^a-z]+");
+        for (String token : tokens) for (String banned : BANNED_WORDS)
+            if (token.equals(banned) || (token.length() <= banned.length() + 3 && token.startsWith(banned))) return true;
+        String compact = normalized.replaceAll("[^a-z0-9]", "");
+        for (String banned : BANNED_WORDS) if (compact.contains(banned)) return true;
+        return false;
+    }
+
+    private void registerGrimFlagHook() {
+        for (String className : List.of("ac.grim.grimac.api.events.FlagEvent", "ac.grim.grimac.api.events.GrimFlagEvent", "ac.grim.grimac.events.FlagEvent")) {
+            try {
+                Class<?> raw = Class.forName(className, false, plugin.getClass().getClassLoader());
+                if (!Event.class.isAssignableFrom(raw)) continue;
+                @SuppressWarnings("unchecked") Class<? extends Event> eventClass = (Class<? extends Event>) raw;
+                Bukkit.getPluginManager().registerEvent(eventClass, this, EventPriority.MONITOR, (listener, event) -> handleGrimFlag(event), plugin, true);
+                plugin.getLogger().info("Connected to GrimAC flag events via " + className);
+                return;
+            } catch (ClassNotFoundException ignored) { }
+            catch (Exception ex) { plugin.getLogger().warning("Could not register GrimAC flag hook: " + ex.getMessage()); }
+        }
+        plugin.getLogger().info("GrimAC flag API not detected; mining and player-report evidence still feeds /suslist.");
+    }
+
+    private void handleGrimFlag(Event event) {
+        try {
+            Object playerObject = invokeNoArg(event, "getPlayer", "getFlaggedPlayer", "getTarget");
+            if (!(playerObject instanceof Player player)) return;
+            String check = stringResult(event, "getCheckName", "getCheck", "getCheckType", "getName");
+            String detail = stringResult(event, "getVerbose", "getDescription", "getMessage", "getCheckData");
+            String reason = "GrimAC flag: " + (check.isBlank() ? event.getClass().getSimpleName() : check);
+            if (!detail.isBlank() && !detail.equalsIgnoreCase(check)) reason += " (" + detail + ")";
+            reason = reason.replace("\n", " ").replace("\r", " ");
+            if (reason.length() > 180) reason = reason.substring(0, 180);
+            String dedupeKey = player.getUniqueId() + ":" + check.toLowerCase(Locale.ROOT);
+            long now = System.currentTimeMillis(); Long previous = recentGrimFlags.put(dedupeKey, now);
+            if (previous != null && now - previous < 10_000L) return;
+            flag(player, reason, player.getLocation().getBlock());
+        } catch (Exception ex) { plugin.getLogger().fine("Ignored unreadable GrimAC flag event: " + ex.getMessage()); }
+    }
+
+    private Object invokeNoArg(Object target, String... methods) {
+        for (String name : methods) try { return target.getClass().getMethod(name).invoke(target); } catch (ReflectiveOperationException ignored) { }
+        return null;
+    }
+
+    private String stringResult(Object target, String... methods) { Object value = invokeNoArg(target, methods); return value == null ? "" : String.valueOf(value).trim(); }
     @EventHandler public void onBlockPlace(BlockPlaceEvent e) { if (e.getBlockPlaced().getWorld() != null) playerPlacedBlocks.add(blockKey(e.getBlockPlaced())); }
     private String blockKey(Block b) { return b.getWorld().getName()+":"+b.getX()+":"+b.getY()+":"+b.getZ(); }
     @EventHandler public void onMine(BlockBreakEvent event) {
