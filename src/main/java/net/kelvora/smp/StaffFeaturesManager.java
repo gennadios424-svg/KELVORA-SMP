@@ -101,9 +101,13 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                 Set.of("helper", "manager", "moderator", "mod", "admin", "owner", "staff").contains(key(r)));
         boolean media = isStaffOrMediaGroup(player, "media")
             || roles(player).stream().anyMatch(r -> Set.of("media", "creator").contains(key(r)));
-        // Exactly one displayed role: highest operational role wins, then Media, otherwise progression rank is shown.
-        if (isStaffOrMediaGroup(player, "owner") || isStaffOrMediaGroup(player, "admin")) return "&c&l[Staff]&r";
-        if (isStaffOrMediaGroup(player, "manager") || isStaffOrMediaGroup(player, "moderator") || isStaffOrMediaGroup(player, "mod") || isStaffOrMediaGroup(player, "helper") || isStaffOrMediaGroup(player, "staff") || staff) return "&c&l[Staff]&r";
+        // Show the actual operational rank, not a generic [Staff] label.
+        if (isStaffOrMediaGroup(player, "owner")) return "&a&l[Owner]&r";
+        if (isStaffOrMediaGroup(player, "manager")) return "&c&l[Manager]&r";
+        if (isStaffOrMediaGroup(player, "admin")) return "&c&l[Admin]&r";
+        if (isStaffOrMediaGroup(player, "moderator") || isStaffOrMediaGroup(player, "mod")) return "&9&l[Moderator]&r";
+        if (isStaffOrMediaGroup(player, "helper")) return "&a&l[Helper]&r";
+        if (isStaffOrMediaGroup(player, "staff") || staff) return "&9&l[Moderator]&r";
         if (media) return "&d&l[Media]&r";
         return "";
     }
