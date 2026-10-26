@@ -58,8 +58,14 @@ final class KelvoraQualityManager implements Listener {
         bind("economylog", (sender, args) -> {
             if (!sender.isOp() && !sender.hasPermission("kelvora.economy.audit")) { sender.sendMessage(ChatColor.RED + "You do not have permission."); return; }
             File log = new File(plugin.getDataFolder(), "economy-audit.log");
-            sender.sendMessage(ChatColor.GREEN + "Economy audit log: " + log.getAbsolutePath());
-            if (!log.exists()) sender.sendMessage(ChatColor.GRAY + "No transfer entries have been recorded yet.");
+            sender.sendMessage(ChatColor.GREEN + "Recent economy transfers:");
+            if (!log.exists()) { sender.sendMessage(ChatColor.GRAY + "No transfer entries have been recorded yet."); return; }
+            try {
+                java.util.List<String> lines = java.nio.file.Files.readAllLines(log.toPath());
+                int start = Math.max(0, lines.size() - 10);
+                for (int i = start; i < lines.size(); i++) sender.sendMessage(ChatColor.GRAY + lines.get(i));
+                sender.sendMessage(ChatColor.DARK_GRAY + "Showing up to the last 10 transfers. File: " + log.getAbsolutePath());
+            } catch (IOException ex) { sender.sendMessage(ChatColor.RED + "Could not read the economy audit log."); }
         });
         Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) {
