@@ -14,6 +14,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.entity.Monster;
+import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -174,6 +175,13 @@ final class EconomyFeaturesManager implements Listener {
                 item.remove();
                 removed++;
             }
+            // Only stale, unowned projectile entities are cleaned. Never delete living mobs,
+            // boats, villagers, armor stands, item frames, bosses, or other persistent entities.
+            for (Projectile projectile : world.getEntitiesByClass(Projectile.class)) {
+                if (projectile.isDead() || projectile.getTicksLived() < ITEM_MAX_AGE_TICKS || projectile.isInvulnerable()) continue;
+                projectile.remove();
+                removed++;
+            }
         }
         return removed;
     }
@@ -183,8 +191,8 @@ final class EconomyFeaturesManager implements Listener {
             sender.sendMessage(ChatColor.RED + "Only administrators can run the lag cleaner."); return true;
         }
         int removed = cleanOldDroppedItems();
-        sender.sendMessage(ChatColor.GREEN + "Lag cleaner removed " + removed + " ordinary dropped item entities older than 10 minutes.");
-        sender.sendMessage(ChatColor.GRAY + "Mobs (including zombies and snow golems), snowballs, boats, villagers, bosses, armor stands, XP orbs, named/custom drops and player inventories are untouched.");
+        sender.sendMessage(ChatColor.GREEN + "Lag cleaner removed " + removed + " ordinary dropped items and stale projectile entities older than 10 minutes.");
+        sender.sendMessage(ChatColor.GRAY + "Mobs (including zombies and snow golems), boats, villagers, bosses, armor stands, item frames, XP orbs, named/custom drops and player inventories are untouched. Old projectiles such as stray arrows and snowballs are cleaned after 10 minutes.");
         sender.sendMessage(ChatColor.GRAY + "Automatic cleanup runs every 10 minutes.");
         return true;
     }
