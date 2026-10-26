@@ -20,6 +20,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
@@ -38,6 +41,9 @@ final class TeleportSettingsManager implements Listener {
     private final Map<UUID, Boolean> allowTpa = new HashMap<>();
     private final Map<UUID, Boolean> allowTpahere = new HashMap<>();
     private final Map<UUID, Boolean> reduceNearbySpawns = new HashMap<>();
+    private final Map<UUID, Boolean> chatSounds = new HashMap<>();
+    private final Map<UUID, Boolean> joinQuitMessages = new HashMap<>();
+    private final Map<UUID, Boolean> sidebarEnabled = new HashMap<>();
     private final File file;
     private final YamlConfiguration data;
 
@@ -85,12 +91,18 @@ final class TeleportSettingsManager implements Listener {
         boolean tpa = allowTpa.getOrDefault(player.getUniqueId(), true);
         boolean here = allowTpahere.getOrDefault(player.getUniqueId(), true);
         boolean reduceSpawns = reduceNearbySpawns.getOrDefault(player.getUniqueId(), false);
+        inventory.setItem(10, named(chatSounds.getOrDefault(player.getUniqueId(), true) ? Material.NOTE_BLOCK : Material.GRAY_DYE,
+            "Chat sounds: " + (chatSounds.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "chat-sounds"));
         inventory.setItem(11, named(tpa ? Material.LIME_DYE : Material.GRAY_DYE,
             "Allow /tpa requests: " + (tpa ? "ON" : "OFF"), "allow-tpa"));
-        inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
-            "Allow /tpahere requests: " + (here ? "ON" : "OFF"), "allow-tpahere"));
+        inventory.setItem(12, named(joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? Material.OAK_SIGN : Material.GRAY_DYE,
+            "Join/quit messages: " + (joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "join-quit"));
         inventory.setItem(13, named(reduceSpawns ? Material.ZOMBIE_HEAD : Material.CREEPER_HEAD,
             "Reduce nearby hostile mob spawns: " + (reduceSpawns ? "ON" : "OFF"), "reduce-nearby-spawns"));
+        inventory.setItem(14, named(sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? Material.BOOK : Material.GRAY_DYE,
+            "Sidebar scoreboard: " + (sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "sidebar"));
+        inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
+            "Allow /tpahere requests: " + (here ? "ON" : "OFF"), "allow-tpahere"));
         inventory.setItem(22, named(Material.BARRIER, "Close", "close"));
     }
 
@@ -210,6 +222,22 @@ final class TeleportSettingsManager implements Listener {
                 refreshSettings(player, event.getView().getTopInventory());
                 player.sendMessage(ChatColor.GREEN + "Nearby natural hostile mob spawning: " + (reduceNearbySpawns.get(id) ? "reduced within the configured radius." : "normal."));
             }
+            case "chat-sounds" -> {
+                chatSounds.put(id, !chatSounds.getOrDefault(id, true));
+                data.set("players." + id + ".chat-sounds", chatSounds.get(id));
+                saveSettings(); refreshSettings(player, event.getView().getTopInventory());
+            }
+            case "join-quit" -> {
+                joinQuitMessages.put(id, !joinQuitMessages.getOrDefault(id, true));
+                data.set("players." + id + ".join-quit-messages", joinQuitMessages.get(id));
+                saveSettings(); refreshSettings(player, event.getView().getTopInventory());
+            }
+            case "sidebar" -> {
+                sidebarEnabled.put(id, !sidebarEnabled.getOrDefault(id, true));
+                data.set("players." + id + ".sidebar-enabled", sidebarEnabled.get(id));
+                saveSettings(); refreshSettings(player, event.getView().getTopInventory());
+                player.sendMessage(ChatColor.GREEN + "Sidebar scoreboard " + (sidebarEnabled.get(id) ? "enabled." : "disabled."));
+            }
             case "close" -> player.closeInventory();
         }
     }
@@ -217,6 +245,41 @@ final class TeleportSettingsManager implements Listener {
     @EventHandler
     public void onSettingsDrag(InventoryDragEvent event) {
         if (SETTINGS_TITLE.equals(ChatColor.stripColor(event.getView().getTitle()))) event.setCancelled(true);
+    }
+
+    boolean isSidebarEnabled(Player player) {
+        return sidebarEnabled.getOrDefault(player.getUniqueId(), data.getBoolean("players." + player.getUniqueId() + ".sidebar-enabled", true));
+    }
+
+    @EventHandler
+    public void onChatSound(AsyncChatEvent event) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (Player recipient : Bukkit.getOnlinePlayers()) {
+                if (chatSounds.getOrDefault(recipient.getUniqueId(), data.getBoolean("players." + recipient.getUniqueId() + ".chat-sounds", true))) {
+                    recipient.playSound(recipient.getLocation(), Sound.UI_BUTTON_CLICK, 0.25f, 1.8f);
+                }
+            }
+        });
+    }
+
+    @EventHandler
+    public void onJoinMessage(PlayerJoinEvent event) {
+        String message = event.getJoinMessage();
+        event.setJoinMessage(null);
+        if (message == null) return;
+        for (Player recipient : Bukkit.getOnlinePlayers()) {
+            if (joinQuitMessages.getOrDefault(recipient.getUniqueId(), data.getBoolean("players." + recipient.getUniqueId() + ".join-quit-messages", true))) recipient.sendMessage(message);
+        }
+    }
+
+    @EventHandler
+    public void onQuitMessage(PlayerQuitEvent event) {
+        String message = event.getQuitMessage();
+        event.setQuitMessage(null);
+        if (message == null) return;
+        for (Player recipient : Bukkit.getOnlinePlayers()) {
+            if (!recipient.getUniqueId().equals(event.getPlayer().getUniqueId()) && joinQuitMessages.getOrDefault(recipient.getUniqueId(), data.getBoolean("players." + recipient.getUniqueId() + ".join-quit-messages", true))) recipient.sendMessage(message);
+        }
     }
 
     private void loadSettings() {
@@ -229,6 +292,9 @@ final class TeleportSettingsManager implements Listener {
                 allowTpa.put(id, data.getBoolean("players." + raw + ".allow-tpa", true));
                 allowTpahere.put(id, data.getBoolean("players." + raw + ".allow-tpahere", true));
                 reduceNearbySpawns.put(id, data.getBoolean("players." + raw + ".reduce-nearby-hostile-spawns", false));
+                chatSounds.put(id, data.getBoolean("players." + raw + ".chat-sounds", true));
+                joinQuitMessages.put(id, data.getBoolean("players." + raw + ".join-quit-messages", true));
+                sidebarEnabled.put(id, data.getBoolean("players." + raw + ".sidebar-enabled", true));
             } catch (IllegalArgumentException ignored) { }
         }
     }
