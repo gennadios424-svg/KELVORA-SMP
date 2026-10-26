@@ -23,6 +23,7 @@ import org.bukkit.event.Listener;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
@@ -44,6 +45,7 @@ final class TeleportSettingsManager implements Listener {
     private final Map<UUID, Boolean> chatSounds = new HashMap<>();
     private final Map<UUID, Boolean> joinQuitMessages = new HashMap<>();
     private final Map<UUID, Boolean> sidebarEnabled = new HashMap<>();
+    private final Map<UUID, Boolean> receivePrivateMessages = new HashMap<>();
     private final File file;
     private final YamlConfiguration data;
 
@@ -103,6 +105,9 @@ final class TeleportSettingsManager implements Listener {
             "Sidebar scoreboard: " + (sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "sidebar"));
         inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
             "Allow /tpahere requests: " + (here ? "ON" : "OFF"), "allow-tpahere"));
+        boolean dms = receivePrivateMessages.getOrDefault(player.getUniqueId(), true);
+        inventory.setItem(16, named(dms ? Material.WRITABLE_BOOK : Material.BOOK,
+            "Private messages: " + (dms ? "ON" : "OFF"), "private-messages"));
         inventory.setItem(22, named(Material.BARRIER, "Close", "close"));
     }
 
@@ -238,6 +243,12 @@ final class TeleportSettingsManager implements Listener {
                 saveSettings(); refreshSettings(player, event.getView().getTopInventory());
                 player.sendMessage(ChatColor.GREEN + "Sidebar scoreboard " + (sidebarEnabled.get(id) ? "enabled." : "disabled."));
             }
+            case "private-messages" -> {
+                receivePrivateMessages.put(id, !receivePrivateMessages.getOrDefault(id, true));
+                data.set("players." + id + ".private-messages", receivePrivateMessages.get(id));
+                saveSettings(); refreshSettings(player, event.getView().getTopInventory());
+                player.sendMessage(ChatColor.GREEN + "Private messages " + (receivePrivateMessages.get(id) ? "enabled." : "muted."));
+            }
             case "close" -> player.closeInventory();
         }
     }
@@ -249,6 +260,25 @@ final class TeleportSettingsManager implements Listener {
 
     boolean isSidebarEnabled(Player player) {
         return sidebarEnabled.getOrDefault(player.getUniqueId(), data.getBoolean("players." + player.getUniqueId() + ".sidebar-enabled", true));
+    }
+
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPrivateMessageCommand(PlayerCommandPreprocessEvent event) {
+        String message = event.getMessage().trim();
+        if (message.isEmpty() || message.charAt(0) != '/') return;
+        String[] parts = message.substring(1).split("\\s+", 3);
+        if (parts.length < 2) return;
+        String command = parts[0].toLowerCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("msg", "message", "tell", "w", "whisper", "m").contains(command)) return;
+        Player sender = event.getPlayer();
+        Player recipient = Bukkit.getPlayerExact(parts[1]);
+        if (recipient == null || recipient.equals(sender)) return;
+        if (!receivePrivateMessages.getOrDefault(recipient.getUniqueId(),
+                data.getBoolean("players." + recipient.getUniqueId() + ".private-messages", true))) {
+            event.setCancelled(true);
+            sender.sendMessage(Component.text(recipient.getName() + " is not accepting private messages.", NamedTextColor.RED));
+        }
     }
 
     @EventHandler
@@ -295,6 +325,7 @@ final class TeleportSettingsManager implements Listener {
                 chatSounds.put(id, data.getBoolean("players." + raw + ".chat-sounds", true));
                 joinQuitMessages.put(id, data.getBoolean("players." + raw + ".join-quit-messages", true));
                 sidebarEnabled.put(id, data.getBoolean("players." + raw + ".sidebar-enabled", true));
+                receivePrivateMessages.put(id, data.getBoolean("players." + raw + ".private-messages", true));
             } catch (IllegalArgumentException ignored) { }
         }
     }
