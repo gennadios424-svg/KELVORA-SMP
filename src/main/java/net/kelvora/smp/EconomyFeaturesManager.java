@@ -152,7 +152,7 @@ final class EconomyFeaturesManager implements Listener {
         for (World world : Bukkit.getWorlds()) {
             for (Entity entity : world.getEntitiesByClass(Item.class)) {
                 Item item = (Item) entity;
-                if (!item.isDead() && !item.getItemStack().hasItemMeta() && !item.isInvulnerable()) {
+                if (!item.isDead() && item.getTicksLived() >= 1200 && !item.getItemStack().hasItemMeta() && !item.isInvulnerable()) {
                     item.remove();
                     removed++;
                 }
