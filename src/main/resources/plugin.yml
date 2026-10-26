@@ -1,9 +1,9 @@
 name: KelvoraSMP
-version: 2.27.0
+version: 2.28.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
-softdepend: [LuckPerms, Vault, PlaceholderAPI]
+softdepend: [LuckPerms, Vault, PlaceholderAPI, GrimAC]
 author: Kelvora SMP
 commands:
   booster:
