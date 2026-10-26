@@ -421,8 +421,8 @@ final class ShardShopManager implements Listener {
                     team.addEntry(player.getName());
                 }
             } else {
-                boolean wasGlowing = data.getBoolean(player.getUniqueId() + ".glow.previous-state", false);
-                if (!wasGlowing) player.setGlowing(false);
+                // Turning off a cosmetic glow must remove the outline itself, not only its colour team.
+                player.setGlowing(false);
                 data.set(player.getUniqueId() + ".glow.previous-state", null);
                 saveData();
                 removeGlowTeams(player);
@@ -434,7 +434,10 @@ final class ShardShopManager implements Listener {
         String teamName = "ksglow_" + player.getUniqueId().toString().substring(0, 8);
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             Team team = viewer.getScoreboard().getTeam(teamName);
-            if (team != null) team.removeEntry(player.getName());
+            if (team != null) {
+                team.removeEntry(player.getName());
+                if (team.getEntries().isEmpty()) team.unregister();
+            }
         }
     }
 
@@ -443,6 +446,15 @@ final class ShardShopManager implements Listener {
         if (id != null) {
             ConfigurationSection entry = plugin.getConfig().getConfigurationSection("shardshop.catalogue.glows." + id);
             if (entry != null) applyCosmetic(player, "glows", id, entry);
+        } else {
+            String statePath = player.getUniqueId() + ".glow.previous-state";
+            // Repair stale cosmetic outlines left by earlier versions/reloads.
+            if (data.contains(statePath)) {
+                player.setGlowing(false);
+                data.set(statePath, null);
+                saveData();
+                removeGlowTeams(player);
+            }
         }
     }
 
