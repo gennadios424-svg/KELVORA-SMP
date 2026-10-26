@@ -75,7 +75,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         meta.displayName(Component.text(pretty(id),NamedTextColor.GREEN));
         List<Component> lore=new ArrayList<>();
         switch(id){
-            case "drill"->{meta.addEnchant(Enchantment.EFFICIENCY,5,true);meta.addEnchant(Enchantment.UNBREAKING,3,true);meta.addEnchant(Enchantment.FORTUNE,3,true);meta.getPersistentDataContainer().set(createdKey,PersistentDataType.LONG,System.currentTimeMillis());meta.getPersistentDataContainer().set(expiresKey,PersistentDataType.LONG,System.currentTimeMillis()+plugin.getConfig().getLong("kelvora-tools.drill.lifetime-seconds",604800)*1000L);lore.add(Component.text("Mines a protected 3x3 plane",NamedTextColor.GRAY));}
+            case "drill"->{meta.addEnchant(Enchantment.EFFICIENCY,5,true);meta.addEnchant(Enchantment.UNBREAKING,3,true);meta.addEnchant(Enchantment.FORTUNE,3,true);meta.getPersistentDataContainer().set(createdKey,PersistentDataType.LONG,System.currentTimeMillis());meta.getPersistentDataContainer().set(expiresKey,PersistentDataType.LONG,System.currentTimeMillis()+plugin.getConfig().getLong("kelvora-tools.drill.lifetime-seconds",604800)*1000L);lore.add(Component.text("Mines a protected 9x9 area when digging down",NamedTextColor.GRAY));}
             case "gainer"->{meta.addEnchant(Enchantment.EFFICIENCY,5,true);meta.addEnchant(Enchantment.UNBREAKING,3,true);meta.addEnchant(Enchantment.FORTUNE,3,true);meta.getPersistentDataContainer().set(progressKey,PersistentDataType.INTEGER,0);meta.getPersistentDataContainer().set(targetKey,PersistentDataType.INTEGER,random.nextInt(Math.max(1,plugin.getConfig().getInt("kelvora-tools.gainer.max-interval",168)))+1);lore.add(Component.text("May find hidden Kelvoras while mining",NamedTextColor.AQUA));}
             case "sellaxe"->{meta.addEnchant(Enchantment.EFFICIENCY,5,true);meta.addEnchant(Enchantment.UNBREAKING,3,true);meta.addEnchant(Enchantment.FORTUNE,3,true);lore.add(Component.text("Automatically sells eligible drops for Money",NamedTextColor.GOLD));}
             default->{meta.addEnchant(Enchantment.EFFICIENCY,5,true);meta.addEnchant(Enchantment.UNBREAKING,3,true);meta.addEnchant(Enchantment.FORTUNE,3,true);lore.add(Component.text("Chops connected tree logs",NamedTextColor.GREEN));}
@@ -254,7 +254,7 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
         return false;
     }
 
-    private int maxBlocks(String type){return type.equals("drill")?9:Math.max(1,plugin.getConfig().getInt("kelvora-tools.treetrooper.max-logs",64));}
+    private int maxBlocks(String type){return type.equals("drill")?81:Math.max(1,plugin.getConfig().getInt("kelvora-tools.treetrooper.max-logs",64));}
     @EventHandler(priority=EventPriority.LOWEST)
     public void rememberMiningFace(PlayerInteractEvent event) {
         if(event.getAction()==Action.LEFT_CLICK_BLOCK && event.getClickedBlock()!=null
@@ -265,7 +265,9 @@ final class SpecialToolsManager implements Listener, CommandExecutor, TabComplet
     private List<Block> drillPlane(Block target,Player p){
         List<Block> out=new ArrayList<>();
         BlockFace face=lastMiningFace.getOrDefault(p.getUniqueId(),p.getFacing());
-        for(int a=-1;a<=1;a++)for(int b=-1;b<=1;b++){
+        // Floor/ceiling mining gets a 9x9 horizontal area; wall mining stays 3x3.
+        int radius=(face==BlockFace.UP||face==BlockFace.DOWN)?4:1;
+        for(int a=-radius;a<=radius;a++)for(int b=-radius;b<=radius;b++){
             Block block;
             if(face==BlockFace.UP||face==BlockFace.DOWN)block=target.getRelative(a,0,b);
             else if(face==BlockFace.EAST||face==BlockFace.WEST)block=target.getRelative(0,a,b);
