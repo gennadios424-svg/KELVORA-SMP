@@ -174,16 +174,6 @@ commands:
     description: Delete a saved home
     usage: /delhome <name>
 
-  guide:
-    description: Open the Kelvora player guide
-    usage: /guide
-  quests:
-    description: View daily and weekly Kelvora quests
-    usage: /quests
-  economylog:
-    description: View the economy audit log location
-    usage: /economylog
-    permission: kelvora.economy.audit
   discord:
     description: Get the Kelvora SMP Discord invite
     usage: /discord
@@ -215,9 +205,6 @@ commands:
     usage: /vanish
 
 permissions:
-  kelvora.economy.audit:
-    description: Receive large transfer alerts and view the economy audit log
-    default: op
   kelvora.admin.optimize:
     description: Run the safe lag cleaner and performance settings
     default: op
