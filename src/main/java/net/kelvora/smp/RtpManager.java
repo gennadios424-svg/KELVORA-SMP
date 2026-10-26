@@ -155,8 +155,8 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
         final World selectedWorld = target;
         Location origin = player.getLocation().clone();
         countdownOrigins.put(player.getUniqueId(), origin.clone());
-        final int[] seconds = {2};
-        player.sendActionBar(Component.text("RTP in 2s — Don't move!", NamedTextColor.YELLOW));
+        final int[] seconds = {5};
+        player.sendActionBar(Component.text("RTP in 5s — Don't move!", NamedTextColor.YELLOW));
         BukkitTask countdown = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             @Override public void run() {
                 UUID id = player.getUniqueId();
@@ -262,21 +262,22 @@ final class RtpManager implements Listener, CommandExecutor, TabCompleter {
         // walkable floor instead of repeatedly selecting the roof and timing out.
         int minY = world.getMinHeight() + 1;
         int maxFloorY = world.getEnvironment() == World.Environment.NETHER
-            ? Math.min(world.getMaxHeight() - 3, 125)
+            ? Math.min(world.getMaxHeight() - 3, 120)
             : world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
-        for (int floorY = maxFloorY; floorY >= minY; floorY--) {
+        int scanFloor = world.getEnvironment() == World.Environment.NETHER ? Math.max(minY, 32) : Math.max(minY, maxFloorY - 8);
+        for (int floorY = maxFloorY; floorY >= scanFloor; floorY--) {
             int feetY = floorY + 1;
             if (feetY + 1 >= world.getMaxHeight()) continue;
             if (!safeFloor(world.getBlockAt(x, floorY, z))) continue;
             if (!safeBody(world.getBlockAt(x, feetY, z)) || !safeBody(world.getBlockAt(x, feetY + 1, z))) continue;
             Location feet = new Location(world, x + 0.5, feetY, z + 0.5);
             if (!insideBorderWithMargin(world.getWorldBorder(), feet)) continue;
-            int support = 0;
-            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
-                if (safeFloor(world.getBlockAt(x + dx, floorY, z + dz))) support++;
-            }
-            if (support >= 5) return feet;
-            if (world.getEnvironment() != World.Environment.NETHER) return null;
+            int support = 1;
+            if (safeFloor(world.getBlockAt(x + 1, floorY, z))) support++;
+            if (safeFloor(world.getBlockAt(x - 1, floorY, z))) support++;
+            if (safeFloor(world.getBlockAt(x, floorY, z + 1))) support++;
+            if (safeFloor(world.getBlockAt(x, floorY, z - 1))) support++;
+            if (support >= 3) return feet;
         }
         return null;
     }
