@@ -1,5 +1,7 @@
 package net.kelvora.smp;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -14,72 +16,58 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/** Prevents repeated chat messages and obvious random-letter spam. */
+/**
+ * Conservative chat anti-spam: repeated text and sustained rapid posting only.
+ * It deliberately does not classify ordinary words as "gibberish".
+ */
 final class ChatSpamProtectionManager implements Listener {
-    private static final long REPEAT_WINDOW_MS = 8_000L;
+    private static final long REPEAT_WINDOW_MS = 5_000L;
+    private static final long RATE_WINDOW_MS = 4_000L;
+    private static final int MAX_MESSAGES_IN_WINDOW = 5;
     private final JavaPlugin plugin;
     private final Map<UUID, String> lastMessage = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastMessageAt = new ConcurrentHashMap<>();
+    private final Map<UUID, Deque<Long>> recentMessages = new ConcurrentHashMap<>();
 
-    ChatSpamProtectionManager(JavaPlugin plugin) {
-        this.plugin = plugin;
-    }
+    ChatSpamProtectionManager(JavaPlugin plugin) { this.plugin = plugin; }
 
-    void register() {
-        Bukkit.getPluginManager().registerEvents(this, plugin);
-    }
+    void register() { Bukkit.getPluginManager().registerEvents(this, plugin); }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onChat(AsyncPlayerChatEvent event) {
-        Player player = event.getPlayer();
-        UUID id = player.getUniqueId();
-        String message = normalize(event.getMessage());
+        UUID id = event.getPlayer().getUniqueId();
         long now = System.currentTimeMillis();
+        String message = normalize(event.getMessage());
         String previous = lastMessage.get(id);
         long previousAt = lastMessageAt.getOrDefault(id, 0L);
 
-        if (previous != null && now - previousAt <= REPEAT_WINDOW_MS
-                && (message.equals(previous) || hasGibberishSuffix(message, previous))) {
-            cancel(event, player, ChatColor.RED + "Please don't repeat the same message. Chat is protected by Kelvora SMP.");
+        if (message.isBlank()) return;
+        if (previous != null && message.equals(previous) && now - previousAt <= REPEAT_WINDOW_MS) {
+            warn(event, event.getPlayer(), "Please don't repeat the same message. Chat is protected by Kelvora SMP.");
             return;
         }
 
-        if (containsRandomLetterSpam(message)) {
-            cancel(event, player, ChatColor.RED + "Please don't spam random letters. Chat is protected by Kelvora SMP.");
-            return;
+        Deque<Long> times = recentMessages.computeIfAbsent(id, ignored -> new ArrayDeque<>());
+        synchronized (times) {
+            while (!times.isEmpty() && now - times.peekFirst() > RATE_WINDOW_MS) times.removeFirst();
+            if (times.size() >= MAX_MESSAGES_IN_WINDOW) {
+                warn(event, event.getPlayer(), "You're chatting too quickly. Please slow down. Chat is protected by Kelvora SMP.");
+                return;
+            }
+            times.addLast(now);
         }
 
         lastMessage.put(id, message);
         lastMessageAt.put(id, now);
     }
 
-    private void cancel(AsyncPlayerChatEvent event, Player player, String warning) {
-        event.setCancelled(true);
-        Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(warning));
-    }
-
     private String normalize(String message) {
-        return message.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ")
-                .replaceAll("\\s+", " ").trim();
+        return message.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
     }
 
-    private boolean hasGibberishSuffix(String message, String previous) {
-        if (!message.startsWith(previous + " ")) return false;
-        String suffix = message.substring(previous.length()).trim();
-        return containsRandomLetterSpam(suffix);
-    }
-
-    private boolean containsRandomLetterSpam(String message) {
-        for (String token : message.split(" ")) {
-            String letters = token.replaceAll("[^a-z]", "");
-            if (letters.length() < 6) continue;
-            int vowels = 0;
-            for (int i = 0; i < letters.length(); i++) {
-                if ("aeiouy".indexOf(letters.charAt(i)) >= 0) vowels++;
-            }
-            if (vowels == 0 || (letters.length() >= 8 && vowels * 10 < letters.length() * 2)) return true;
-        }
-        return false;
+    private void warn(AsyncPlayerChatEvent event, Player player, String message) {
+        event.setCancelled(true);
+        Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(ChatColor.RED + message));
     }
 
     @EventHandler
@@ -87,5 +75,6 @@ final class ChatSpamProtectionManager implements Listener {
         UUID id = event.getPlayer().getUniqueId();
         lastMessage.remove(id);
         lastMessageAt.remove(id);
+        recentMessages.remove(id);
     }
 }
