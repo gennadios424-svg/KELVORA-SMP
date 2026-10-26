@@ -311,7 +311,7 @@ final class ShardShopManager implements Listener {
         if (shown == 0) add(inv, 22, Material.PAPER, "&7&lNOTHING TO SHOW", List.of("&8No cosmetics in this view yet", "&7Visit the main ShardShop to browse all items"), "info");
         if (ownedOnly && activeCosmetic(player.getUniqueId(), category) != null) {
             String disableLabel = category.equals("glows") ? "&c&lDISABLE GLOW" : category.equals("tags") ? "&c&lDISABLE TAG" : "&c&lDISABLE COSMETIC";
-            add(inv, 40, Material.BARRIER, disableLabel, List.of("&7Turn off your currently equipped cosmetic"), "disable:" + category);
+            add(inv, 47, Material.BARRIER, disableLabel, List.of("&7Turn off your currently equipped cosmetic"), "disable:" + category);
         }
         add(inv, 45, Material.ARROW, "&e&lBACK", List.of("&7Return to ShardShop categories"), "back");
         add(inv, 49, Material.AMETHYST_SHARD, "&b&lKELVORAS: ✦" + KelvorasManager.format(currency.balance(player)), List.of("&7Your current balance"), "info");
