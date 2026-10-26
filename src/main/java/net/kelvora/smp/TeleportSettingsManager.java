@@ -37,6 +37,7 @@ final class TeleportSettingsManager implements Listener {
     private final Map<UUID, Request> pending = new HashMap<>();
     private final Map<UUID, Boolean> allowTpa = new HashMap<>();
     private final Map<UUID, Boolean> allowTpahere = new HashMap<>();
+    private final Map<UUID, Boolean> reduceNearbySpawns = new HashMap<>();
     private final File file;
     private final YamlConfiguration data;
 
@@ -83,10 +84,13 @@ final class TeleportSettingsManager implements Listener {
         }
         boolean tpa = allowTpa.getOrDefault(player.getUniqueId(), true);
         boolean here = allowTpahere.getOrDefault(player.getUniqueId(), true);
+        boolean reduceSpawns = reduceNearbySpawns.getOrDefault(player.getUniqueId(), false);
         inventory.setItem(11, named(tpa ? Material.LIME_DYE : Material.GRAY_DYE,
             "Allow /tpa requests: " + (tpa ? "ON" : "OFF"), "allow-tpa"));
         inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
             "Allow /tpahere requests: " + (here ? "ON" : "OFF"), "allow-tpahere"));
+        inventory.setItem(13, named(reduceSpawns ? Material.ZOMBIE_HEAD : Material.CREEPER_HEAD,
+            "Reduce nearby hostile mob spawns: " + (reduceSpawns ? "ON" : "OFF"), "reduce-nearby-spawns"));
         inventory.setItem(22, named(Material.BARRIER, "Close", "close"));
     }
 
@@ -199,6 +203,13 @@ final class TeleportSettingsManager implements Listener {
                 saveSettings();
                 refreshSettings(player, event.getView().getTopInventory());
             }
+            case "reduce-nearby-spawns" -> {
+                reduceNearbySpawns.put(id, !reduceNearbySpawns.getOrDefault(id, false));
+                data.set("players." + id + ".reduce-nearby-hostile-spawns", reduceNearbySpawns.get(id));
+                saveSettings();
+                refreshSettings(player, event.getView().getTopInventory());
+                player.sendMessage(ChatColor.GREEN + "Nearby natural hostile mob spawning: " + (reduceNearbySpawns.get(id) ? "reduced within the configured radius." : "normal."));
+            }
             case "close" -> player.closeInventory();
         }
     }
@@ -217,6 +228,7 @@ final class TeleportSettingsManager implements Listener {
                 UUID id = UUID.fromString(raw);
                 allowTpa.put(id, data.getBoolean("players." + raw + ".allow-tpa", true));
                 allowTpahere.put(id, data.getBoolean("players." + raw + ".allow-tpahere", true));
+                reduceNearbySpawns.put(id, data.getBoolean("players." + raw + ".reduce-nearby-hostile-spawns", false));
             } catch (IllegalArgumentException ignored) { }
         }
     }
