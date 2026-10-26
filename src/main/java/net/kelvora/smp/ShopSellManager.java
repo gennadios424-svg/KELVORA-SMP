@@ -596,7 +596,10 @@ final class ShopSellManager implements Listener {
             p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.25f);
             p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
                 + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
-            openCategory(p, session.category, session.page);
+            // Reopen next tick: opening inside InventoryClickEvent can be overwritten by close handling.
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (p.isOnline()) openCategory(p, session.category, session.page);
+            });
         } finally {
             transactions.remove(p.getUniqueId());
         }
