@@ -9,6 +9,10 @@ performance:
   view-distance: 16
   simulation-distance: 8
 
+settings:
+  nearby-mob-spawn-toggle-enabled: true
+  nearby-mob-spawn-radius: 24
+
 # Optional Money rewards for killing hostile mobs. Set enabled: false to disable globally.
 mob-payments:
   enabled: true
