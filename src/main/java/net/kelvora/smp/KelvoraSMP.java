@@ -113,6 +113,7 @@ implements Listener {
         new HomesManager(this, combatManager).register();
         new TeleportSettingsManager(this, combatManager).register();
         new EconomyFeaturesManager(this).register();
+        new KelvoraQualityManager(this, this.kelvorasManager).register();
         this.teamManager = new TeamManager(this);
         this.teamManager.register();
         new RankKitManager(this).register();
