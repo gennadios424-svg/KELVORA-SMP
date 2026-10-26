@@ -77,6 +77,7 @@ implements Listener {
     private ShardShopManager shardShopManager;
     private TeamManager teamManager;
     private StaffFeaturesManager staffFeaturesManager;
+    private TeleportSettingsManager teleportSettingsManager;
     private int refreshTask;
     private int tabFrame;
     private int footerFrame;
@@ -111,7 +112,8 @@ implements Listener {
         new CoinflipManager(this, combatManager).register();
         new RtpManager(this, combatManager).register();
         new HomesManager(this, combatManager).register();
-        new TeleportSettingsManager(this, combatManager).register();
+        this.teleportSettingsManager = new TeleportSettingsManager(this, combatManager);
+        this.teleportSettingsManager.register();
         new EconomyFeaturesManager(this).register();
         new KelvoraQualityManager(this, this.kelvorasManager).register();
         this.teamManager = new TeamManager(this);
@@ -362,6 +364,11 @@ implements Listener {
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         } else {
             objective.displayName(Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
+        }
+        if (this.teleportSettingsManager != null && !this.teleportSettingsManager.isSidebarEnabled(player)) {
+            objective.setDisplaySlot(null);
+        } else {
+            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         }
         int kills = player.getStatistic(Statistic.PLAYER_KILLS);
         int deaths = player.getStatistic(Statistic.DEATHS);
