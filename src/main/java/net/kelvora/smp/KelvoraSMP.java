@@ -52,6 +52,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.Plugin;
@@ -79,6 +80,9 @@ implements Listener {
     private int tabFrame;
     private int footerFrame;
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<UUID, Scoreboard>();
+    private final Map<UUID, Long> lastMovementAt = new HashMap<>();
+    private final Set<UUID> afkPlayers = new java.util.HashSet<>();
+    private static final long AFK_AFTER_MS = 30L * 60L * 1000L;
 
     public void onEnable() {
         this.saveDefaultConfig();
@@ -224,6 +228,8 @@ implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        this.lastMovementAt.put(player.getUniqueId(), System.currentTimeMillis());
+        this.afkPlayers.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask((Plugin)this, () -> {
             this.updatePlayer(player);
             String ip = this.getConfig().getString("server-address", "Configure server-address");
@@ -234,6 +240,25 @@ implements Listener {
             player.sendMessage(Component.text("Java + Bedrock • Use /discord to join our community.", NamedTextColor.GRAY));
             player.sendMessage(Component.text("━━━━━━━━━━━━━━━━━━━━━━━━━━━━", NamedTextColor.DARK_GREEN));
         });
+    }
+
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        if (event.getTo() == null) return;
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (from.getWorld() == null || to.getWorld() == null) return;
+        // Head turns do not count as movement; only changing position resets the 30-minute AFK timer.
+        if (from.getWorld().equals(to.getWorld()) && from.getBlockX() == to.getBlockX()
+                && from.getBlockY() == to.getBlockY() && from.getBlockZ() == to.getBlockZ()) return;
+        UUID id = event.getPlayer().getUniqueId();
+        this.lastMovementAt.put(id, System.currentTimeMillis());
+        if (this.afkPlayers.remove(id)) {
+            Bukkit.getScheduler().runTask(this, () -> {
+                Player player = Bukkit.getPlayer(id);
+                if (player != null) this.updatePlayer(player);
+            });
+        }
     }
 
     @EventHandler
@@ -250,6 +275,8 @@ implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         this.playerBoards.remove(player.getUniqueId());
+        this.lastMovementAt.remove(player.getUniqueId());
+        this.afkPlayers.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask((Plugin)this, () -> {
             if (player.getScoreboard() == Bukkit.getScoreboardManager().getMainScoreboard()
                     || player.getScoreboard().getObjective("kelvora") != null) {
@@ -269,9 +296,15 @@ implements Listener {
         ShardShopManager cosmetics = this.shardShopManager;
         String cosmeticTag = cosmetics == null ? null : cosmetics.equippedTagFormatted(player);
         String cosmeticSuffix = cosmeticTag == null ? "" : " " + cosmeticTag;
+        long now = System.currentTimeMillis();
+        long lastMovement = this.lastMovementAt.computeIfAbsent(player.getUniqueId(), ignored -> now);
+        boolean afk = now - lastMovement >= AFK_AFTER_MS;
+        if (afk) this.afkPlayers.add(player.getUniqueId());
+        else this.afkPlayers.remove(player.getUniqueId());
         String extraRoles = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
         String liveLabel = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.liveTabLabel(player);
-        player.setPlayerListName((extraRoles.isBlank() ? this.color(rankColor + "[" + rankLabel + "]") : this.color(extraRoles)) + " " + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
+        String afkLabel = afk ? this.color("&8[&7&lAFK&8]") + " " : "";
+        player.setPlayerListName(afkLabel + (extraRoles.isBlank() ? this.color(rankColor + "[" + rankLabel + "]") : this.color(extraRoles)) + " " + player.getName() + cosmeticSuffix + (liveLabel.isBlank() ? "" : " " + liveLabel));
 
         double balance = this.economyBalance(player);
         String moneyCompact = Double.isFinite(balance) ? this.formatMoney(balance) : "Not connected";
@@ -308,7 +341,7 @@ implements Listener {
                 targetTeam.setColor(sourceTeam.getColor());
                 for (String entry : sourceTeam.getEntries()) targetTeam.addEntry(entry);
             }
-            Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("🌿 KELVORA ", NamedTextColor.GREEN).append(Component.text("SMP", NamedTextColor.WHITE)));
+            Objective created = board.registerNewObjective("kelvora", "dummy", Component.text("✦ KELVORA ", NamedTextColor.GREEN).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD).append(Component.text("SMP", NamedTextColor.WHITE).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD)));
             created.setDisplaySlot(DisplaySlot.SIDEBAR);
             for (int i = 0; i < 9; ++i) {
                 String entry = ChatColor.values()[i].toString() + ChatColor.RESET;
@@ -354,8 +387,37 @@ implements Listener {
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
         }
-        // Do not wipe external scoreboard teams: head/nameplate plugins rely on their entries.
+        // Keep cosmetic glow teams intact while adding compact Money + Team labels above players.
         if (this.shardShopManager != null) this.shardShopManager.refreshCosmetics(player);
+        this.updateNameplateTeams(player, moneyCompact, teamName, afk);
+    }
+
+    private void updateNameplateTeams(Player target, String moneyCompact, String teamName, boolean afk) {
+        String uuidPart = target.getUniqueId().toString().substring(0, 8);
+        String headTeamName = "khead_" + uuidPart;
+        String glowTeamName = "ksglow_" + uuidPart;
+        String prefix = this.color("&a$" + moneyCompact + " &8» ");
+        String suffix = this.color(" &8[&b" + teamName + "&8]" + (afk ? " &8[&7&lAFK&8]" : ""));
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            Scoreboard board = viewer.getScoreboard();
+            Team glowTeam = board.getTeam(glowTeamName);
+            boolean glowing = glowTeam != null && glowTeam.hasEntry(target.getName());
+            Team displayTeam = glowing ? glowTeam : board.getTeam(headTeamName);
+            if (displayTeam == null) displayTeam = board.registerNewTeam(glowing ? glowTeamName : headTeamName);
+            for (Team other : new java.util.ArrayList<>(board.getTeams())) {
+                if (!other.getName().equals(displayTeam.getName()) && other.hasEntry(target.getName())
+                        && (other.getName().startsWith("khead_") || other.getName().startsWith("ksglow_"))) {
+                    other.removeEntry(target.getName());
+                }
+            }
+            // If a different plugin already assigned the entry, move it so the requested nameplate is visible.
+            for (Team other : new java.util.ArrayList<>(board.getTeams())) {
+                if (!other.getName().equals(displayTeam.getName()) && other.hasEntry(target.getName())) other.removeEntry(target.getName());
+            }
+            displayTeam.setPrefix(this.trimLegacy(prefix, 64));
+            displayTeam.setSuffix(this.trimLegacy(suffix, 64));
+            if (!displayTeam.hasEntry(target.getName())) displayTeam.addEntry(target.getName());
+        }
     }
 
     // Remove external scoreboard prefix/suffix text from player nameplates (e.g. Money/Team).
