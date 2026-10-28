@@ -64,7 +64,7 @@ jobs:
           unzip -p "$JAR" plugin.yml | grep -q 'meta:'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/MetaManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/MovementCompatibilityManager.class'
-          grep -q 'Prevent hostile mobs spawning near you' src/main/java/net/kelvora/smp/TeleportSettingsManager.java
+          grep -q 'Mob Spawning in My Chunk: UNAVAILABLE' src/main/java/net/kelvora/smp/TeleportSettingsManager.java
           unzip -p "$JAR" plugin.yml | grep -q 'kelvoras:'
           unzip -p "$JAR" plugin.yml | grep -q 'shardshop:'
           unzip -p "$JAR" plugin.yml | grep -q 'shards:'

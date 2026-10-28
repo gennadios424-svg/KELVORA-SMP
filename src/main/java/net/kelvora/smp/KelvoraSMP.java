@@ -103,7 +103,7 @@ implements Listener {
         new Phase32Commands(this, this.kelvorasManager).register();
         this.worthManager = new WorthManager(this);
         this.worthManager.register();
-        new MetaManager(this).register();
+        new MetaManager(this, this.worthManager).register();
         new MovementCompatibilityManager(this).register();
         new ShopSellManager(this).register();
         new AuctionHouseManager(this).register();

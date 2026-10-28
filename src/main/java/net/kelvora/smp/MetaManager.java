@@ -22,9 +22,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 final class MetaManager implements Listener, CommandExecutor {
     private static final String TITLE = "KELVORA // META";
     private final JavaPlugin plugin;
+    private final WorthManager worthManager;
 
-    MetaManager(JavaPlugin plugin) {
+    MetaManager(JavaPlugin plugin, WorthManager worthManager) {
         this.plugin = plugin;
+        this.worthManager = worthManager;
     }
 
     void register() {
@@ -47,25 +49,29 @@ final class MetaManager implements Listener, CommandExecutor {
                 inventory.setItem(slot, pane.clone());
             }
         }
-        inventory.setItem(11, pricedItem(Material.KELP, "Kelp", 200));
-        inventory.setItem(13, pricedItem(Material.PINK_PETALS, "Pink Petals", 150));
-        inventory.setItem(15, pricedItem(Material.SEA_PICKLE, "Sea Pickle", 125));
+        inventory.setItem(11, pricedItem(Material.KELP, "Kelp", worthManager.priceOf(Material.KELP)));
+        inventory.setItem(13, pricedItem(Material.PINK_PETALS, "Pink Petals", worthManager.priceOf(Material.PINK_PETALS)));
+        inventory.setItem(15, pricedItem(Material.SEA_PICKLE, "Sea Pickle", worthManager.priceOf(Material.SEA_PICKLE)));
         inventory.setItem(22, named(Material.BARRIER, "Close"));
         player.openInventory(inventory);
         return true;
     }
 
-    private ItemStack pricedItem(Material material, String displayName, int price) {
+    private ItemStack pricedItem(Material material, String displayName, double price) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(displayName, NamedTextColor.WHITE));
         meta.lore(List.of(
-            Component.text("Worth: $" + price + " each", NamedTextColor.GREEN),
-            Component.text("Stack of 64: $" + (price * 64), NamedTextColor.AQUA),
+            Component.text("Worth: $" + formatPrice(price) + " each", NamedTextColor.GREEN),
+            Component.text("Stack of 64: $" + formatPrice(price * 64), NamedTextColor.AQUA),
             Component.text("Value shown from /worth", NamedTextColor.GRAY)
         ));
         item.setItemMeta(meta);
         return item;
+    }
+
+    private String formatPrice(double value) {
+        return java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(value);
     }
 
     private ItemStack named(Material material, String name) {

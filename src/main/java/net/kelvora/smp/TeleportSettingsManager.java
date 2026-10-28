@@ -107,8 +107,7 @@ final class TeleportSettingsManager implements Listener {
             "Allow /tpa requests: " + (tpa ? "ON" : "OFF"), "allow-tpa"));
         inventory.setItem(12, named(joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? Material.OAK_SIGN : Material.GRAY_DYE,
             "Join/quit messages: " + (joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "join-quit"));
-        inventory.setItem(13, named(reduceSpawns ? Material.ZOMBIE_HEAD : Material.CREEPER_HEAD,
-            "Prevent hostile mobs spawning near you: " + (reduceSpawns ? "ON" : "OFF"), "reduce-nearby-spawns"));
+        inventory.setItem(13, unavailableChunkMobSetting());
         inventory.setItem(14, named(sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? Material.BOOK : Material.GRAY_DYE,
             "Sidebar scoreboard: " + (sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "sidebar"));
         inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
@@ -117,6 +116,19 @@ final class TeleportSettingsManager implements Listener {
         inventory.setItem(16, named(dms ? Material.WRITABLE_BOOK : Material.BOOK,
             "Private messages: " + (dms ? "ON" : "OFF"), "private-messages"));
         inventory.setItem(22, named(Material.BARRIER, "Close", "close"));
+    }
+
+    private ItemStack unavailableChunkMobSetting() {
+        ItemStack item = new ItemStack(Material.BARRIER);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text("Mob Spawning in My Chunk: UNAVAILABLE", NamedTextColor.RED));
+        meta.lore(java.util.List.of(
+            Component.text("Requires a reliable land-claim system.", NamedTextColor.GRAY),
+            Component.text("Kelvora teams do not own chunks.", NamedTextColor.GRAY),
+            Component.text("No spawning changes are applied.", NamedTextColor.YELLOW)
+        ));
+        item.setItemMeta(meta);
+        return item;
     }
 
     private ItemStack named(Material material, String title, String action) {
@@ -267,27 +279,14 @@ final class TeleportSettingsManager implements Listener {
         }
     }
 
-    /** Enforce the per-player nearby hostile-spawn setting. */
+    /**
+     * Do not cancel spawning based only on a player standing nearby. This server has
+     * cooperative teams but no authoritative chunk-claim ownership model. Re-enable only
+     * after a claim integration can verify chunk owner/member permissions per world.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onNearbyHostileSpawn(CreatureSpawnEvent event) {
-        if (!plugin.getConfig().getBoolean("settings.nearby-mob-spawn-toggle-enabled", true)) return;
-        if (!(event.getEntity() instanceof Monster)) return;
-        CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
-        if (reason != CreatureSpawnEvent.SpawnReason.NATURAL
-                && reason != CreatureSpawnEvent.SpawnReason.REINFORCEMENTS) return;
-        Location spawn = event.getLocation();
-        int radius = Math.max(0, plugin.getConfig().getInt("settings.nearby-mob-spawn-radius", 24));
-        if (radius == 0) return;
-        double radiusSquared = (double) radius * radius;
-        for (Player player : spawn.getWorld().getPlayers()) {
-            UUID id = player.getUniqueId();
-            boolean enabled = reduceNearbySpawns.getOrDefault(id,
-                    data.getBoolean("players." + id + ".reduce-nearby-hostile-spawns", false));
-            if (enabled && player.getLocation().distanceSquared(spawn) <= radiusSquared) {
-                event.setCancelled(true);
-                return;
-            }
-        }
+        // Intentionally no-op until safe, claim-based ownership is available.
     }
 
     @EventHandler
