@@ -360,9 +360,10 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             double weight;
             try { index = Integer.parseInt(args[2]) - 1; weight = Double.parseDouble(args[3]); }
             catch (NumberFormatException ex) { sender.sendMessage("Index and weight must be numbers."); return true; }
-            List<String> rewards = configuredRewards(type == null ? "" : type);
-            if (type == null || index < 0 || index >= rewards.size() || !Double.isFinite(weight) || weight <= 0) {
-                sender.sendMessage("Invalid crate type, 1-based reward index, or weight."); return true;
+            if (type == null) { sender.sendMessage("Types: " + String.join(", ", TYPES)); return true; }
+            List<String> rewards = configuredRewards(type);
+            if (index < 0 || index >= rewards.size() || !Double.isFinite(weight) || weight <= 0) {
+                sender.sendMessage("Invalid 1-based reward index or weight."); return true;
             }
             String[] parts = rewards.get(index).split(":", 5);
             if (parts.length < 4) { sender.sendMessage("That reward entry is invalid."); return true; }
