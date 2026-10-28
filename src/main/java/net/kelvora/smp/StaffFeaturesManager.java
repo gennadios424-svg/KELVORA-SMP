@@ -451,7 +451,8 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (suspects!=null) {
             int slot=0;
             List<String> ordered = new ArrayList<>(suspects.getKeys(false));
-            ordered.sort((a,b) -> Integer.compare(suspects.getInt(b + ".score"), suspects.getInt(a + ".score")));
+            final ConfigurationSection sortedSuspects = suspects;
+            ordered.sort((a,b) -> Integer.compare(sortedSuspects.getInt(b + ".score"), sortedSuspects.getInt(a + ".score")));
             for (String uuidText:ordered) {
                 if(slot>=45) break;
                 UUID id; try { id=UUID.fromString(uuidText); } catch(IllegalArgumentException ex) { continue; }
