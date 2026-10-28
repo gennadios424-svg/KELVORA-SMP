@@ -1,11 +1,27 @@
 name: KelvoraSMP
-version: 2.36.0
+version: 2.37.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
 softdepend: [LuckPerms, Vault, PlaceholderAPI, GrimAC]
 author: Kelvora SMP
 commands:
+  setspawn:
+    description: Set the server spawn at your current location
+    usage: /setspawn
+    permission: kelvora.spawn.admin
+  spawn:
+    description: Open the spawn teleport confirmation menu
+    usage: /spawn
+    permission: kelvora.spawn.use
+  setafk:
+    description: Add, list, remove, or clear AFK lounge locations
+    usage: /setafk [add|list|remove <number>|clear]
+    permission: kelvora.afk.admin
+  afk:
+    description: Teleport to a random AFK lounge and earn Kelvoras
+    usage: /afk
+    permission: kelvora.afk.use
   booster:
     description: Claim daily Booster rank keys
     usage: /booster
@@ -208,6 +224,18 @@ commands:
     usage: /vanish
 
 permissions:
+  kelvora.spawn.admin:
+    description: Set the server spawn location
+    default: op
+  kelvora.spawn.use:
+    description: Use the spawn teleport menu
+    default: true
+  kelvora.afk.admin:
+    description: Manage AFK lounge locations
+    default: op
+  kelvora.afk.use:
+    description: Use the AFK lounge
+    default: true
   kelvora.admin.optimize:
     description: Run the safe lag cleaner and performance settings
     default: op
