@@ -56,7 +56,7 @@ jobs:
           jar tf "$JAR" | grep -q 'net/kelvora/smp/KelvorasManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/ShardShopManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/CrateManager.class'
-          grep -q 'resetCratesOnceFor238' src/main/java/net/kelvora/smp/CrateManager.java
+          grep -q 'installFinalCratePackOnce239' src/main/java/net/kelvora/smp/CrateManager.java
           grep -q 'Added and saved' src/main/java/net/kelvora/smp/CrateManager.java
           grep -q 'Removed and saved reward' src/main/java/net/kelvora/smp/CrateManager.java
           test "$(grep -c '^      rewards: \[\]$' src/main/resources/config.yml)" -eq 5
