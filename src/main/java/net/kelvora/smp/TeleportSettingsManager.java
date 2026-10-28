@@ -1,3 +1,4 @@
+// 2.35.0: keep the nearby hostile-spawn setting wired to its config switch.
 package net.kelvora.smp;
 
 import java.io.File;
