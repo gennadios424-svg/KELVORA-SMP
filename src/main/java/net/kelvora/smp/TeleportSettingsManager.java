@@ -107,7 +107,8 @@ final class TeleportSettingsManager implements Listener {
             "Allow /tpa requests: " + (tpa ? "ON" : "OFF"), "allow-tpa"));
         inventory.setItem(12, named(joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? Material.OAK_SIGN : Material.GRAY_DYE,
             "Join/quit messages: " + (joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "join-quit"));
-        inventory.setItem(13, unavailableChunkMobSetting());
+        inventory.setItem(13, named(reduceSpawns ? Material.LIME_DYE : Material.GRAY_DYE,
+            "Mob spawning near me: " + (reduceSpawns ? "OFF" : "ON"), "reduce-nearby-spawns"));
         inventory.setItem(14, named(sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? Material.BOOK : Material.GRAY_DYE,
             "Sidebar scoreboard: " + (sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "sidebar"));
         inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
@@ -116,19 +117,6 @@ final class TeleportSettingsManager implements Listener {
         inventory.setItem(16, named(dms ? Material.WRITABLE_BOOK : Material.BOOK,
             "Private messages: " + (dms ? "ON" : "OFF"), "private-messages"));
         inventory.setItem(22, named(Material.BARRIER, "Close", "close"));
-    }
-
-    private ItemStack unavailableChunkMobSetting() {
-        ItemStack item = new ItemStack(Material.BARRIER);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("Mob Spawning in My Chunk: UNAVAILABLE", NamedTextColor.RED));
-        meta.lore(java.util.List.of(
-            Component.text("Requires a reliable land-claim system.", NamedTextColor.GRAY),
-            Component.text("Kelvora teams do not own chunks.", NamedTextColor.GRAY),
-            Component.text("No spawning changes are applied.", NamedTextColor.YELLOW)
-        ));
-        item.setItemMeta(meta);
-        return item;
     }
 
     private ItemStack named(Material material, String title, String action) {
@@ -359,6 +347,23 @@ final class TeleportSettingsManager implements Listener {
         if (message == null) return;
         for (Player recipient : Bukkit.getOnlinePlayers()) {
             if (!recipient.getUniqueId().equals(event.getPlayer().getUniqueId()) && joinQuitMessages.getOrDefault(recipient.getUniqueId(), data.getBoolean("players." + recipient.getUniqueId() + ".join-quit-messages", true))) recipient.sendMessage(message);
+        }
+    }
+
+    // Personal opt-out from natural mob spawns within 20 chunks (320 blocks) of an opted-in player.
+    @EventHandler
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        if (event.getSpawnReason() != CreatureSpawnEvent.SpawnReason.NATURAL) return;
+        if (!(event.getEntity() instanceof org.bukkit.entity.Mob)) return;
+        Location spawn = event.getLocation();
+        final double radiusSquared = 320.0 * 320.0;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!reduceNearbySpawns.getOrDefault(player.getUniqueId(), false)) continue;
+            if (!player.getWorld().equals(spawn.getWorld())) continue;
+            if (player.getLocation().distanceSquared(spawn) <= radiusSquared) {
+                event.setCancelled(true);
+                return;
+            }
         }
     }
 
