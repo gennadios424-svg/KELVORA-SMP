@@ -166,6 +166,7 @@ implements Listener {
             this.updatePlayer(player);
         }
         new PassiveKelvorasManager(this).register();
+        new SpawnAfkManager(this, this.kelvorasManager).register();
         this.registerModerationCommands();
         this.getLogger().info("Kelvora SMP presentation enabled.");
     }
@@ -304,7 +305,7 @@ implements Listener {
         String cosmeticSuffix = cosmeticTag == null ? "" : " " + cosmeticTag;
         long now = System.currentTimeMillis();
         long lastMovement = this.lastMovementAt.computeIfAbsent(player.getUniqueId(), ignored -> now);
-        boolean afk = now - lastMovement >= AFK_AFTER_MS;
+        boolean afk = SpawnAfkManager.isAfk(player) || now - lastMovement >= AFK_AFTER_MS;
         if (afk) this.afkPlayers.add(player.getUniqueId());
         else this.afkPlayers.remove(player.getUniqueId());
         String extraRoles = this.staffFeaturesManager == null ? "" : this.staffFeaturesManager.tabLabels(player);
@@ -483,6 +484,7 @@ implements Listener {
     }
     TeamManager getTeamManager() { return this.teamManager; }
     void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
+    void refreshPresentation(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
 
     Component chatRankPrefix(Player player) {
         String key = this.rankKey(player);
