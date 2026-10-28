@@ -30,7 +30,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.ConfigurationSection;
 
 final class CrateManager implements Listener, CommandExecutor, TabCompleter {
-    private static final List<String> TYPES = List.of("common", "kelvora", "gold", "spawner", "crimson");
+    private static final List<String> TYPES = List.of("common", "gold", "crimson", "kelvora");
     private final JavaPlugin plugin;
     private final NamespacedKey holoKey;
     private final File dataFile;
@@ -59,6 +59,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         data = YamlConfiguration.loadConfiguration(dataFile);
         migrateLegacyGamblingKeys();
         resetCratesOnceFor238();
+        installFinalCratePackOnce239();
         loadLocations();
         rebuildHolograms();
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -120,6 +121,46 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 + cleared + "/5 crate types. Player digital key balances were preserved.");
     }
 
+    /**
+     * One-time 2.39.0 crate migration: install the requested four weighted reward pools
+     * and remove obsolete Spawner crates without touching other plugin systems.
+     */
+    private void installFinalCratePackOnce239() {
+        if ("2.39.0".equals(data.getString("meta.final-crate-pack-version", ""))) return;
+        for (String key : new ArrayList<>(data.getKeys(false))) {
+            if ("players".equalsIgnoreCase(key) || "meta".equalsIgnoreCase(key)) continue;
+            String type = data.getString(key + ".type", "common");
+            if ("spawner".equalsIgnoreCase(type) || "gambling".equalsIgnoreCase(type)) {
+                String worldName = data.getString(key + ".location.world");
+                World world = worldName == null ? null : Bukkit.getWorld(worldName);
+                if (world != null && data.contains(key + ".location.x") && data.contains(key + ".location.y") && data.contains(key + ".location.z")) {
+                    Location loc = new Location(world, data.getInt(key + ".location.x"), data.getInt(key + ".location.y"), data.getInt(key + ".location.z"));
+                    if (loc.getBlock().getType().name().endsWith("_SHULKER_BOX")) loc.getBlock().setType(Material.AIR, false);
+                }
+                data.set(key, null);
+            } else {
+                String normalized = validType(type);
+                if (normalized != null) data.set(key + ".type", normalized);
+            }
+        }
+        ConfigurationSection players = data.getConfigurationSection("players");
+        if (players != null) for (String uuid : players.getKeys(false)) data.set("players." + uuid + ".spawner", null);
+        for (String type : TYPES) {
+            YamlConfiguration cfg = crateConfig(type);
+            String base = "crates.types." + type;
+            cfg.set("name", plugin.getConfig().getString(base + ".name", titleCase(type) + " Crate"));
+            cfg.set("description", plugin.getConfig().getString(base + ".description", "Special rewards"));
+            cfg.set("block", plugin.getConfig().getString(base + ".block", defaultBlock(type)));
+            cfg.set("rewards", plugin.getConfig().getStringList(base + ".rewards"));
+            cfg.set("exact-chances", null);
+            try { cfg.save(new File(crateConfigDirectory, type + ".yml")); }
+            catch (IOException ex) { plugin.getLogger().severe("Could not install " + type + " crate rewards: " + ex.getMessage()); }
+        }
+        data.set("meta.final-crate-pack-version", "2.39.0");
+        if (!save()) plugin.getLogger().severe("Could not persist 2.39.0 crate migration marker.");
+        plugin.getLogger().info("Installed the four final crate reward pools (Common, Gold, Crimson, Kelvora) and removed obsolete Spawner crates.");
+    }
+
     private void migrateLegacyGamblingKeys() {
         ConfigurationSection players = data.getConfigurationSection("players");
         if (players == null) return;
@@ -175,7 +216,6 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             case "common" -> "LIGHT_GRAY_SHULKER_BOX";
             case "kelvora" -> "GREEN_SHULKER_BOX";
             case "gold" -> "YELLOW_SHULKER_BOX";
-            case "spawner" -> "PURPLE_SHULKER_BOX";
             case "crimson" -> "RED_SHULKER_BOX";
             default -> "SHULKER_BOX";
         };
@@ -361,7 +401,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         for (int i = 0; i < 45; i++) {
             if (i >= rewards.size()) continue;
             String entry = rewards.get(i);
-            String[] bits = entry.split(":", 4);
+            String[] bits = entry.split(":", 5);
             if (bits.length < 4) continue;
             Material material = Material.matchMaterial(bits[0]);
             String kind = bits[0].toUpperCase(Locale.ROOT);
@@ -372,19 +412,24 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             ItemStack icon = new ItemStack(material, 1);
             ItemMeta meta = icon.getItemMeta();
             meta.displayName(Component.text(bits[0] + " x" + bits[1], NamedTextColor.AQUA));
-            meta.lore(List.of(Component.text("Weight: " + bits[2], NamedTextColor.GRAY), Component.text("Rarity: " + bits[3], NamedTextColor.GRAY), Component.text("Click to remove this reward", NamedTextColor.RED)));
+            List<Component> rewardLore = new ArrayList<>();
+            rewardLore.add(Component.text("Weight: " + bits[2], NamedTextColor.GRAY));
+            rewardLore.add(Component.text("Rarity: " + bits[3], NamedTextColor.GRAY));
+            if (bits.length > 4 && !bits[4].isBlank()) rewardLore.add(Component.text("Enchants: " + bits[4], NamedTextColor.LIGHT_PURPLE));
+            rewardLore.add(Component.text("Click to remove this reward", NamedTextColor.RED));
+            meta.lore(rewardLore);
             icon.setItemMeta(meta);
             inv.setItem(i, icon);
         }
         inv.setItem(45, button(Material.BARRIER, "&cCancel", List.of("&7Discard unsaved edits")));
         inv.setItem(49, button(Material.EMERALD, "&a&lSAVE REWARDS", List.of("&7Save reward list safely", "&7New inventory items use weight 1 / Common")));
-        inv.setItem(53, button(Material.HOPPER, "&eAdd from inventory", List.of("&7Click an item in your inventory", "&7to add a copy as a reward", "&7Enchantments/custom metadata are not yet supported by this editor")));
+        inv.setItem(53, button(Material.HOPPER, "&eAdd from inventory", List.of("&7Click an item in your inventory", "&7to add a copy as a reward", "&7Use /crate add for enchanted gear and custom tools")));
         player.openInventory(inv);
     }
 
     private boolean saveEditedRewards(String type, List<String> rewards) {
         for (String entry : rewards) {
-            String[] bits = entry.split(":", 4);
+            String[] bits = entry.split(":", 5);
             if (bits.length < 4) return false;
             try {
                 double weight = Double.parseDouble(bits[2]);
@@ -399,6 +444,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                     Material material = Material.matchMaterial(bits[0]);
                     int amount = Integer.parseInt(bits[1]);
                     if (!isAllowedReward(material) || amount <= 0 || amount > material.getMaxStackSize()) return false;
+                    if (bits.length > 4 && !bits[4].isBlank() && parseEnchantments(bits[4]) == null) return false;
                 }
             } catch (RuntimeException ex) { return false; }
         }
@@ -422,22 +468,101 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         }
     }
 
+    private Map<org.bukkit.enchantments.Enchantment, Integer> parseEnchantments(String raw) {
+        Map<org.bukkit.enchantments.Enchantment, Integer> result = new LinkedHashMap<>();
+        if (raw == null || raw.isBlank()) return result;
+        for (String part : raw.split(",")) {
+            String[] pair = part.trim().split("=", 2);
+            if (pair.length != 2) return null;
+            org.bukkit.enchantments.Enchantment enchantment = org.bukkit.Registry.ENCHANTMENT.get(
+                    org.bukkit.NamespacedKey.minecraft(pair[0].trim().toLowerCase(Locale.ROOT)));
+            if (enchantment == null) return null;
+            try {
+                int level = Integer.parseInt(pair[1].trim());
+                if (level < 1 || level > enchantment.getMaxLevel()) return null;
+                result.put(enchantment, level);
+            } catch (NumberFormatException ex) { return null; }
+        }
+        return result;
+    }
+
+    private double chancePercent(String type, String selectedEntry) {
+        List<String> entries = configuredRewards(type);
+        double total = 0.0, selectedWeight = 0.0;
+        for (String entry : entries) {
+            String[] parts = entry.split(":", 5);
+            if (parts.length < 4) continue;
+            try {
+                double weight = Double.parseDouble(parts[2]);
+                if (!Double.isFinite(weight) || weight <= 0) continue;
+                total += weight;
+                if (entry.equals(selectedEntry)) selectedWeight = weight;
+            } catch (NumberFormatException ignored) { }
+        }
+        return total <= 0 ? 0.0 : selectedWeight * 100.0 / total;
+    }
+
+    private String rewardLabel(String[] bits) {
+        String kind = bits[0].toUpperCase(Locale.ROOT);
+        if (kind.equals("MONEY")) return "$" + bits[1] + " Money";
+        if (kind.equals("KELVORAS")) return bits[1] + " Kelvoras";
+        if (kind.equals("COMMAND")) {
+            String command = bits[1].toLowerCase(Locale.ROOT);
+            if (command.contains(" drill")) return "Kelvora Drill";
+            if (command.contains(" gainer")) return "Kelvora Gainer";
+            if (command.contains(" sellaxe")) return "Kelvora Sellaxe";
+            if (command.contains(" treetrooper")) return "Kelvora Tree Trooper";
+            return "Special reward";
+        }
+        Material material = Material.matchMaterial(bits[0]);
+        return material == null ? bits[0] : titleCase(material.name().toLowerCase(Locale.ROOT).replace('_', ' ')) + " x" + bits[1];
+    }
+
     private void openAdmin(Player p) {
         Inventory inv=Bukkit.createInventory(null,27,Component.text(ADMIN,NamedTextColor.DARK_GREEN));
         protectedInventories.add(inv);
         int slot=10;for(String type:TYPES){ItemStack item=new ItemStack(Material.CHEST);ItemMeta meta=item.getItemMeta();meta.displayName(color("&6"+titleCase(type)+" Crate"));meta.lore(List.of(color("&7Spawn a physical crate"),color("&fClick to spawn at your target/location")));item.setItemMeta(meta);inv.setItem(slot++,item);}
         ItemStack list=new ItemStack(Material.PAPER);ItemMeta lm=list.getItemMeta();lm.displayName(color("&aRegistered crates: "+crates.size()));list.setItemMeta(lm);inv.setItem(22,list);p.openInventory(inv);
     }
-    private void openCrate(Player p,String type) {
-        openCrate.put(p.getUniqueId(),type);
-        Inventory inv=Bukkit.createInventory(null,27,Component.text(GUI+" | "+titleCase(type),NamedTextColor.DARK_GREEN));
+
+    private void openCrate(Player p, String type) {
+        openCrate.put(p.getUniqueId(), type);
+        Inventory inv = Bukkit.createInventory(null, 54, Component.text(GUI + " | " + titleCase(type), NamedTextColor.DARK_GREEN));
         protectedInventories.add(inv);
-        inv.setItem(4,button(Material.matchMaterial(defaultBlock(type)) == null ? Material.SHULKER_BOX : Material.matchMaterial(defaultBlock(type)),"&6&l"+titleCase(type)+" Crate",List.of("&7"+plugin.getConfig().getString("crates.types."+type+".description","Special rewards"))));
-        inv.setItem(13,button(Material.TRIPWIRE_HOOK,"&eYour Keys: &f"+keys(p,type),List.of("&7Digital keys only","&7One key per successful opening")));
-        List<String> rewards=configuredRewards(type);
-        int slot=9;for(String entry:rewards){String[] bits=entry.split(":",4);if(bits.length<4)continue;String kind=bits[0].toUpperCase(Locale.ROOT);Material mat=Material.matchMaterial(bits[0]);if(kind.equals("KELVORAS")){inv.setItem(slot++,button(Material.AMETHYST_SHARD,"&b"+bits[1]+" Kelvoras",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("MONEY")){inv.setItem(slot++,button(Material.GOLD_INGOT,"&6$"+bits[1]+" Money",List.of("&7Possible currency reward","&8Tier: "+bits[3])));}else if(kind.equals("COMMAND")){inv.setItem(slot++,button(Material.COMMAND_BLOCK,"&dSpecial reward",List.of("&7Server reward","&8Tier: "+bits[3])));}else if(mat!=null&&isAllowedReward(mat)){inv.setItem(slot++,button(mat,"&f"+titleCase(mat.name().toLowerCase(Locale.ROOT).replace('_',' ')),List.of("&7Possible reward","&8Tier: "+bits[3])));}if(slot>=18)break;}
-        inv.setItem(22,button(Material.LIME_DYE,"&a&lOPEN CRATE",List.of("&7Consume one "+titleCase(type)+" key","&7Rewards are randomly selected")));
-        inv.setItem(26,button(Material.BARRIER,"&cClose",List.of()));
+        Material crateMaterial = Material.matchMaterial(defaultBlock(type));
+        inv.setItem(4, button(crateMaterial == null ? Material.SHULKER_BOX : crateMaterial,
+                "&6&l" + titleCase(type) + " Crate",
+                List.of("&7" + crateConfig(type).getString("description", "Special rewards"),
+                        "&7Each displayed chance is the real drop chance.")));
+        inv.setItem(0, button(Material.TRIPWIRE_HOOK, "&eYour Keys: &f" + keys(p, type),
+                List.of("&7Digital keys only", "&7One key per successful opening")));
+        List<String> rewards = configuredRewards(type);
+        int slot = 9;
+        for (String entry : rewards) {
+            if (slot > 44) break;
+            String[] bits = entry.split(":", 5);
+            if (bits.length < 4) continue;
+            String kind = bits[0].toUpperCase(Locale.ROOT);
+            Material icon;
+            if (kind.equals("KELVORAS")) icon = Material.AMETHYST_SHARD;
+            else if (kind.equals("MONEY")) icon = Material.GOLD_INGOT;
+            else if (kind.equals("COMMAND")) {
+                String label = rewardLabel(bits);
+                icon = label.contains("Drill") ? Material.DIAMOND_PICKAXE
+                    : label.contains("Gainer") ? Material.NETHERITE_PICKAXE
+                    : label.contains("Sellaxe") || label.contains("Tree Trooper") ? Material.NETHERITE_AXE : Material.NETHER_STAR;
+            } else icon = Material.matchMaterial(bits[0]);
+            if (icon == null || !icon.isItem()) continue;
+            double chance = chancePercent(type, entry);
+            List<String> lore = new ArrayList<>();
+            lore.add("&7Chance: &f" + String.format(Locale.US, "%.2f", chance) + "%");
+            lore.add("&8Rarity: " + bits[3]);
+            if (bits.length > 4 && !bits[4].isBlank()) lore.add("&dEnchants: " + bits[4]);
+            inv.setItem(slot++, button(icon, "&f" + rewardLabel(bits), lore));
+        }
+        inv.setItem(49, button(Material.LIME_DYE, "&a&lOPEN CRATE",
+                List.of("&7Consume one " + titleCase(type) + " key", "&7Reward is selected server-side")));
+        inv.setItem(53, button(Material.BARRIER, "&cClose", List.of()));
         p.openInventory(inv);
     }
     private ItemStack button(Material m,String name,List<String> lore){ItemStack i=new ItemStack(m);ItemMeta meta=i.getItemMeta();meta.displayName(color(name));meta.lore(lore.stream().map(this::color).toList());i.setItemMeta(meta);return i;}
@@ -548,8 +673,8 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         }
         String type = openCrate.get(p.getUniqueId());
         if (type == null) return;
-        if (e.getRawSlot() == 26) { p.closeInventory(); return; }
-        if (e.getRawSlot() != 22 || !opening.add(p.getUniqueId())) return;
+        if (e.getRawSlot() == 53) { p.closeInventory(); return; }
+        if (e.getRawSlot() != 49 || !opening.add(p.getUniqueId())) return;
         if (keys(p, type) <= 0) {
             p.sendMessage(Component.text("You need a " + titleCase(type) + " key.", NamedTextColor.RED));
             opening.remove(p.getUniqueId()); return;
@@ -559,7 +684,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             p.sendMessage(Component.text("No valid rewards configured; your key was not used.", NamedTextColor.RED));
             opening.remove(p.getUniqueId()); return;
         }
-        String[] bits = reward.split(":", 4);
+        String[] bits = reward.split(":", 5);
         final String rewardKind = bits[0].toUpperCase(Locale.ROOT);
         final double rewardValue;
         final int rewardAmount;
@@ -586,6 +711,12 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 rewardAmount = amount;
                 rewardMaterial = mat;
                 rewardItem = new ItemStack(mat, amount);
+                if (bits.length > 4 && !bits[4].isBlank()) {
+                    Map<org.bukkit.enchantments.Enchantment, Integer> enchants = parseEnchantments(bits[4]);
+                    if (enchants == null) throw new IllegalArgumentException("Invalid reward enchantments");
+                    for (Map.Entry<org.bukkit.enchantments.Enchantment, Integer> enchant : enchants.entrySet())
+                        rewardItem.addUnsafeEnchantment(enchant.getKey(), enchant.getValue());
+                }
             }
         } catch (Exception ex) {
             p.sendMessage(Component.text("Configured reward is invalid. Your key was not used.", NamedTextColor.RED));
@@ -734,7 +865,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             List<String> entries = configuredRewards(type);
             if (entries.isEmpty()) plugin.getLogger().warning("Crate '" + type + "' has no configured rewards.");
             for (String entry : entries) {
-                String[] b = entry.split(":", 4);
+                String[] b = entry.split(":", 5);
                 boolean valid = false;
                 if (b.length >= 4) {
                     String kind = b[0].toUpperCase(Locale.ROOT);
@@ -750,6 +881,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                             Material material = Material.matchMaterial(b[0]);
                             int amount = Integer.parseInt(b[1]);
                             valid &= isAllowedReward(material) && amount > 0 && amount <= material.getMaxStackSize();
+                            if (b.length > 4 && !b[4].isBlank()) valid &= parseEnchantments(b[4]) != null;
                         }
                     } catch (Exception ex) { valid = false; }
                 }
@@ -761,7 +893,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 for (String key : chances.getKeys(false)) {
                     double percent = chances.getDouble(key, -1);
                     Material material = Material.matchMaterial(key);
-                    boolean present = entries.stream().anyMatch(value -> value.split(":", 4)[0].equalsIgnoreCase(key));
+                    boolean present = entries.stream().anyMatch(value -> value.split(":", 5)[0].equalsIgnoreCase(key));
                     if (!Double.isFinite(percent) || percent < 0 || percent >= 100 || !isAllowedReward(material) || !present) {
                         plugin.getLogger().warning("Invalid or disabled exact chance in crates.types." + type + ".exact-chances." + key + ": " + percent);
                     } else totalChance += percent;
@@ -771,52 +903,40 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         }
     }
 
+
     private String chooseReward(String type) {
-        List<String> entries = configuredRewards(type);
-        ConfigurationSection chanceSection = crateConfig(type).getConfigurationSection("exact-chances");
-        Set<String> exactChanceMaterials = new HashSet<>();
-        if (chanceSection != null) {
-            double totalExact = 0;
-            for (String key : chanceSection.getKeys(false)) {
-                double percent = chanceSection.getDouble(key, -1);
-                if (!Double.isFinite(percent) || percent < 0 || percent >= 100) { plugin.getLogger().warning("Invalid exact crate chance " + type + "." + key + "=" + percent); continue; }
-                Material material = Material.matchMaterial(key);
-                if (!isAllowedReward(material) || entries.stream().noneMatch(entry -> entry.split(":", 4)[0].equalsIgnoreCase(material.name()))) {
-                    plugin.getLogger().warning("Invalid or disabled exact-chance reward material " + type + "." + key); continue;
-                }
-                totalExact += percent;
-                exactChanceMaterials.add(material.name());
-            }
-            if (totalExact >= 100) { plugin.getLogger().warning("Exact chances for crate " + type + " must total less than 100%."); return null; }
-            double chanceRoll = random.nextDouble() * 100.0;
-            double cumulativeChance = 0.0;
-            for (String key : chanceSection.getKeys(false)) {
-                double percent = chanceSection.getDouble(key, -1);
-                Material material = Material.matchMaterial(key);
-                if (!isAllowedReward(material) || !Double.isFinite(percent) || percent < 0 || percent >= 100) continue;
-                cumulativeChance += percent;
-                if (chanceRoll < cumulativeChance) {
-                    for (String entry : entries) if (entry.split(":", 4)[0].equalsIgnoreCase(material.name())) return entry;
-                    return material.name() + ":1:1:Mythic";
-                }
-            }
-        }
-        List<String> valid = new ArrayList<>(); double total = 0;
-        for (String entry : entries) {
-            String[] b = entry.split(":", 4); if (b.length < 4 || exactChanceMaterials.contains(b[0].toUpperCase(Locale.ROOT))) continue;
-            double w; try { w = Double.parseDouble(b[2]); } catch (Exception ex) { continue; }
-            if (!Double.isFinite(w) || w <= 0) continue;
-            String kind = b[0].toUpperCase(Locale.ROOT); boolean ok = false;
+        List<String> valid = new ArrayList<>();
+        double total = 0.0;
+        for (String entry : configuredRewards(type)) {
+            String[] bits = entry.split(":", 5);
+            if (bits.length < 4) continue;
+            boolean ok = false;
             try {
-                if (kind.equals("KELVORAS") || kind.equals("MONEY")) { double amount = Double.parseDouble(b[1]); ok = Double.isFinite(amount) && amount > 0; }
-                else if (kind.equals("COMMAND")) ok = !b[1].isBlank();
-                else { Material m = Material.matchMaterial(b[0]); int a = Integer.parseInt(b[1]); ok = isAllowedReward(m) && a > 0 && a <= m.getMaxStackSize(); }
-            } catch (Exception ignored) { }
-            if (!ok) continue; total += w; valid.add(entry);
+                double weight = Double.parseDouble(bits[2]);
+                if (!Double.isFinite(weight) || weight <= 0) continue;
+                String kind = bits[0].toUpperCase(Locale.ROOT);
+                if (kind.equals("KELVORAS") || kind.equals("MONEY")) {
+                    double amount = Double.parseDouble(bits[1]);
+                    ok = Double.isFinite(amount) && amount > 0;
+                } else if (kind.equals("COMMAND")) {
+                    ok = !bits[1].isBlank();
+                } else {
+                    Material material = Material.matchMaterial(bits[0]);
+                    int amount = Integer.parseInt(bits[1]);
+                    ok = isAllowedReward(material) && amount > 0 && amount <= material.getMaxStackSize();
+                    if (ok && bits.length > 4 && !bits[4].isBlank()) ok = parseEnchantments(bits[4]) != null;
+                }
+                if (!ok) continue;
+                total += weight;
+                valid.add(entry);
+            } catch (RuntimeException ignored) { }
         }
         if (total <= 0) return null;
         double pick = random.nextDouble() * total;
-        for (String entry : valid) { pick -= Double.parseDouble(entry.split(":", 4)[2]); if (pick <= 0) return entry; }
+        for (String entry : valid) {
+            pick -= Double.parseDouble(entry.split(":", 5)[2]);
+            if (pick < 0) return entry;
+        }
         return valid.get(valid.size() - 1);
     }
     private boolean save(){try{data.save(dataFile);return true;}catch(IOException e){plugin.getLogger().severe("Could not save crate data: "+e.getMessage());return false;}}
