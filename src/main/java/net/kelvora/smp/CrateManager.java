@@ -126,7 +126,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
      * and remove obsolete Spawner crates without touching other plugin systems.
      */
     private void installFinalCratePackOnce239() {
-        if ("2.39.0".equals(data.getString("meta.final-crate-pack-version", ""))) return;
+        if ("2.39.1".equals(data.getString("meta.final-crate-pack-version", ""))) return;
         for (String key : new ArrayList<>(data.getKeys(false))) {
             if ("players".equalsIgnoreCase(key) || "meta".equalsIgnoreCase(key)) continue;
             String type = data.getString(key + ".type", "common");
@@ -151,14 +151,59 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             cfg.set("name", plugin.getConfig().getString(base + ".name", titleCase(type) + " Crate"));
             cfg.set("description", plugin.getConfig().getString(base + ".description", "Special rewards"));
             cfg.set("block", plugin.getConfig().getString(base + ".block", defaultBlock(type)));
-            cfg.set("rewards", plugin.getConfig().getStringList(base + ".rewards"));
+            cfg.set("rewards", defaultCrateRewards(type));
             cfg.set("exact-chances", null);
             try { cfg.save(new File(crateConfigDirectory, type + ".yml")); }
             catch (IOException ex) { plugin.getLogger().severe("Could not install " + type + " crate rewards: " + ex.getMessage()); }
         }
-        data.set("meta.final-crate-pack-version", "2.39.0");
+        data.set("meta.final-crate-pack-version", "2.39.1");
         if (!save()) plugin.getLogger().severe("Could not persist 2.39.0 crate migration marker.");
-        plugin.getLogger().info("Installed the four final crate reward pools (Common, Gold, Crimson, Kelvora) and removed obsolete Spawner crates.");
+        plugin.getLogger().info("Installed the four final crate reward pools (Common, Gold, Crimson, Kelvora) from bundled defaults and removed obsolete Spawner crates.");
+    }
+
+    private List<String> defaultCrateRewards(String type) {
+        return switch (type.toLowerCase(Locale.ROOT)) {
+            case "common" -> List.of(
+                "DIAMOND_SWORD:1:7:Common:SHARPNESS=2,UNBREAKING=2",
+                "DIAMOND_PICKAXE:1:7:Common:EFFICIENCY=2,UNBREAKING=2",
+                "DIAMOND_AXE:1:7:Uncommon:SHARPNESS=2,EFFICIENCY=2,UNBREAKING=2",
+                "DIAMOND_SHOVEL:1:7:Common:EFFICIENCY=2,UNBREAKING=2",
+                "DIAMOND_HELMET:1:7:Uncommon:PROTECTION=2,UNBREAKING=2",
+                "DIAMOND_CHESTPLATE:1:7:Uncommon:PROTECTION=2,UNBREAKING=2",
+                "DIAMOND_LEGGINGS:1:7:Uncommon:PROTECTION=2,UNBREAKING=2",
+                "DIAMOND_BOOTS:1:7:Uncommon:PROTECTION=2,FEATHER_FALLING=2,UNBREAKING=2",
+                "KELP:32:10:Common", "PINK_PETALS:32:10:Common",
+                "MONEY:250:14:Common", "KELVORAS:100:10:Common");
+            case "gold" -> List.of(
+                "DIAMOND_SWORD:1:9:Rare:SHARPNESS=4,UNBREAKING=3,LOOTING=2",
+                "DIAMOND_PICKAXE:1:9:Rare:EFFICIENCY=4,UNBREAKING=3,FORTUNE=2",
+                "DIAMOND_AXE:1:9:Rare:SHARPNESS=4,EFFICIENCY=4,UNBREAKING=3",
+                "DIAMOND_SHOVEL:1:9:Rare:EFFICIENCY=4,UNBREAKING=3,SILK_TOUCH=1",
+                "DIAMOND_HELMET:1:9:Rare:PROTECTION=3,UNBREAKING=3,RESPIRATION=3,AQUA_AFFINITY=1",
+                "DIAMOND_CHESTPLATE:1:9:Epic:PROTECTION=4,UNBREAKING=3",
+                "DIAMOND_LEGGINGS:1:9:Rare:PROTECTION=3,UNBREAKING=3,SWIFT_SNEAK=2",
+                "DIAMOND_BOOTS:1:9:Epic:PROTECTION=3,FEATHER_FALLING=4,UNBREAKING=3,DEPTH_STRIDER=3",
+                "MONEY:2500:16:Rare", "KELVORAS:1000:12:Rare");
+            case "crimson" -> List.of(
+                "NETHERITE_SWORD:1:7:Epic:SHARPNESS=4,UNBREAKING=3,LOOTING=3",
+                "NETHERITE_SWORD:1:7:Legendary:SHARPNESS=5,UNBREAKING=3",
+                "NETHERITE_PICKAXE:1:7:Epic:EFFICIENCY=5,FORTUNE=3,UNBREAKING=3",
+                "NETHERITE_PICKAXE:1:7:Legendary:EFFICIENCY=5,SILK_TOUCH=1,UNBREAKING=3",
+                "NETHERITE_AXE:1:7:Legendary:SHARPNESS=5,EFFICIENCY=5,UNBREAKING=3",
+                "NETHERITE_HELMET:1:7:Epic:PROTECTION=4,UNBREAKING=3,RESPIRATION=3,AQUA_AFFINITY=1",
+                "NETHERITE_CHESTPLATE:1:7:Epic:PROTECTION=4,UNBREAKING=3",
+                "NETHERITE_LEGGINGS:1:7:Epic:PROTECTION=4,UNBREAKING=3,SWIFT_SNEAK=3",
+                "NETHERITE_BOOTS:1:7:Epic:PROTECTION=4,FEATHER_FALLING=4,UNBREAKING=3,DEPTH_STRIDER=3",
+                "NETHERITE_INGOT:1:10:Rare", "NETHERITE_INGOT:2:4:Epic",
+                "MONEY:15000:13:Epic", "KELVORAS:5000:10:Epic");
+            case "kelvora" -> List.of(
+                "COMMAND:kelvoratools give {player} drill:17:Mythic",
+                "COMMAND:kelvoratools give {player} gainer:17:Mythic",
+                "COMMAND:kelvoratools give {player} sellaxe:12:Legendary",
+                "COMMAND:kelvoratools give {player} treetrooper:12:Legendary",
+                "MONEY:25000:21:Epic", "KELVORAS:10000:21:Epic");
+            default -> List.of();
+        };
     }
 
     private void migrateLegacyGamblingKeys() {
