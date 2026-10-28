@@ -18,6 +18,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Monster;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -25,6 +26,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
@@ -261,6 +263,28 @@ final class TeleportSettingsManager implements Listener {
                 player.sendMessage(ChatColor.GREEN + "Death messages " + (showDeathMessages.get(id) ? "shown." : "hidden."));
             }
             case "close" -> player.closeInventory();
+        }
+    }
+
+    /** Enforce the per-player nearby hostile-spawn setting. */
+    @EventHandler(ignoreCancelled = true)
+    public void onNearbyHostileSpawn(CreatureSpawnEvent event) {
+        if (!(event.getEntity() instanceof Monster)) return;
+        CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
+        if (reason != CreatureSpawnEvent.SpawnReason.NATURAL
+                && reason != CreatureSpawnEvent.SpawnReason.REINFORCEMENTS) return;
+        Location spawn = event.getLocation();
+        int radius = Math.max(0, plugin.getConfig().getInt("settings.nearby-mob-spawn-radius", 24));
+        if (radius == 0) return;
+        double radiusSquared = (double) radius * radius;
+        for (Player player : spawn.getWorld().getPlayers()) {
+            UUID id = player.getUniqueId();
+            boolean enabled = reduceNearbySpawns.getOrDefault(id,
+                    data.getBoolean("players." + id + ".reduce-nearby-hostile-spawns", false));
+            if (enabled && player.getLocation().distanceSquared(spawn) <= radiusSquared) {
+                event.setCancelled(true);
+                return;
+            }
         }
     }
 
