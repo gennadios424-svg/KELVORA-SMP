@@ -439,7 +439,9 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         return ChatColor.GREEN;
     }
     private void openSuspectGui(CommandSender sender, ConfigurationSection suspects) {
-        purgeExpiredFlags(); suspects=data.getConfigurationSection("suspects");
+        purgeExpiredFlags();
+        final ConfigurationSection currentSuspects = data.getConfigurationSection("suspects");
+        suspects = currentSuspects;
         if (!(sender instanceof Player staff)) {
             sender.sendMessage(ChatColor.GOLD+"Suspicious mining flags:");
             if (suspects==null || suspects.getKeys(false).isEmpty()) { sender.sendMessage(ChatColor.GRAY+"No players currently flagged."); return; }
@@ -451,7 +453,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (suspects!=null) {
             int slot=0;
             List<String> ordered = new ArrayList<>(suspects.getKeys(false));
-            ordered.sort((a,b) -> Integer.compare(suspects.getInt(b + ".score"), suspects.getInt(a + ".score")));
+            ordered.sort((a,b) -> Integer.compare(currentSuspects.getInt(b + ".score"), currentSuspects.getInt(a + ".score")));
             for (String uuidText:ordered) {
                 if(slot>=45) break;
                 UUID id; try { id=UUID.fromString(uuidText); } catch(IllegalArgumentException ex) { continue; }
