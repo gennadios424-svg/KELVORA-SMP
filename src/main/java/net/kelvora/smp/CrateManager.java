@@ -78,22 +78,24 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
      */
     private void resetCratesOnceFor238() {
         if ("2.38.0".equals(data.getString("meta.empty-crate-reset-version", ""))) return;
-        int removedBlocks = 0;
+        int rebuiltBlocks = 0;
         for (String key : new ArrayList<>(data.getKeys(false))) {
             if ("players".equalsIgnoreCase(key) || "meta".equalsIgnoreCase(key)) continue;
             String worldName = data.getString(key + ".location.world");
             World world = worldName == null ? null : Bukkit.getWorld(worldName);
+            String type = validType(data.getString(key + ".type", "common"));
+            if (type == null) type = "common";
+            data.set(key + ".type", type);
             if (world != null && data.contains(key + ".location.x")
                     && data.contains(key + ".location.y") && data.contains(key + ".location.z")) {
                 Location location = new Location(world, data.getInt(key + ".location.x"),
                         data.getInt(key + ".location.y"), data.getInt(key + ".location.z"));
-                Material existing = location.getBlock().getType();
-                if (existing.name().endsWith("_SHULKER_BOX")) {
-                    location.getBlock().setType(Material.AIR, false);
-                    removedBlocks++;
+                Material appearance = Material.matchMaterial(defaultBlock(type));
+                if (appearance != null) {
+                    location.getBlock().setType(appearance, false);
+                    rebuiltBlocks++;
                 }
             }
-            data.set(key, null);
         }
         data.set("meta.empty-crate-reset-version", "2.38.0");
         if (!save()) plugin.getLogger().severe("Could not persist crate reset marker; the reset may run again after restart.");
@@ -113,9 +115,9 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             plugin.getConfig().set("crates.types." + type + ".rewards", Collections.emptyList());
             plugin.getConfig().set("crates.types." + type + ".exact-chances", null);
         }
-        plugin.getLogger().warning("Crate system reset 2.38.0: removed " + removedBlocks
-                + " registered physical crate block(s); emptied reward pools for " + cleared
-                + "/5 crate types. Player digital key balances were preserved.");
+        plugin.getLogger().warning("Crate system reset 2.38.0: recreated " + rebuiltBlocks
+                + " registered physical crate block(s) in their existing locations; emptied reward pools for "
+                + cleared + "/5 crate types. Player digital key balances were preserved.");
     }
 
     private void migrateLegacyGamblingKeys() {
