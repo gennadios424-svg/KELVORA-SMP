@@ -107,7 +107,7 @@ final class TeleportSettingsManager implements Listener {
         inventory.setItem(12, named(joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? Material.OAK_SIGN : Material.GRAY_DYE,
             "Join/quit messages: " + (joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "join-quit"));
         inventory.setItem(13, named(reduceSpawns ? Material.ZOMBIE_HEAD : Material.CREEPER_HEAD,
-            "Reduce nearby hostile mob spawns: " + (reduceSpawns ? "ON" : "OFF"), "reduce-nearby-spawns"));
+            "Prevent hostile mobs spawning near you: " + (reduceSpawns ? "ON" : "OFF"), "reduce-nearby-spawns"));
         inventory.setItem(14, named(sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? Material.BOOK : Material.GRAY_DYE,
             "Sidebar scoreboard: " + (sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "sidebar"));
         inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
@@ -269,6 +269,7 @@ final class TeleportSettingsManager implements Listener {
     /** Enforce the per-player nearby hostile-spawn setting. */
     @EventHandler(ignoreCancelled = true)
     public void onNearbyHostileSpawn(CreatureSpawnEvent event) {
+        if (!plugin.getConfig().getBoolean("settings.nearby-mob-spawn-toggle-enabled", true)) return;
         if (!(event.getEntity() instanceof Monster)) return;
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
         if (reason != CreatureSpawnEvent.SpawnReason.NATURAL
