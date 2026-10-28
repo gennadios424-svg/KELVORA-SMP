@@ -800,38 +800,76 @@ teams:
   invite-duration-seconds: 86400
 
 
-# Phase 27 — physical crates. Reward entries are MATERIAL:AMOUNT:RELATIVE_WEIGHT:RARITY.
-# Weights are relative to other entries in that crate; they are not exact percentages.
-# The server selects the reward independently of any GUI animation.
+# Phase 39 — final four crate pools. Format:
+# MATERIAL:AMOUNT:WEIGHT:RARITY[:ENCHANT=LEVEL,...]
+# MONEY/KELVORAS:AMOUNT:WEIGHT:RARITY
+# COMMAND:<console command with {player}>:WEIGHT:RARITY
+# Weights are normalized to 100% in the preview GUI and used directly for selection.
 crates:
   broadcast-rare-rewards: true
   migrate-gambling-keys-to-crimson: false
   types:
     common:
       name: "&aCommon Crate"
-      description: "Useful survival supplies"
+      description: "Basic diamond gear and small rewards"
       block: LIGHT_GRAY_SHULKER_BOX
-      rewards: []
-    kelvora:
-      name: "&3Kelvora Crate"
-      description: "Valuable resources and equipment"
-      block: GREEN_SHULKER_BOX
-      rewards: []
+      rewards:
+        - "DIAMOND_SWORD:1:7:Common:SHARPNESS=2,UNBREAKING=2"
+        - "DIAMOND_PICKAXE:1:7:Common:EFFICIENCY=2,UNBREAKING=2"
+        - "DIAMOND_AXE:1:7:Uncommon:SHARPNESS=2,EFFICIENCY=2,UNBREAKING=2"
+        - "DIAMOND_SHOVEL:1:7:Common:EFFICIENCY=2,UNBREAKING=2"
+        - "DIAMOND_HELMET:1:7:Uncommon:PROTECTION=2,UNBREAKING=2"
+        - "DIAMOND_CHESTPLATE:1:7:Uncommon:PROTECTION=2,UNBREAKING=2"
+        - "DIAMOND_LEGGINGS:1:7:Uncommon:PROTECTION=2,UNBREAKING=2"
+        - "DIAMOND_BOOTS:1:7:Uncommon:PROTECTION=2,FEATHER_FALLING=2,UNBREAKING=2"
+        - "KELP:32:10:Common"
+        - "PINK_PETALS:32:10:Common"
+        - "MONEY:250:14:Common"
+        - "KELVORAS:100:10:Common"
     gold:
-      name: "&6Gold Crate"
-      description: "Premium gear and rare materials"
+      name: "&6&lGold Crate"
+      description: "Strong enchanted diamond equipment"
       block: YELLOW_SHULKER_BOX
-      rewards: []
-    spawner:
-      name: "&5Spawner Crate"
-      description: "Mob drops and monster-hunting supplies"
-      block: PURPLE_SHULKER_BOX
-      rewards: []
+      rewards:
+        - "DIAMOND_SWORD:1:9:Rare:SHARPNESS=4,UNBREAKING=3,LOOTING=2"
+        - "DIAMOND_PICKAXE:1:9:Rare:EFFICIENCY=4,UNBREAKING=3,FORTUNE=2"
+        - "DIAMOND_AXE:1:9:Rare:SHARPNESS=4,EFFICIENCY=4,UNBREAKING=3"
+        - "DIAMOND_SHOVEL:1:9:Rare:EFFICIENCY=4,UNBREAKING=3,SILK_TOUCH=1"
+        - "DIAMOND_HELMET:1:9:Rare:PROTECTION=3,UNBREAKING=3,RESPIRATION=3,AQUA_AFFINITY=1"
+        - "DIAMOND_CHESTPLATE:1:9:Epic:PROTECTION=4,UNBREAKING=3"
+        - "DIAMOND_LEGGINGS:1:9:Rare:PROTECTION=3,UNBREAKING=3,SWIFT_SNEAK=2"
+        - "DIAMOND_BOOTS:1:9:Epic:PROTECTION=3,FEATHER_FALLING=4,UNBREAKING=3,DEPTH_STRIDER=3"
+        - "MONEY:2500:16:Rare"
+        - "KELVORAS:1000:12:Rare"
     crimson:
       name: "&4&lCrimson Crate"
-      description: "Dark crimson rewards"
+      description: "Rare netherite equipment and large rewards"
       block: RED_SHULKER_BOX
-      rewards: []
+      rewards:
+        - "NETHERITE_SWORD:1:7:Epic:SHARPNESS=4,UNBREAKING=3,LOOTING=3"
+        - "NETHERITE_SWORD:1:7:Legendary:SHARPNESS=5,UNBREAKING=3"
+        - "NETHERITE_PICKAXE:1:7:Epic:EFFICIENCY=5,FORTUNE=3,UNBREAKING=3"
+        - "NETHERITE_PICKAXE:1:7:Legendary:EFFICIENCY=5,SILK_TOUCH=1,UNBREAKING=3"
+        - "NETHERITE_AXE:1:7:Legendary:SHARPNESS=5,EFFICIENCY=5,UNBREAKING=3"
+        - "NETHERITE_HELMET:1:7:Epic:PROTECTION=4,UNBREAKING=3,RESPIRATION=3,AQUA_AFFINITY=1"
+        - "NETHERITE_CHESTPLATE:1:7:Epic:PROTECTION=4,UNBREAKING=3"
+        - "NETHERITE_LEGGINGS:1:7:Epic:PROTECTION=4,UNBREAKING=3,SWIFT_SNEAK=3"
+        - "NETHERITE_BOOTS:1:7:Epic:PROTECTION=4,FEATHER_FALLING=4,UNBREAKING=3,DEPTH_STRIDER=3"
+        - "NETHERITE_INGOT:1:10:Rare"
+        - "NETHERITE_INGOT:2:4:Epic"
+        - "MONEY:15000:13:Epic"
+        - "KELVORAS:5000:10:Epic"
+    kelvora:
+      name: "&2&lKelvora Crate"
+      description: "Exclusive custom Kelvora tools and premium currency"
+      block: GREEN_SHULKER_BOX
+      rewards:
+        - "COMMAND:kelvoratools give {player} drill:17:Mythic"
+        - "COMMAND:kelvoratools give {player} gainer:17:Mythic"
+        - "COMMAND:kelvoratools give {player} sellaxe:12:Legendary"
+        - "COMMAND:kelvoratools give {player} treetrooper:12:Legendary"
+        - "MONEY:25000:21:Epic"
+        - "KELVORAS:10000:21:Epic"
   restricted-blocks: [BEDROCK, SPAWNER, TRIAL_SPAWNER, VAULT, CHEST, TRAPPED_CHEST, BARREL, ENDER_CHEST, SHULKER_BOX, END_PORTAL_FRAME]
   gainer:
     max-interval: 168
