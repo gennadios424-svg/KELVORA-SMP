@@ -866,10 +866,17 @@ crates:
       rewards:
         - "COMMAND:kelvoratools give {player} drill:17:Mythic"
         - "COMMAND:kelvoratools give {player} gainer:17:Mythic"
-        - "COMMAND:kelvoratools give {player} sellaxe:12:Legendary"
         - "COMMAND:kelvoratools give {player} treetrooper:12:Legendary"
         - "MONEY:25000:21:Epic"
         - "KELVORAS:10000:21:Epic"
+    spawner:
+      name: "&5&lSpawner Crate"
+      description: "Skeleton, Spider, and Iron Golem spawners"
+      block: PURPLE_SHULKER_BOX
+      rewards:
+        - "SPAWNER_SKELETON:1:45:Common"
+        - "SPAWNER_SPIDER:1:35:Rare"
+        - "SPAWNER_IRON_GOLEM:1:20:Legendary"
   restricted-blocks: [BEDROCK, SPAWNER, TRIAL_SPAWNER, VAULT, CHEST, TRAPPED_CHEST, BARREL, ENDER_CHEST, SHULKER_BOX, END_PORTAL_FRAME]
   gainer:
     max-interval: 168

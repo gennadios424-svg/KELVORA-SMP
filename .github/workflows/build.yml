@@ -61,8 +61,14 @@ jobs:
           grep -q 'Removed and saved reward' src/main/java/net/kelvora/smp/CrateManager.java
           grep -q 'NETHERITE_SWORD:1:7:Epic' src/main/resources/config.yml
           grep -q 'kelvoratools give {player} drill' src/main/resources/config.yml
-          ! grep -q '^    spawner:' src/main/resources/config.yml
-          test "$(grep -c '^    \(common\|gold\|crimson\|kelvora\):$' src/main/resources/config.yml)" -eq 4
+          grep -q 'installFinalCratePackOnce240' src/main/java/net/kelvora/smp/CrateManager.java
+          grep -q 'SPAWNER_SKELETON:1' src/main/resources/config.yml
+          grep -q 'SPAWNER_IRON_GOLEM:1' src/main/resources/config.yml
+          grep -q 'SPAWNER_SPIDER:1' src/main/resources/config.yml
+          ! grep -q 'COMMAND:kelvoratools give {player} sellaxe' src/main/resources/config.yml
+          grep -q 'rewardDisplayItem' src/main/java/net/kelvora/smp/CrateManager.java
+          grep -q '^    spawner:' src/main/resources/config.yml
+          test "$(grep -cE '^    (common|gold|crimson|kelvora|spawner):$' src/main/resources/config.yml)" -eq 5
           jar tf "$JAR" | grep -q 'net/kelvora/smp/StaffFeaturesManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/SpecialToolsManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'

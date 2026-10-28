@@ -30,9 +30,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.ConfigurationSection;
 
 final class CrateManager implements Listener, CommandExecutor, TabCompleter {
-    private static final List<String> TYPES = List.of("common", "gold", "crimson", "kelvora");
+    private static final List<String> TYPES = List.of("common", "gold", "crimson", "kelvora", "spawner");
     private final JavaPlugin plugin;
     private final NamespacedKey holoKey;
+    private final NamespacedKey spawnerRewardKey;
     private final File dataFile;
     private final File crateConfigDirectory;
     private YamlConfiguration data;
@@ -51,6 +52,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     CrateManager(JavaPlugin plugin) {
         this.plugin = plugin;
         this.holoKey = new NamespacedKey(plugin, "crate-hologram");
+        this.spawnerRewardKey = new NamespacedKey(plugin, "spawner-reward-entity");
         this.dataFile = new File(plugin.getDataFolder(), "crates-data.yml");
         this.crateConfigDirectory = new File(plugin.getDataFolder(), "crates");
     }
@@ -60,6 +62,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         migrateLegacyGamblingKeys();
         resetCratesOnceFor238();
         installFinalCratePackOnce239();
+        installFinalCratePackOnce240();
         loadLocations();
         rebuildHolograms();
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -161,6 +164,69 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         plugin.getLogger().info("Installed the four final crate reward pools (Common, Gold, Crimson, Kelvora) from bundled defaults and removed obsolete Spawner crates.");
     }
 
+    /**
+     * 2.40.0 crate migration: add Donut-style mob spawner rewards, preserve all player
+     * balances and existing physical crate locations, and remove Sellaxe from Kelvora
+     * crate rewards without replacing the other reward pools.
+     */
+    private void installFinalCratePackOnce240() {
+        if ("2.40.0".equals(data.getString("meta.crate-features-version", ""))) return;
+        boolean migrationSaved = true;
+
+        YamlConfiguration kelvoraCfg = crateConfig("kelvora");
+        List<String> kelvoraRewards = new ArrayList<>(kelvoraCfg.getStringList("rewards"));
+        int before = kelvoraRewards.size();
+        kelvoraRewards.removeIf(entry -> entry.toLowerCase(Locale.ROOT)
+                .startsWith("command:kelvoratools give {player} sellaxe:"));
+        if (kelvoraRewards.size() != before) {
+            kelvoraCfg.set("rewards", kelvoraRewards);
+            try {
+                kelvoraCfg.save(new File(crateConfigDirectory, "kelvora.yml"));
+                plugin.getLogger().info("Removed Sellaxe from the Kelvora crate reward pool.");
+            } catch (IOException ex) {
+                migrationSaved = false;
+                plugin.getLogger().severe("Could not update Kelvora crate rewards: " + ex.getMessage());
+            }
+        }
+
+        // Only the new Spawner pool is replaced. Other reward lists and key balances remain untouched.
+        YamlConfiguration spawnerCfg = crateConfig("spawner");
+        spawnerCfg.set("name", "&5&lSpawner Crate");
+        spawnerCfg.set("description", "Skeleton, Spider, and Iron Golem spawners");
+        spawnerCfg.set("block", "PURPLE_SHULKER_BOX");
+        spawnerCfg.set("rewards", defaultCrateRewards("spawner"));
+        spawnerCfg.set("exact-chances", null);
+        try {
+            if (!crateConfigDirectory.exists()) crateConfigDirectory.mkdirs();
+            spawnerCfg.save(new File(crateConfigDirectory, "spawner.yml"));
+        } catch (IOException ex) {
+            migrationSaved = false;
+            plugin.getLogger().severe("Could not install Spawner crate rewards: " + ex.getMessage());
+        }
+
+        for (String key : new ArrayList<>(data.getKeys(false))) {
+            if ("players".equalsIgnoreCase(key) || "meta".equalsIgnoreCase(key)) continue;
+            if (!"spawner".equalsIgnoreCase(data.getString(key + ".type", ""))) continue;
+            String worldName = data.getString(key + ".location.world");
+            World world = worldName == null ? null : Bukkit.getWorld(worldName);
+            if (world == null || !data.contains(key + ".location.x")
+                    || !data.contains(key + ".location.y") || !data.contains(key + ".location.z")) continue;
+            Location location = new Location(world, data.getInt(key + ".location.x"),
+                    data.getInt(key + ".location.y"), data.getInt(key + ".location.z"));
+            if (location.getBlock().getType().name().endsWith("_SHULKER_BOX")) {
+                location.getBlock().setType(Material.PURPLE_SHULKER_BOX, false);
+            }
+        }
+
+        if (!migrationSaved) {
+            plugin.getLogger().severe("2.40.0 crate migration will retry on the next restart because a crate config could not be saved.");
+            return;
+        }
+        data.set("meta.crate-features-version", "2.40.0");
+        if (!save()) plugin.getLogger().severe("Could not save 2.40.0 crate migration marker.");
+        plugin.getLogger().info("Installed the Spawner crate and updated Kelvora rewards; player key balances and other crate pools were preserved.");
+    }
+
     private List<String> defaultCrateRewards(String type) {
         return switch (type.toLowerCase(Locale.ROOT)) {
             case "common" -> List.of(
@@ -199,9 +265,12 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             case "kelvora" -> List.of(
                 "COMMAND:kelvoratools give {player} drill:17:Mythic",
                 "COMMAND:kelvoratools give {player} gainer:17:Mythic",
-                "COMMAND:kelvoratools give {player} sellaxe:12:Legendary",
                 "COMMAND:kelvoratools give {player} treetrooper:12:Legendary",
                 "MONEY:25000:21:Epic", "KELVORAS:10000:21:Epic");
+            case "spawner" -> List.of(
+                "SPAWNER_SKELETON:1:45:Common",
+                "SPAWNER_SPIDER:1:35:Rare",
+                "SPAWNER_IRON_GOLEM:1:20:Legendary");
             default -> List.of();
         };
     }
@@ -262,6 +331,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             case "kelvora" -> "GREEN_SHULKER_BOX";
             case "gold" -> "YELLOW_SHULKER_BOX";
             case "crimson" -> "RED_SHULKER_BOX";
+            case "spawner" -> "PURPLE_SHULKER_BOX";
             default -> "SHULKER_BOX";
         };
     }
@@ -375,17 +445,24 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 } catch (NumberFormatException ex) { sender.sendMessage("Currency amount must be positive."); return true; }
                 entry = kind + ":" + amountOrTool + ":" + weight + ":" + rarity;
             } else {
-                Material material = Material.matchMaterial(kind);
                 int amount;
                 try { amount = Integer.parseInt(amountOrTool); } catch (NumberFormatException ex) { amount = -1; }
-                if (!isAllowedReward(material) || amount < 1 || amount > (material == null ? 0 : material.getMaxStackSize())) {
-                    sender.sendMessage("Invalid reward material or stack amount."); return true;
-                }
-                entry = material.name() + ":" + amount + ":" + weight + ":" + rarity;
-                if (args.length == 7) {
-                    String enchants = args[6].replace(" ", "");
-                    if (parseEnchantments(enchants) == null) { sender.sendMessage("Invalid enchantments. Format: SHARPNESS=2,UNBREAKING=3"); return true; }
-                    entry += ":" + enchants;
+                if (isSpawnerRewardKind(kind)) {
+                    if (amount != 1 || args.length == 7) {
+                        sender.sendMessage("Spawner rewards must have amount 1 and do not use enchantments."); return true;
+                    }
+                    entry = kind + ":1:" + weight + ":" + rarity;
+                } else {
+                    Material material = Material.matchMaterial(kind);
+                    if (!isAllowedReward(material) || amount < 1 || amount > (material == null ? 0 : material.getMaxStackSize())) {
+                        sender.sendMessage("Invalid reward material or stack amount."); return true;
+                    }
+                    entry = material.name() + ":" + amount + ":" + weight + ":" + rarity;
+                    if (args.length == 7) {
+                        String enchants = args[6].replace(" ", "");
+                        if (parseEnchantments(enchants) == null) { sender.sendMessage("Invalid enchantments. Format: SHARPNESS=2,UNBREAKING=3"); return true; }
+                        entry += ":" + enchants;
+                    }
                 }
             }
             List<String> rewards = configuredRewards(type);
@@ -542,23 +619,16 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             String entry = rewards.get(i);
             String[] bits = entry.split(":", 5);
             if (bits.length < 4) continue;
-            Material material = Material.matchMaterial(bits[0]);
-            String kind = bits[0].toUpperCase(Locale.ROOT);
-            if (kind.equals("MONEY")) material = Material.GOLD_INGOT;
-            else if (kind.equals("KELVORAS")) material = Material.AMETHYST_SHARD;
-            else if (kind.equals("COMMAND")) material = Material.COMMAND_BLOCK;
-            if (material == null || !material.isItem()) continue;
-            ItemStack icon = new ItemStack(material, 1);
-            ItemMeta meta = icon.getItemMeta();
-            meta.displayName(Component.text(bits[0] + " x" + bits[1], NamedTextColor.AQUA));
-            List<Component> rewardLore = new ArrayList<>();
-            rewardLore.add(Component.text("Weight: " + bits[2], NamedTextColor.GRAY));
-            rewardLore.add(Component.text("Rarity: " + bits[3], NamedTextColor.GRAY));
-            if (bits.length > 4 && !bits[4].isBlank()) rewardLore.add(Component.text("Enchants: " + bits[4], NamedTextColor.LIGHT_PURPLE));
-            rewardLore.add(Component.text("Click to remove this reward", NamedTextColor.RED));
-            meta.lore(rewardLore);
-            icon.setItemMeta(meta);
-            inv.setItem(i, icon);
+            List<String> rewardLore = new ArrayList<>();
+            rewardLore.add("&7Weight: " + bits[2]);
+            rewardLore.add("&7Rarity: " + bits[3]);
+            if (bits.length > 4 && !bits[4].isBlank()) rewardLore.add("&dEnchants: " + bits[4]);
+            rewardLore.add("&cClick to remove this reward");
+            try {
+                inv.setItem(i, rewardDisplayItem(entry, "&b" + bits[0] + " x" + bits[1], rewardLore));
+            } catch (RuntimeException ex) {
+                plugin.getLogger().warning("Could not display crate reward " + entry + ": " + ex.getMessage());
+            }
         }
         inv.setItem(45, button(Material.BARRIER, "&cCancel", List.of("&7Discard unsaved edits")));
         inv.setItem(49, button(Material.EMERALD, "&a&lSAVE REWARDS", List.of("&7Save reward list safely", "&7New inventory items use weight 1 / Common")));
@@ -580,10 +650,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 } else if (kind.equals("COMMAND")) {
                     if (bits[1].isBlank()) return false;
                 } else {
-                    Material material = Material.matchMaterial(bits[0]);
                     int amount = Integer.parseInt(bits[1]);
-                    if (!isAllowedReward(material) || amount <= 0 || amount > material.getMaxStackSize()) return false;
-                    if (bits.length > 4 && !bits[4].isBlank() && parseEnchantments(bits[4]) == null) return false;
+                    if (isSpawnerRewardKind(kind)) {
+                        if (amount != 1 || (bits.length > 4 && !bits[4].isBlank())) return false;
+                    } else {
+                        Material material = Material.matchMaterial(bits[0]);
+                        if (!isAllowedReward(material) || amount <= 0 || amount > material.getMaxStackSize()) return false;
+                        if (bits.length > 4 && !bits[4].isBlank() && parseEnchantments(bits[4]) == null) return false;
+                    }
                 }
             } catch (RuntimeException ex) { return false; }
         }
@@ -653,6 +727,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if (command.contains(" treetrooper")) return "Kelvora Tree Trooper";
             return "Special reward";
         }
+        if (isSpawnerRewardKind(kind)) return spawnerMobName(kind) + " Spawner";
         Material material = Material.matchMaterial(bits[0]);
         return material == null ? bits[0] : titleCase(material.name().toLowerCase(Locale.ROOT).replace('_', ' ')) + " x" + bits[1];
     }
@@ -681,23 +756,13 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             if (slot > 44) break;
             String[] bits = entry.split(":", 5);
             if (bits.length < 4) continue;
-            String kind = bits[0].toUpperCase(Locale.ROOT);
-            Material icon;
-            if (kind.equals("KELVORAS")) icon = Material.AMETHYST_SHARD;
-            else if (kind.equals("MONEY")) icon = Material.GOLD_INGOT;
-            else if (kind.equals("COMMAND")) {
-                String label = rewardLabel(bits);
-                icon = label.contains("Drill") ? Material.DIAMOND_PICKAXE
-                    : label.contains("Gainer") ? Material.NETHERITE_PICKAXE
-                    : label.contains("Sellaxe") || label.contains("Tree Trooper") ? Material.NETHERITE_AXE : Material.NETHER_STAR;
-            } else icon = Material.matchMaterial(bits[0]);
-            if (icon == null || !icon.isItem()) continue;
+            if (!isValidRewardEntry(entry)) continue;
             double chance = chancePercent(type, entry);
             List<String> lore = new ArrayList<>();
             lore.add("&7Chance: &f" + String.format(Locale.US, "%.2f", chance) + "%");
             lore.add("&8Rarity: " + bits[3]);
             if (bits.length > 4 && !bits[4].isBlank()) lore.add("&dEnchants: " + bits[4]);
-            inv.setItem(slot++, button(icon, "&f" + rewardLabel(bits), lore));
+            inv.setItem(slot++, rewardDisplayItem(entry, "&f" + rewardLabel(bits), lore));
         }
         inv.setItem(49, button(Material.LIME_DYE, "&a&lOPEN CRATE",
                 List.of("&7Consume one " + titleCase(type) + " key", "&7Reward is selected server-side")));
@@ -843,19 +908,12 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 rewardMaterial = null;
                 rewardItem = null;
             } else {
-                Material mat = Material.matchMaterial(bits[0]);
                 int amount = Integer.parseInt(bits[1]);
-                if (!isAllowedReward(mat) || amount < 1 || amount > mat.getMaxStackSize()) throw new IllegalArgumentException();
+                if (!isValidRewardEntry(reward)) throw new IllegalArgumentException("Invalid configured reward");
                 rewardValue = 0;
                 rewardAmount = amount;
-                rewardMaterial = mat;
-                rewardItem = new ItemStack(mat, amount);
-                if (bits.length > 4 && !bits[4].isBlank()) {
-                    Map<org.bukkit.enchantments.Enchantment, Integer> enchants = parseEnchantments(bits[4]);
-                    if (enchants == null) throw new IllegalArgumentException("Invalid reward enchantments");
-                    for (Map.Entry<org.bukkit.enchantments.Enchantment, Integer> enchant : enchants.entrySet())
-                        rewardItem.addUnsafeEnchantment(enchant.getKey(), enchant.getValue());
-                }
+                rewardMaterial = isSpawnerRewardKind(rewardKind) ? Material.SPAWNER : Material.matchMaterial(bits[0]);
+                rewardItem = createRewardItem(rewardKind, amount, bits.length > 4 ? bits[4] : "");
             }
         } catch (Exception ex) {
             p.sendMessage(Component.text("Configured reward is invalid. Your key was not used.", NamedTextColor.RED));
@@ -882,20 +940,16 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             int step = 0;
             public void run() {
                 Player current = Bukkit.getPlayer(id);
-                if (step < 8 && current != null && current.isOnline()) {
-                    List<String> entries = configuredRewards(type);
-                    List<String> valid = entries.stream().filter(x -> {
-                        String[] q = x.split(":");
-                        Material m = q.length > 0 ? Material.matchMaterial(q[0]) : null;
-                        return q.length >= 4 && m != null && m.isItem() && !m.isAir();
-                    }).toList();
+                if (step < 20 && current != null && current.isOnline()) {
+                    List<String> valid = configuredRewards(type).stream().filter(CrateManager.this::isValidRewardEntry).toList();
                     if (!valid.isEmpty()) {
                         String preview = valid.get(random.nextInt(valid.size()));
-                        Material previewMat = Material.matchMaterial(preview.split(":")[0]);
-                        if (previewMat != null && previewMat.isItem() && !previewMat.isAir())
-                            inv.setItem(13, button(previewMat, "&e&lRolling: " + titleCase(previewMat.name().toLowerCase(Locale.ROOT).replace('_',' ')), List.of("&7Preview only")));
+                        String[] previewBits = preview.split(":", 5);
+                        inv.setItem(13, rewardDisplayItem(preview,
+                                "&e&lRolling: " + rewardLabel(previewBits),
+                                List.of("&7Rolling preview", "&8The final reward is selected securely")));
                     }
-                    current.playSound(current.getLocation(), Sound.UI_BUTTON_CLICK, 0.4f, 0.8f + step * 0.1f);
+                    current.playSound(current.getLocation(), Sound.UI_BUTTON_CLICK, 0.4f, 0.75f + step * 0.06f);
                     step++; return;
                 }
                 Bukkit.getScheduler().cancelTask(task[0].getTaskId());
@@ -927,7 +981,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                             current.getInventory().setStorageContents(inventoryBefore);
                             delivered = false;
                         }
-                        rewardLabel = rewardAmount + "x " + rewardMaterial.name().toLowerCase(Locale.ROOT).replace('_',' ');
+                        rewardLabel = rewardLabel(bits);
                     }
                 } catch (Exception deliveryError) {
                     delivered = false;
@@ -979,6 +1033,131 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             "REINFORCED_DEEPSLATE","COMMAND_BLOCK_MINECART").contains(name);
     }
 
+    private boolean isSpawnerRewardKind(String kind) {
+        return kind != null && Set.of("SPAWNER_SKELETON", "SPAWNER_IRON_GOLEM", "SPAWNER_SPIDER")
+                .contains(kind.toUpperCase(Locale.ROOT));
+    }
+
+    private org.bukkit.entity.EntityType spawnerEntityForReward(String kind) {
+        if (kind == null) return null;
+        return switch (kind.toUpperCase(Locale.ROOT)) {
+            case "SPAWNER_SKELETON" -> org.bukkit.entity.EntityType.SKELETON;
+            case "SPAWNER_IRON_GOLEM" -> org.bukkit.entity.EntityType.IRON_GOLEM;
+            case "SPAWNER_SPIDER" -> org.bukkit.entity.EntityType.SPIDER;
+            default -> null;
+        };
+    }
+
+    private String spawnerMobName(String kind) {
+        org.bukkit.entity.EntityType type = spawnerEntityForReward(kind);
+        return type == null ? "Mob" : titleCase(type.name().toLowerCase(Locale.ROOT).replace('_', ' '));
+    }
+
+    private ItemStack createRewardItem(String kind, int amount, String enchantText) {
+        if (isSpawnerRewardKind(kind)) {
+            org.bukkit.entity.EntityType entityType = spawnerEntityForReward(kind);
+            if (entityType == null || amount != 1) throw new IllegalArgumentException("Unsupported spawner reward");
+            ItemStack item = new ItemStack(Material.SPAWNER, 1);
+            ItemMeta meta = item.getItemMeta();
+            String mob = spawnerMobName(kind);
+            meta.displayName(color("&a&l" + mob + " Spawner"));
+            String plural = switch (entityType) {
+                case SKELETON -> "Skeletons";
+                case IRON_GOLEM -> "Iron Golems";
+                case SPIDER -> "Spiders";
+                default -> mob + "s";
+            };
+            meta.lore(List.of(color("&7Place to create a " + mob + " spawner"),
+                    color("&8Spawns " + plural), color("&5Kelvora Spawner")));
+            meta.getPersistentDataContainer().set(spawnerRewardKey, PersistentDataType.STRING, entityType.name());
+            item.setItemMeta(meta);
+            return item;
+        }
+        Material material = Material.matchMaterial(kind);
+        if (!isAllowedReward(material) || amount < 1 || amount > material.getMaxStackSize()) {
+            throw new IllegalArgumentException("Unsupported crate reward item");
+        }
+        ItemStack item = new ItemStack(material, amount);
+        if (enchantText != null && !enchantText.isBlank()) {
+            Map<org.bukkit.enchantments.Enchantment, Integer> enchants = parseEnchantments(enchantText);
+            if (enchants == null) throw new IllegalArgumentException("Invalid reward enchantments");
+            enchants.forEach(item::addUnsafeEnchantment);
+        }
+        return item;
+    }
+
+    private ItemStack rewardDisplayItem(String entry, String displayName, List<String> lore) {
+        String[] bits = entry.split(":", 5);
+        if (bits.length < 4) throw new IllegalArgumentException("Invalid reward entry");
+        String kind = bits[0].toUpperCase(Locale.ROOT);
+        ItemStack item;
+        if (isSpawnerRewardKind(kind)) {
+            item = createRewardItem(kind, 1, "");
+        } else if (kind.equals("MONEY")) {
+            item = new ItemStack(Material.GOLD_INGOT);
+        } else if (kind.equals("KELVORAS")) {
+            item = new ItemStack(Material.AMETHYST_SHARD);
+        } else if (kind.equals("COMMAND")) {
+            String label = rewardLabel(bits);
+            Material icon = label.contains("Drill") ? Material.DIAMOND_PICKAXE
+                    : label.contains("Gainer") ? Material.NETHERITE_PICKAXE
+                    : label.contains("Sellaxe") || label.contains("Tree Trooper") ? Material.NETHERITE_AXE
+                    : Material.NETHER_STAR;
+            item = new ItemStack(icon);
+        } else {
+            item = createRewardItem(kind, 1, bits.length > 4 ? bits[4] : "");
+        }
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(color(displayName));
+        meta.lore(lore.stream().map(this::color).toList());
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private boolean isValidRewardEntry(String entry) {
+        String[] bits = entry.split(":", 5);
+        if (bits.length < 4) return false;
+        try {
+            double weight = Double.parseDouble(bits[2]);
+            if (!Double.isFinite(weight) || weight <= 0) return false;
+            String kind = bits[0].toUpperCase(Locale.ROOT);
+            if (kind.equals("MONEY") || kind.equals("KELVORAS")) {
+                double amount = Double.parseDouble(bits[1]);
+                return Double.isFinite(amount) && amount > 0;
+            }
+            if (kind.equals("COMMAND")) return !bits[1].isBlank();
+            int amount = Integer.parseInt(bits[1]);
+            if (isSpawnerRewardKind(kind)) return amount == 1;
+            Material material = Material.matchMaterial(bits[0]);
+            if (!isAllowedReward(material) || amount < 1 || amount > material.getMaxStackSize()) return false;
+            return bits.length <= 4 || bits[4].isBlank() || parseEnchantments(bits[4]) != null;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void applySpawnerRewardOnPlace(BlockPlaceEvent event) {
+        ItemStack hand = event.getItemInHand();
+        if (hand == null || !hand.hasItemMeta()) return;
+        String entityName = hand.getItemMeta().getPersistentDataContainer()
+                .get(spawnerRewardKey, PersistentDataType.STRING);
+        if (entityName == null) return;
+        org.bukkit.entity.EntityType entityType;
+        try { entityType = org.bukkit.entity.EntityType.valueOf(entityName); }
+        catch (IllegalArgumentException ex) { return; }
+        if (!Set.of(org.bukkit.entity.EntityType.SKELETON, org.bukkit.entity.EntityType.IRON_GOLEM,
+                org.bukkit.entity.EntityType.SPIDER).contains(entityType)) return;
+        Block placed = event.getBlockPlaced();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (placed.getType() != Material.SPAWNER) return;
+            org.bukkit.block.BlockState state = placed.getState();
+            if (!(state instanceof org.bukkit.block.CreatureSpawner spawner)) return;
+            spawner.setSpawnedType(entityType);
+            spawner.update(true, false);
+        });
+    }
+
     private YamlConfiguration crateConfig(String type) {
         if (!crateConfigDirectory.exists()) crateConfigDirectory.mkdirs();
         File file = new File(crateConfigDirectory, type.toLowerCase(Locale.ROOT) + ".yml");
@@ -1017,10 +1196,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                         } else if (kind.equals("COMMAND")) {
                             valid &= !b[1].isBlank();
                         } else {
-                            Material material = Material.matchMaterial(b[0]);
                             int amount = Integer.parseInt(b[1]);
-                            valid &= isAllowedReward(material) && amount > 0 && amount <= material.getMaxStackSize();
-                            if (b.length > 4 && !b[4].isBlank()) valid &= parseEnchantments(b[4]) != null;
+                            if (isSpawnerRewardKind(kind)) {
+                                valid &= amount == 1;
+                            } else {
+                                Material material = Material.matchMaterial(b[0]);
+                                valid &= isAllowedReward(material) && amount > 0 && amount <= material.getMaxStackSize();
+                                if (b.length > 4 && !b[4].isBlank()) valid &= parseEnchantments(b[4]) != null;
+                            }
                         }
                     } catch (Exception ex) { valid = false; }
                 }
@@ -1060,10 +1243,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 } else if (kind.equals("COMMAND")) {
                     ok = !bits[1].isBlank();
                 } else {
-                    Material material = Material.matchMaterial(bits[0]);
                     int amount = Integer.parseInt(bits[1]);
-                    ok = isAllowedReward(material) && amount > 0 && amount <= material.getMaxStackSize();
-                    if (ok && bits.length > 4 && !bits[4].isBlank()) ok = parseEnchantments(bits[4]) != null;
+                    if (isSpawnerRewardKind(kind)) {
+                        ok = amount == 1;
+                    } else {
+                        Material material = Material.matchMaterial(bits[0]);
+                        ok = isAllowedReward(material) && amount > 0 && amount <= material.getMaxStackSize();
+                        if (ok && bits.length > 4 && !bits[4].isBlank()) ok = parseEnchantments(bits[4]) != null;
+                    }
                 }
                 if (!ok) continue;
                 total += weight;
