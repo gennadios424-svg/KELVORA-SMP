@@ -56,6 +56,63 @@ jobs:
           jar tf "$JAR" | grep -q 'net/kelvora/smp/KelvorasManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/ShardShopManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/CrateManager.class'
+          grep -q 'resetCratesOnceFor238' src/main/java/net/kelvora/smp/CrateManager.java
+          grep -q 'Added and saved' src/main/java/net/kelvora/smp/CrateManager.java
+          grep -q 'Removed and saved reward' src/main/java/net/kelvora/smp/CrateManager.java
+          test "$(grep -c '^      rewards: \[\]          jar tf "$JAR" | grep -q 'net/kelvora/smp/StaffFeaturesManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/SpecialToolsManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/CoinflipManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/RtpManager.class'
+          unzip -p "$JAR" plugin.yml | grep -q 'baltop:'
+          unzip -p "$JAR" plugin.yml | grep -q 'meta:'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/MetaManager.class'
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/MovementCompatibilityManager.class'
+          grep -q 'Mob spawning near me:' src/main/java/net/kelvora/smp/TeleportSettingsManager.java
+          jar tf "$JAR" | grep -q 'net/kelvora/smp/SpawnAfkManager.class'
+          unzip -p "$JAR" plugin.yml | grep -q 'setspawn:'
+          unzip -p "$JAR" plugin.yml | grep -q 'setafk:'
+          unzip -p "$JAR" plugin.yml | grep -q 'kelvoras:'
+          unzip -p "$JAR" plugin.yml | grep -q 'shardshop:'
+          unzip -p "$JAR" plugin.yml | grep -q 'shards:'
+          unzip -p "$JAR" plugin.yml | grep -q 'glow:'
+          unzip -p "$JAR" plugin.yml | grep -q 'tags:'
+          grep -q '"Buy 32"' src/main/java/net/kelvora/smp/ShopSellManager.java
+          grep -q '"Buy 64"' src/main/java/net/kelvora/smp/ShopSellManager.java
+          unzip -p "$JAR" plugin.yml | grep -q 'live:'
+          unzip -p "$JAR" plugin.yml | grep -q 'role:'
+          unzip -p "$JAR" plugin.yml | grep -q 'suslist:'
+          unzip -p "$JAR" plugin.yml | grep -q 'vanish:'
+          unzip -p "$JAR" plugin.yml | grep -q 'crate:'
+          unzip -p "$JAR" plugin.yml | grep -q 'keyall:'
+          unzip -p "$JAR" plugin.yml | grep -q 'kelvoratools:'
+          unzip -p "$JAR" plugin.yml | grep -q 'coinflip:'
+          unzip -p "$JAR" plugin.yml | grep -q 'rtp:'
+          unzip -p "$JAR" plugin.yml | grep -q "version: ${VERSION}"
+          echo "Compiled JAR, coinflip, shop manager, Money leaderboard, and Kelvoras command verified."
+      - name: Publish compiled JAR to repository
+        id: publish
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          JAR="KelvoraSMP-${VERSION}.jar"
+          cp "target/${JAR}" "$JAR"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f "$JAR"
+          if git diff --cached --quiet; then
+            echo "Compiled JAR is already up to date."
+          else
+            git commit -m "Publish compiled KelvoraSMP ${VERSION} plugin JAR"
+            git push
+          fi
+      - name: Upload JAR build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KelvoraSMP-${{ steps.version.outputs.version }}
+          path: KelvoraSMP-${{ steps.version.outputs.version }}.jar
+          if-no-files-found: error
+          retention-days: 30
+ src/main/resources/config.yml)" -eq 5
           jar tf "$JAR" | grep -q 'net/kelvora/smp/StaffFeaturesManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/SpecialToolsManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'
