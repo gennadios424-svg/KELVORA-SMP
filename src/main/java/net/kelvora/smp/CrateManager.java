@@ -301,6 +301,99 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             openRewardEditor(p, type);
             return true;
         }
+        if (sub.equals("add")) {
+            if (args.length < 6 || args.length > 7) {
+                sender.sendMessage("Usage: /crate add <type> <material|MONEY|KELVORAS|TOOL> <amount-or-tool> <weight> <rarity> [ENCHANT=LEVEL,...]");
+                return true;
+            }
+            String type = validType(args[1]);
+            if (type == null) { sender.sendMessage("Types: " + String.join(", ", TYPES)); return true; }
+            String kind = args[2].toUpperCase(Locale.ROOT);
+            String amountOrTool = args[3];
+            double weight;
+            try { weight = Double.parseDouble(args[4]); } catch (NumberFormatException ex) { weight = -1; }
+            String rarity = args[5].replace(':', ' ');
+            if (!Double.isFinite(weight) || weight <= 0 || rarity.isBlank()) {
+                sender.sendMessage("Weight must be positive and rarity must not be blank."); return true;
+            }
+            String entry;
+            if (kind.equals("TOOL")) {
+                String tool = amountOrTool.toLowerCase(Locale.ROOT);
+                if (!Set.of("drill", "gainer", "sellaxe", "treetrooper").contains(tool)) {
+                    sender.sendMessage("Existing tools: drill, gainer, sellaxe, treetrooper"); return true;
+                }
+                entry = "COMMAND:kelvoratools give {player} " + tool + ":" + weight + ":" + rarity;
+            } else if (kind.equals("MONEY") || kind.equals("KELVORAS")) {
+                try {
+                    double amount = Double.parseDouble(amountOrTool);
+                    if (!Double.isFinite(amount) || amount <= 0) throw new NumberFormatException();
+                } catch (NumberFormatException ex) { sender.sendMessage("Currency amount must be positive."); return true; }
+                entry = kind + ":" + amountOrTool + ":" + weight + ":" + rarity;
+            } else {
+                Material material = Material.matchMaterial(kind);
+                int amount;
+                try { amount = Integer.parseInt(amountOrTool); } catch (NumberFormatException ex) { amount = -1; }
+                if (!isAllowedReward(material) || amount < 1 || amount > (material == null ? 0 : material.getMaxStackSize())) {
+                    sender.sendMessage("Invalid reward material or stack amount."); return true;
+                }
+                entry = material.name() + ":" + amount + ":" + weight + ":" + rarity;
+                if (args.length == 7) {
+                    String enchants = args[6].replace(" ", "");
+                    if (parseEnchantments(enchants) == null) { sender.sendMessage("Invalid enchantments. Format: SHARPNESS=2,UNBREAKING=3"); return true; }
+                    entry += ":" + enchants;
+                }
+            }
+            List<String> rewards = configuredRewards(type);
+            if (rewards.size() >= 45) { sender.sendMessage("This crate already has 45 reward entries."); return true; }
+            rewards.add(entry);
+            if (saveEditedRewards(type, rewards)) sender.sendMessage(Component.text("Added and saved " + entry + " to " + titleCase(type) + " Crate.", NamedTextColor.GREEN));
+            else sender.sendMessage(Component.text("Reward was not added because validation or saving failed.", NamedTextColor.RED));
+            return true;
+        }
+        if (sub.equals("modify")) {
+            if (args.length < 5 || args.length > 6) {
+                sender.sendMessage("Usage: /crate modify <type> <index> <weight> <rarity> [ENCHANT=LEVEL,...|-]");
+                return true;
+            }
+            String type = validType(args[1]);
+            int index;
+            double weight;
+            try { index = Integer.parseInt(args[2]) - 1; weight = Double.parseDouble(args[3]); }
+            catch (NumberFormatException ex) { sender.sendMessage("Index and weight must be numbers."); return true; }
+            List<String> rewards = configuredRewards(type == null ? "" : type);
+            if (type == null || index < 0 || index >= rewards.size() || !Double.isFinite(weight) || weight <= 0) {
+                sender.sendMessage("Invalid crate type, 1-based reward index, or weight."); return true;
+            }
+            String[] parts = rewards.get(index).split(":", 5);
+            if (parts.length < 4) { sender.sendMessage("That reward entry is invalid."); return true; }
+            String rarity = args[4].replace(':', ' ');
+            if (rarity.isBlank()) { sender.sendMessage("Rarity must not be blank."); return true; }
+            String enchantPart = parts.length > 4 ? parts[4] : "";
+            if (args.length == 6) {
+                enchantPart = args[5].equals("-") ? "" : args[5].replace(" ", "");
+                if (!enchantPart.isBlank() && parseEnchantments(enchantPart) == null) {
+                    sender.sendMessage("Invalid enchantments. Format: SHARPNESS=2,UNBREAKING=3"); return true;
+                }
+            }
+            String updated = parts[0] + ":" + parts[1] + ":" + weight + ":" + rarity + (enchantPart.isBlank() ? "" : ":" + enchantPart);
+            rewards.set(index, updated);
+            if (saveEditedRewards(type, rewards)) sender.sendMessage(Component.text("Updated reward #" + (index + 1) + " and saved.", NamedTextColor.GREEN));
+            else sender.sendMessage(Component.text("Update failed validation or could not be saved.", NamedTextColor.RED));
+            return true;
+        }
+        if (sub.equals("remove-reward")) {
+            if (args.length != 3) { sender.sendMessage("Usage: /crate remove-reward <type> <index>"); return true; }
+            String type = validType(args[1]);
+            int index;
+            try { index = Integer.parseInt(args[2]) - 1; } catch (NumberFormatException ex) { index = -1; }
+            if (type == null) { sender.sendMessage("Types: " + String.join(", ", TYPES)); return true; }
+            List<String> rewards = configuredRewards(type);
+            if (index < 0 || index >= rewards.size()) { sender.sendMessage("Reward index is out of range. Use /crate edit " + type + " to view rewards."); return true; }
+            String removed = rewards.remove(index);
+            if (saveEditedRewards(type, rewards)) sender.sendMessage(Component.text("Removed and saved reward: " + removed, NamedTextColor.YELLOW));
+            else sender.sendMessage(Component.text("Removal failed; the previous reward pool was retained.", NamedTextColor.RED));
+            return true;
+        }
         if (sub.equals("reload")) {
             plugin.reloadConfig();
             validateConfiguredRewards();
@@ -957,7 +1050,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     }
     @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){
         if(a.equalsIgnoreCase("keyall")) return args.length==1 ? TYPES : List.of();
-        if(args.length==1) return List.of("spawn","remove","list","keys","givekey","reload","edit");
+        if(args.length==1) return List.of("spawn","remove","list","keys","givekey","reload","edit","add","modify","remove-reward");
         if(args.length==2&&args[0].equalsIgnoreCase("spawn")) return TYPES;
         if(args.length==2&&args[0].equalsIgnoreCase("edit")) return TYPES;
         if(args.length==2&&args[0].equalsIgnoreCase("givekey")) return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
