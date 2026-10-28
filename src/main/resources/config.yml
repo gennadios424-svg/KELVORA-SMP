@@ -811,67 +811,27 @@ crates:
       name: "&aCommon Crate"
       description: "Useful survival supplies"
       block: LIGHT_GRAY_SHULKER_BOX
-      rewards:
-        - "BREAD:8:30:Common"
-        - "TORCH:16:25:Common"
-        - "COBBLESTONE:32:25:Common"
-        - "IRON_INGOT:4:12:Uncommon"
-        - "GOLD_INGOT:2:5:Rare"
-        - "DIAMOND:1:1:Epic"
-        - "KELVORAS:25:3:Uncommon"
-        - "MONEY:100:2:Rare"
+      rewards: []
     kelvora:
       name: "&3Kelvora Crate"
       description: "Valuable resources and equipment"
       block: GREEN_SHULKER_BOX
-      rewards:
-        - "IRON_INGOT:16:25:Common"
-        - "GOLD_INGOT:8:20:Uncommon"
-        - "DIAMOND:2:15:Rare"
-        - "EXPERIENCE_BOTTLE:16:15:Uncommon"
-        - "ENDER_PEARL:8:10:Rare"
-        - "DIAMOND_PICKAXE:1:4:Epic"
-        - "NETHERITE_SCRAP:1:1:Legendary"
-        - "KELVORAS:250:3:Rare"
-        - "MONEY:500:2:Epic"
-        - "COMMAND:give {player} golden_apple 2:0.25:Epic"
+      rewards: []
     gold:
       name: "&6Gold Crate"
       description: "Premium gear and rare materials"
       block: YELLOW_SHULKER_BOX
-      rewards:
-        - "GOLD_BLOCK:4:25:Common"
-        - "DIAMOND:8:20:Uncommon"
-        - "ENCHANTED_GOLDEN_APPLE:1:8:Epic"
-        - "DIAMOND_CHESTPLATE:1:10:Rare"
-        - "NETHERITE_INGOT:1:4:Legendary"
-        - "ELYTRA:1:1:Mythic"
-        - "KELVORAS:1000:2:Epic"
-        - "MONEY:2500:1:Legendary"
+      rewards: []
     spawner:
       name: "&5Spawner Crate"
       description: "Mob drops and monster-hunting supplies"
       block: PURPLE_SHULKER_BOX
-      rewards:
-        - "BLAZE_ROD:8:25:Common"
-        - "ENDER_PEARL:16:20:Uncommon"
-        - "SLIME_BALL:16:20:Uncommon"
-        - "GHAST_TEAR:2:12:Rare"
-        - "TOTEM_OF_UNDYING:1:3:Legendary"
-        - "NETHER_STAR:1:1:Mythic"
-        - "KELVORAS:500:2:Epic"
-        - "MONEY:750:1:Legendary"
+      rewards: []
     crimson:
       name: "&4&lCrimson Crate"
       description: "Dark crimson rewards"
       block: RED_SHULKER_BOX
-      rewards:
-        - "IRON_INGOT:16:10:Common"
-        - "GOLD_INGOT:8:8:Common"
-        - "DIAMOND:2:3:Rare"
-        - "NETHERITE_INGOT:1:1:Legendary"
-        - "MONEY:1000:2:Epic"
-        - "KELVORAS:500:2:Epic"
+      rewards: []
   restricted-blocks: [BEDROCK, SPAWNER, TRIAL_SPAWNER, VAULT, CHEST, TRAPPED_CHEST, BARREL, ENDER_CHEST, SHULKER_BOX, END_PORTAL_FRAME]
   gainer:
     max-interval: 168
