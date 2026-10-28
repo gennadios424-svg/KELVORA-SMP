@@ -59,7 +59,10 @@ jobs:
           grep -q 'installFinalCratePackOnce239' src/main/java/net/kelvora/smp/CrateManager.java
           grep -q 'Added and saved' src/main/java/net/kelvora/smp/CrateManager.java
           grep -q 'Removed and saved reward' src/main/java/net/kelvora/smp/CrateManager.java
-          test "$(grep -c '^      rewards: \[\]$' src/main/resources/config.yml)" -eq 5
+          grep -q 'NETHERITE_SWORD:1:7:Epic' src/main/resources/config.yml
+          grep -q 'kelvoratools give {player} drill' src/main/resources/config.yml
+          ! grep -q '^    spawner:' src/main/resources/config.yml
+          test "$(grep -c '^    \(common\|gold\|crimson\|kelvora\):$' src/main/resources/config.yml)" -eq 4
           jar tf "$JAR" | grep -q 'net/kelvora/smp/StaffFeaturesManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/SpecialToolsManager.class'
           jar tf "$JAR" | grep -q 'net/kelvora/smp/ShopSellManager.class'
