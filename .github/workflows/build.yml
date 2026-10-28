@@ -10,6 +10,7 @@ on:
       - 'src/main/resources/**'
       - 'pom.xml'
       - '.github/workflows/build.yml'
+      - '.github/workflows/build-repaired.yml'
   workflow_dispatch:
 
 permissions:
