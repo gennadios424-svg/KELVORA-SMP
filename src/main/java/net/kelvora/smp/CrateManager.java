@@ -58,6 +58,7 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
     void register() {
         data = YamlConfiguration.loadConfiguration(dataFile);
         migrateLegacyGamblingKeys();
+        resetCratesOnceFor238();
         loadLocations();
         rebuildHolograms();
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -68,6 +69,53 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         if (plugin.getCommand("keyall") != null) plugin.getCommand("keyall").setExecutor(this);
         validateConfiguredRewards();
         generateCoverageReport();
+    }
+
+    /**
+     * One-time clean rebuild for 2.38.0: remove registered physical crates and
+     * clear every reward pool, while preserving player key balances and all
+     * unrelated plugin data. The marker prevents wiping rewards on later restarts.
+     */
+    private void resetCratesOnceFor238() {
+        if ("2.38.0".equals(data.getString("meta.empty-crate-reset-version", ""))) return;
+        int removedBlocks = 0;
+        for (String key : new ArrayList<>(data.getKeys(false))) {
+            if ("players".equalsIgnoreCase(key) || "meta".equalsIgnoreCase(key)) continue;
+            String worldName = data.getString(key + ".location.world");
+            World world = worldName == null ? null : Bukkit.getWorld(worldName);
+            if (world != null && data.contains(key + ".location.x")
+                    && data.contains(key + ".location.y") && data.contains(key + ".location.z")) {
+                Location location = new Location(world, data.getInt(key + ".location.x"),
+                        data.getInt(key + ".location.y"), data.getInt(key + ".location.z"));
+                Material existing = location.getBlock().getType();
+                if (existing.name().endsWith("_SHULKER_BOX")) {
+                    location.getBlock().setType(Material.AIR, false);
+                    removedBlocks++;
+                }
+            }
+            data.set(key, null);
+        }
+        data.set("meta.empty-crate-reset-version", "2.38.0");
+        if (!save()) plugin.getLogger().severe("Could not persist crate reset marker; the reset may run again after restart.");
+        int cleared = 0;
+        for (String type : TYPES) {
+            YamlConfiguration cfg = crateConfig(type);
+            cfg.set("rewards", Collections.emptyList());
+            cfg.set("exact-chances", null);
+            File target = new File(crateConfigDirectory, type + ".yml");
+            try {
+                if (!crateConfigDirectory.exists()) crateConfigDirectory.mkdirs();
+                cfg.save(target);
+                cleared++;
+            } catch (IOException ex) {
+                plugin.getLogger().severe("Could not reset " + type + " crate rewards: " + ex.getMessage());
+            }
+            plugin.getConfig().set("crates.types." + type + ".rewards", Collections.emptyList());
+            plugin.getConfig().set("crates.types." + type + ".exact-chances", null);
+        }
+        plugin.getLogger().warning("Crate system reset 2.38.0: removed " + removedBlocks
+                + " registered physical crate block(s); emptied reward pools for " + cleared
+                + "/5 crate types. Player digital key balances were preserved.");
     }
 
     private void migrateLegacyGamblingKeys() {
@@ -458,7 +506,12 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                 }
                 if (raw >= 0 && raw < 45 && raw < rewards.size()) {
                     String removed = rewards.remove(raw);
-                    p.sendMessage(Component.text("Removed reward " + removed + ". Click SAVE REWARDS to persist.", NamedTextColor.YELLOW));
+                    if (saveEditedRewards(type, rewards)) {
+                        p.sendMessage(Component.text("Removed and saved reward " + removed + ".", NamedTextColor.YELLOW));
+                    } else {
+                        rewards.add(raw, removed);
+                        p.sendMessage(Component.text("Could not save removal; the reward was restored.", NamedTextColor.RED));
+                    }
                     Bukkit.getScheduler().runTask(plugin, () -> openRewardEditor(p, type));
                 }
                 return;
@@ -469,8 +522,14 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                     p.sendMessage(Component.text("That item cannot be a crate reward.", NamedTextColor.RED)); return;
                 }
                 if (rewards.size() >= 45) { p.sendMessage(Component.text("The editor supports up to 45 reward entries.", NamedTextColor.RED)); return; }
-                rewards.add(source.getType().name() + ":" + source.getAmount() + ":1:Common");
-                p.sendMessage(Component.text("Added " + source.getType().name() + " x" + source.getAmount() + " as a reward copy. Click SAVE REWARDS to persist.", NamedTextColor.GREEN));
+                String added = source.getType().name() + ":" + source.getAmount() + ":1:Common";
+                rewards.add(added);
+                if (saveEditedRewards(type, rewards)) {
+                    p.sendMessage(Component.text("Added and saved " + source.getType().name() + " x" + source.getAmount() + ".", NamedTextColor.GREEN));
+                } else {
+                    rewards.remove(added);
+                    p.sendMessage(Component.text("Could not save this reward; no change was kept.", NamedTextColor.RED));
+                }
                 Bukkit.getScheduler().runTask(plugin, () -> openRewardEditor(p, type));
             }
             return;
