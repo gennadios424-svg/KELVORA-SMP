@@ -1,3 +1,4 @@
+# Builds the standalone auth plugin JAR for Paper 1.21.11 with Java 21.
 name: Build Kelvora Auth
 on:
   push:
