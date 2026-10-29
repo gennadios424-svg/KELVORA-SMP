@@ -1,0 +1,26 @@
+name: KelvoraAuth
+version: 1.0.0
+main: gg.kelvora.auth.KelvoraAuth
+api-version: '1.21'
+authors: [Kelvora]
+description: Secure password registration and login for Kelvora SMP.
+commands:
+  register:
+    description: Register your account with a password.
+    usage: /register <password> <confirmPassword>
+    aliases: [reg]
+  login:
+    description: Log in to your account.
+    usage: /login <password>
+    aliases: [l]
+  changepassword:
+    description: Change your password after confirming your current password.
+    usage: /changepassword <currentPassword> <newPassword> <confirmNewPassword>
+    aliases: [changepass, cpw]
+  logout:
+    description: Lock your account until you log in again.
+    usage: /logout
+permissions:
+  kelvoraauth.bypass:
+    description: Bypass authentication restrictions.
+    default: op
