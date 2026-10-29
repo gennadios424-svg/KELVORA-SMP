@@ -1,0 +1,25 @@
+name: Build Kelvora Auth
+on:
+  push:
+    paths:
+      - 'auth/**'
+      - '.github/workflows/build-kelvora-auth.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: auth/pom.xml
+      - name: Build plugin JAR
+        run: mvn -B -f auth/pom.xml clean package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KelvoraAuth-1.0.0
+          path: auth/target/KelvoraAuth-1.0.0.jar
+          if-no-files-found: error
