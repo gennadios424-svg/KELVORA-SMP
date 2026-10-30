@@ -501,9 +501,10 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (!(e.getWhoClicked() instanceof Player staff) || !SUS_TITLE.equals(e.getView().getTitle())) return;
         e.setCancelled(true); if(e.getClickedInventory()==null || e.getClickedInventory()!=e.getView().getTopInventory()) return;
         ItemStack item=e.getCurrentItem(); if(item==null || item.getType()!=Material.PLAYER_HEAD || !(item.getItemMeta() instanceof SkullMeta meta)) return;
-        String name=ChatColor.stripColor(meta.getDisplayName()); Player target=Bukkit.getPlayerExact(name); if(target==null){staff.sendMessage(ChatColor.RED+"That player is offline.");return;}
-        if(e.isRightClick()) { ConfigurationSection s=data.getConfigurationSection("suspects."+target.getUniqueId()); if(s!=null) staff.sendMessage(ChatColor.GOLD+target.getName()+": "+s.getString("reason","Suspicious mining pattern")+ChatColor.GRAY+" at "+s.getString("world","?")+" "+s.getInt("x")+", "+s.getInt("y")+", "+s.getInt("z")+" using "+s.getString("tool","unknown")+". Review only; no automatic punishment."); return; }
+        String name=ChatColor.stripColor(meta.getDisplayName());
         String suspectId = findSuspectId(name);
+        if (suspectId == null) { staff.sendMessage(ChatColor.RED + "Saved evidence could not be found."); return; }
+        if(e.isRightClick()) { ConfigurationSection s=data.getConfigurationSection("suspects."+suspectId); if(s!=null) staff.sendMessage(ChatColor.GOLD+name+": "+s.getString("reason","Suspicious mining pattern")+ChatColor.GRAY+" at "+s.getString("world","?")+" "+s.getInt("x")+", "+s.getInt("y")+", "+s.getInt("z")+" using "+s.getString("tool","unknown")+". Review only; no automatic punishment."); return; }
         if (suspectId == null) { staff.sendMessage(ChatColor.RED + "Saved evidence could not be found."); return; }
         Location flagged = flaggedLocation(suspectId);
         if (flagged == null) { staff.sendMessage(ChatColor.RED + "The saved flag location is unavailable."); return; }
