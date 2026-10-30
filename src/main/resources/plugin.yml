@@ -1,5 +1,5 @@
 name: KelvoraSMP
-version: 2.41.0
+version: 2.42.0
 main: net.kelvora.smp.KelvoraSMP
 api-version: '1.21'
 description: Kelvora SMP economy GUIs, Money coinflip, leaderboard, bounty, and combat tags
