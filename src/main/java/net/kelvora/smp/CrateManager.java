@@ -340,25 +340,11 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         for (World world : Bukkit.getWorlds()) for (Entity entity : world.getEntities()) {
             if (entity instanceof ArmorStand stand && stand.getPersistentDataContainer().has(holoKey, PersistentDataType.STRING)) stand.remove();
         }
-        for (Map.Entry<String, Location> entry : crates.entrySet()) createHologram(entry.getKey(), entry.getValue());
+        // Crate holograms are intentionally disabled; physical crate blocks remain usable.
     }
 
     private void createHologram(String type, Location block) {
-        if (block.getWorld() == null) return;
-        String title = crateConfig(type).getString("name", titleCase(type) + " Crate");
-        String desc = crateConfig(type).getString("description", "Special rewards");
-        Location base = block.clone().add(0.5, 1.15, 0.5);
-        spawnLine(base, type, "&6&l" + title);
-        spawnLine(base.clone().add(0, -0.27, 0), type, "&fRight-click to open");
-        spawnLine(base.clone().add(0, -0.54, 0), type, "&7" + desc);
-    }
-
-    private void spawnLine(Location location, String type, String text) {
-        ArmorStand stand = location.getWorld().spawn(location, ArmorStand.class, entity -> {
-            entity.setInvisible(true); entity.setMarker(true); entity.setGravity(false); entity.setCustomNameVisible(true);
-            entity.customName(color(text)); entity.setPersistent(true);
-            entity.getPersistentDataContainer().set(holoKey, PersistentDataType.STRING, type);
-        });
+        // Holograms were removed because their ArmorStands could desynchronize or break.
     }
 
     private String locKey(Location l) { return l.getWorld().getName() + "," + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ(); }
