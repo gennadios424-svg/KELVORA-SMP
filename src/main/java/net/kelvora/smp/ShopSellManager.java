@@ -166,7 +166,7 @@ final class ShopSellManager implements Listener {
             case "blocks" -> "STONE,COBBLESTONE,STONE_BRICKS,CRACKED_STONE_BRICKS,MOSSY_STONE_BRICKS,CHISELED_STONE_BRICKS,ANDESITE,DIORITE,GRANITE,DEEPSLATE,COBBLED_DEEPSLATE,DEEPSLATE_BRICKS,DEEPSLATE_TILES,DIRT,COARSE_DIRT,ROOTED_DIRT,GRASS_BLOCK,SAND,RED_SAND,GRAVEL,CLAY,BRICKS,BRICK,GLASS,GLASS_PANE,TERRACOTTA,SANDSTONE,CUT_SANDSTONE,SMOOTH_SANDSTONE,RED_SANDSTONE,PRISMARINE,PRISMARINE_BRICKS,DARK_PRISMARINE,SEA_LANTERN,BOOKSHELF,CRAFTING_TABLE,CHEST,BARREL";
             case "food" -> "BREAD,COOKED_BEEF,COOKED_PORKCHOP,COOKED_CHICKEN,COOKED_MUTTON,COOKED_RABBIT,COOKED_COD,COOKED_SALMON,BAKED_POTATO,GOLDEN_CARROT,APPLE,PUMPKIN_PIE,COOKIE,MELON_SLICE,SWEET_BERRIES,GLOW_BERRIES,DRIED_KELP,CHORUS_FRUIT";
             case "pvp" -> "OBSIDIAN,END_CRYSTAL,RESPAWN_ANCHOR,GLOWSTONE,EXPERIENCE_BOTTLE,GOLDEN_APPLE,ENDER_PEARL,ARROW,SPECTRAL_ARROW,TOTEM_OF_UNDYING";
-            case "redstone" -> "REDSTONE,REDSTONE_TORCH,REPEATER,COMPARATOR,OBSERVER,PISTON,STICKY_PISTON,HOPPER,DROPPER,DISPENSER,REDSTONE_LAMP,LEVER,STONE_BUTTON,STONE_PRESSURE_PLATE,TRIPWIRE_HOOK,TARGET,DAYLIGHT_DETECTOR,NOTE_BLOCK,RAIL,POWERED_RAIL,DETECTOR_RAIL,ACTIVATOR_RAIL,MINECART,HOPPER_MINECART,SLIME_BLOCK,HONEY_BLOCK,TRAPPED_CHEST";
+            case "redstone" -> "REDSTONE,REDSTONE_TORCH,REPEATER,COMPARATOR,OBSERVER,PISTON,STICKY_PISTON,HOPPER,DROPPER,DISPENSER,REDSTONE_LAMP,LEVER,STONE_BUTTON,STONE_PRESSURE_PLATE,TRIPWIRE_HOOK,TARGET,DAYLIGHT_DETECTOR,NOTE_BLOCK,RAIL,POWERED_RAIL,DETECTOR_RAIL,ACTIVATOR_RAIL,MINECART,HOPPER_MINECART,SLIME_BLOCK,HONEY_BLOCK,TRAPPED_CHEST,CRAFTER";
             case "farm" -> "WHEAT_SEEDS,CARROT,POTATO,BEETROOT_SEEDS,PUMPKIN_SEEDS,MELON_SEEDS,BONE_MEAL,SUGAR_CANE";
             case "nether" -> "NETHERRACK,NETHER_BRICKS,RED_NETHER_BRICKS,BLACKSTONE,POLISHED_BLACKSTONE,POLISHED_BLACKSTONE_BRICKS,BASALT,POLISHED_BASALT,SMOOTH_BASALT,SOUL_SAND,SOUL_SOIL,MAGMA_BLOCK,QUARTZ,QUARTZ_BLOCK,QUARTZ_BRICKS,CHISELED_QUARTZ_BLOCK,SMOOTH_QUARTZ,NETHER_WART";
             case "end" -> "END_STONE,END_STONE_BRICKS,PURPUR_BLOCK,PURPUR_PILLAR,PURPUR_STAIRS,PURPUR_SLAB,END_ROD,POPPED_CHORUS_FRUIT,ENDER_CHEST,ENDER_EYE";
@@ -237,7 +237,7 @@ final class ShopSellManager implements Listener {
         if (name.startsWith("END_") || name.startsWith("PURPUR_") || name.equals("ENDER_CHEST") || name.equals("ENDER_EYE") || name.equals("POPPED_CHORUS_FRUIT")) return "end";
         if (Set.of("WHEAT_SEEDS","CARROT","POTATO","BEETROOT_SEEDS","PUMPKIN_SEEDS","MELON_SEEDS","WHEAT","SUGAR_CANE","PUMPKIN","MELON","CACTUS","BAMBOO","COCOA_BEANS","BONE_MEAL","COMPOSTER","FLOWER_POT","WATER_BUCKET","LAVA_BUCKET","SHEARS","LEAD").contains(name)) return "farm";
         if (Set.of("BREAD","COOKED_BEEF","COOKED_PORKCHOP","COOKED_CHICKEN","COOKED_MUTTON","COOKED_RABBIT","COOKED_COD","COOKED_SALMON","BAKED_POTATO","GOLDEN_CARROT","APPLE","PUMPKIN_PIE","COOKIE","MELON_SLICE","SWEET_BERRIES","GLOW_BERRIES","DRIED_KELP","CHORUS_FRUIT").contains(name)) return "food";
-        if (Set.of("REDSTONE","REDSTONE_TORCH","REPEATER","COMPARATOR","OBSERVER","PISTON","STICKY_PISTON","HOPPER","DROPPER","DISPENSER","REDSTONE_LAMP","LEVER","STONE_BUTTON","STONE_PRESSURE_PLATE","TRIPWIRE_HOOK","TARGET","DAYLIGHT_DETECTOR","NOTE_BLOCK","RAIL","POWERED_RAIL","DETECTOR_RAIL","ACTIVATOR_RAIL","MINECART","HOPPER_MINECART","SLIME_BLOCK","HONEY_BLOCK","TRAPPED_CHEST").contains(name)) return "redstone";
+        if (Set.of("REDSTONE","REDSTONE_TORCH","REPEATER","COMPARATOR","OBSERVER","PISTON","STICKY_PISTON","HOPPER","DROPPER","DISPENSER","REDSTONE_LAMP","LEVER","STONE_BUTTON","STONE_PRESSURE_PLATE","TRIPWIRE_HOOK","TARGET","DAYLIGHT_DETECTOR","NOTE_BLOCK","RAIL","POWERED_RAIL","DETECTOR_RAIL","ACTIVATOR_RAIL","MINECART","HOPPER_MINECART","SLIME_BLOCK","HONEY_BLOCK","TRAPPED_CHEST","CRAFTER").contains(name)) return "redstone";
         return "blocks";
     }
 
@@ -593,14 +593,13 @@ final class ShopSellManager implements Listener {
                     : "Inventory changed; leftover items were dropped safely. Contact staff to verify the refund.", NamedTextColor.RED));
                 return;
             }
-            quantitySessions.remove(p.getUniqueId(), session);
             p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.25f);
             p.sendMessage(Component.text("Bought " + qty + "x " + session.name + " for $" + MONEY.format(cost)
                 + ". New Money balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
-            // Reopen next tick: opening inside InventoryClickEvent can be overwritten by close handling.
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (p.isOnline()) openCategory(p, session.category, session.page);
-            });
+            // Keep the quantity GUI open so players can repeatedly purchase without reopening menus.
+            if (p.isOnline() && stripColor(p.getOpenInventory().getTitle()).equals(QUANTITY)) {
+                refreshQuantityView(p, p.getOpenInventory().getTopInventory(), session);
+            }
         } finally {
             transactions.remove(p.getUniqueId());
         }
@@ -611,6 +610,30 @@ final class ShopSellManager implements Listener {
         Inventory temp = Bukkit.createInventory(null, contents.length);
         temp.setContents(contents);
         return temp.addItem(grant.clone());
+    }
+
+    private long lifetimeSoldItems(Player player) {
+        return Math.max(0L, plugin.getConfig().getLong("sell-multiplier.players." + player.getUniqueId() + ".items-sold", 0L));
+    }
+
+    private double sellMultiplier(long lifetimeItems) {
+        if (!plugin.getConfig().getBoolean("sell-multiplier.enabled", true)) return 1.0;
+        org.bukkit.configuration.ConfigurationSection tiers = plugin.getConfig().getConfigurationSection("sell-multiplier.tiers");
+        double multiplier = 1.0;
+        if (tiers == null) {
+            if (lifetimeItems >= 15000) return 1.15;
+            if (lifetimeItems >= 5000) return 1.10;
+            if (lifetimeItems >= 1000) return 1.05;
+            return 1.0;
+        }
+        for (String thresholdText : tiers.getKeys(false)) {
+            try {
+                long threshold = Long.parseLong(thresholdText);
+                double candidate = tiers.getDouble(thresholdText, 1.0);
+                if (threshold >= 0 && lifetimeItems >= threshold && Double.isFinite(candidate) && candidate >= multiplier) multiplier = candidate;
+            } catch (NumberFormatException ignored) { }
+        }
+        return multiplier;
     }
 
     private void confirmSell(Player p, Inventory inv) {
@@ -634,13 +657,23 @@ final class ShopSellManager implements Listener {
             if (sellSlots.isEmpty() || total <= 0 || !Double.isFinite(total)) {
                 p.sendMessage(Component.text("No items with a valid /worth price were found.", NamedTextColor.RED)); return;
             }
-            Object response = economyCall("depositPlayer", p, total);
+            long oldLifetimeItems = lifetimeSoldItems(p);
+            long newLifetimeItems = oldLifetimeItems > Long.MAX_VALUE - soldCount ? Long.MAX_VALUE : oldLifetimeItems + soldCount;
+            double multiplier = sellMultiplier(newLifetimeItems);
+            double payout = total * multiplier;
+            if (!Double.isFinite(payout) || payout <= 0) {
+                p.sendMessage(Component.text("Sale total is invalid. No items were sold.", NamedTextColor.RED)); return;
+            }
+            Object response = economyCall("depositPlayer", p, payout);
             if (!transactionSucceeded(response)) {
                 p.sendMessage(Component.text("Money payment failed. Your items are still in the sell chest.", NamedTextColor.RED)); return;
             }
             for (int slot : sellSlots) inv.setItem(slot, null);
-            p.sendMessage(Component.text("Sold " + soldCount + " items for $" + MONEY.format(total)
-                + " Money. New balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
+            plugin.getConfig().set("sell-multiplier.players." + p.getUniqueId() + ".items-sold", newLifetimeItems);
+            try { plugin.saveConfig(); } catch (RuntimeException saveError) { plugin.getLogger().severe("Could not save sell multiplier progress for " + p.getName() + ": " + saveError.getMessage()); }
+            p.sendMessage(Component.text("Sold " + soldCount + " items for $" + MONEY.format(payout)
+                + " Money (x" + MONEY.format(multiplier) + " sell multiplier). Lifetime items sold: " + newLifetimeItems
+                + ". New balance: $" + MONEY.format(balance(p)), NamedTextColor.GREEN));
             p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.2f, 1.2f);
             p.closeInventory();
         } finally { transactions.remove(p.getUniqueId()); }
@@ -681,7 +714,12 @@ final class ShopSellManager implements Listener {
             else if (value.valid) { total += value.value; count += value.count; }
         }
         if (invalidShulker) p.sendMessage(Component.text("Total unavailable: a shulker contains an item without a valid /worth price.", NamedTextColor.RED));
-        else p.sendMessage(Component.text("Sell chest: " + count + " items worth $" + MONEY.format(total), NamedTextColor.GOLD));
+        else {
+            long projected = lifetimeSoldItems(p) > Long.MAX_VALUE - count ? Long.MAX_VALUE : lifetimeSoldItems(p) + count;
+            double multiplier = sellMultiplier(projected);
+            p.sendMessage(Component.text("Sell chest: " + count + " items worth $" + MONEY.format(total * multiplier)
+                + " (x" + MONEY.format(multiplier) + " multiplier)", NamedTextColor.GOLD));
+        }
     }
 
     private void updateSellButton(Inventory inv) {
