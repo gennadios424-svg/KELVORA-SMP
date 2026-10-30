@@ -65,6 +65,18 @@ kelvoras:
 
 # Central /worth price registry. Values are per item, not per stack.
 # Only survival-obtainable items are included; prices can be adjusted here.
+# Lifetime item-selling progression. Multiplier applies to the sale that reaches each tier.
+sell-multiplier:
+  enabled: true
+  tiers:
+    1000: 1.05
+    5000: 1.10
+    15000: 1.15
+  players: {}
+
+shop-prices:
+  CRAFTER: 250
+
 prices:
   KELP: 200
   PINK_PETALS: 150
