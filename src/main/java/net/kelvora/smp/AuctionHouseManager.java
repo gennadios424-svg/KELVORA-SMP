@@ -31,9 +31,9 @@ import org.bukkit.plugin.java.JavaPlugin;
  * Persistent player auction house. Uses the existing Vault Money provider only.
  */
 final class AuctionHouseManager implements Listener {
-    private static final String TITLE = "KELVORA // AUCTION HOUSE";
-    private static final String CONFIRM = "KELVORA // CONFIRM PURCHASE";
-    private static final String MY_LISTINGS = "KELVORA // MY LISTINGS";
+    private static final String TITLE = "KELVORA | AUCTION HOUSE";
+    private static final String CONFIRM = "KELVORA | CONFIRM PURCHASE";
+    private static final String MY_LISTINGS = "KELVORA | MY LISTINGS";
     private static final long DURATION = 24L * 60L * 60L * 1000L;
     private static final int PAGE_SIZE = 45;
     private static final DecimalFormat EXACT = new DecimalFormat("#,##0.##");
@@ -272,6 +272,7 @@ final class AuctionHouseManager implements Listener {
             inv.setItem(i, listingDisplay(l));
         }
         put(inv, 45, Material.ARROW, "Previous Page", "previous", page > 0 ? "Page " + page : "First page");
+        for (int slot : new int[] {46, 48, 50, 52}) put(inv, slot, Material.GREEN_STAINED_GLASS_PANE, " ", "decorative", " ");
         put(inv, 47, Material.SUNFLOWER, "Refresh", "refresh", " ");
         put(inv, 49, Material.PAPER, "Page " + (page + 1) + "/" + pages, "noop", visible.size() + " listings");
         put(inv, 51, Material.SPECTRAL_ARROW, "Next Page", "next", page + 1 < pages ? "Page " + (page + 2) : "Last page");
@@ -287,7 +288,7 @@ final class AuctionHouseManager implements Listener {
                 .filter(l -> query.isBlank() || matchesSearch(l, query))
                 .filter(l -> !reservedListings.contains(l.id))
                 .filter(l -> !ownOnly || l.owner.equals(p.getUniqueId()))
-                .sorted(Comparator.comparingLong(l -> l.createdAt))
+                .sorted(Comparator.comparingLong((Listing l) -> l.createdAt).reversed())
                 .toList();
     }
 
