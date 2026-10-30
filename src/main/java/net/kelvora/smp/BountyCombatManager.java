@@ -307,9 +307,9 @@ final class BountyCombatManager implements Listener {
         if (message == null || !message.startsWith("/")) return;
         String label = message.substring(1).trim().split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
         int colon = label.lastIndexOf(':'); if (colon >= 0) label = label.substring(colon + 1);
-        if (Set.of("ah", "auctionhouse", "auctions", "sell", "worth", "itemworth", "coinflip", "cf").contains(label)) {
+        if (!label.equals("shop")) {
             e.setCancelled(true);
-            fail(p, "You cannot use /" + label + " during combat.");
+            fail(p, "Only /shop is available while you are in combat.");
         }
     }
 
