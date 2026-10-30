@@ -863,6 +863,10 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
         }
         String type = openCrate.get(p.getUniqueId());
         if (type == null) return;
+        if (title.startsWith("KELVORA | ROLLING ")) {
+            if (e.getRawSlot() == 26) p.closeInventory();
+            return;
+        }
         if (e.getRawSlot() == 53) { p.closeInventory(); return; }
         if (e.getRawSlot() != 49 || !opening.add(p.getUniqueId())) return;
         if (keys(p, type) <= 0) {
@@ -917,9 +921,17 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
             p.sendMessage(Component.text("Could not save key balance; opening cancelled.", NamedTextColor.RED));
             opening.remove(p.getUniqueId()); return;
         }
-        Inventory inv = e.getView().getTopInventory();
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text("KELVORA | ROLLING " + titleCase(type), NamedTextColor.DARK_GREEN));
+        protectedInventories.add(inv);
+        for (int slot = 0; slot < 27; slot++) {
+            if (slot < 9 || slot >= 18 || slot % 9 == 0 || slot % 9 == 8)
+                inv.setItem(slot, button(Material.GREEN_STAINED_GLASS_PANE, " ", List.of()));
+        }
+        inv.setItem(4, button(Material.CHEST, "&6&l" + titleCase(type).toUpperCase(Locale.ROOT) + " CRATE", List.of("&7Reward reveal")));
         inv.setItem(13, button(Material.CLOCK, "&e&lRolling...", List.of("&7The server selected the reward securely")));
         inv.setItem(22, button(Material.YELLOW_STAINED_GLASS_PANE, "&ePlease wait...", List.of("&7One key consumed")));
+        inv.setItem(26, button(Material.BARRIER, "&cClose", List.of("&7The reward will still be delivered")));
+        p.openInventory(inv);
         final UUID id = p.getUniqueId();
         final org.bukkit.scheduler.BukkitTask[] task = new org.bukkit.scheduler.BukkitTask[1];
         task[0] = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
@@ -985,8 +997,18 @@ final class CrateManager implements Listener, CommandExecutor, TabCompleter {
                     if (plugin.getConfig().getBoolean("crates.broadcast-rare-rewards", true) && (rarity.equalsIgnoreCase("Legendary") || rarity.equalsIgnoreCase("Mythic")))
                         Bukkit.broadcast(Component.text(current.getName() + " won " + rewardLabel + " from a " + titleCase(type) + " Crate!", NamedTextColor.GOLD));
                 }
-                current.closeInventory();
+                if (delivered) {
+                    inv.setItem(13, rewardDisplayItem(reward, "&a&lREWARD WON: " + rewardLabel, List.of("&7Your reward has been delivered")));
+                    inv.setItem(22, button(Material.LIME_STAINED_GLASS_PANE, "&a&lSUCCESS", List.of("&7Enjoy your reward")));
+                } else {
+                    inv.setItem(13, button(Material.BARRIER, "&c&lDELIVERY FAILED", List.of("&7Your key was refunded")));
+                    inv.setItem(22, button(Material.RED_STAINED_GLASS_PANE, "&cRefunded", List.of()));
+                }
                 opening.remove(id);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    Player online = Bukkit.getPlayer(id);
+                    if (online != null && online.isOnline() && online.getOpenInventory().getTopInventory() == inv) online.closeInventory();
+                }, 40L);
             }
         }, 1L, 3L);
     }
