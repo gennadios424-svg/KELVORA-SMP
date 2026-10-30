@@ -67,7 +67,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (!data.contains("media.discord-url")) data.set("media.discord-url", "https://discord.gg/gUt2uGcwe");
         save();
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        registerGrimFlagHook();
+        // Suslist is driven only by the configured ore-count review thresholds.
         for (String command : List.of("live", "media", "role", "suslist", "vanish", "report")) {
             if (plugin.getCommand(command) != null) {
                 plugin.getCommand(command).setExecutor(this);
@@ -288,22 +288,33 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
                     + (all.getBoolean(found + ".reviewed") ? ChatColor.GREEN + " | Reviewed by " + all.getString(found + ".reviewed-by", "staff") : ChatColor.YELLOW + " | Needs review"));
                 sender.sendMessage(ChatColor.YELLOW + "Reason: " + all.getString(found + ".reason", "Suspicious mining pattern"));
                 if (!all.getString(found + ".staff-note", "").isBlank()) sender.sendMessage(ChatColor.GRAY + "Staff note: " + all.getString(found + ".staff-note"));
-                long expiresAt = all.getLong(found + ".expires", all.getLong(found + ".time", 0) + 5L * 60L * 60L * 1000L);
+                long expiresAt = all.getLong(found + ".expires", all.getLong(found + ".time", 0) + 9L * 60L * 60L * 1000L);
                 long remaining = Math.max(0, expiresAt - System.currentTimeMillis());
                 sender.sendMessage(ChatColor.GRAY + "Evidence expires in " + (remaining / 3600000L) + "h " + ((remaining % 3600000L) / 60000L) + "m. Teleport: /suslist tp " + all.getString(found + ".name", args[0]));
                 return true;
             }
             if (args.length >= 2 && args[0].equalsIgnoreCase("tp")) {
-                Player target=Bukkit.getPlayerExact(args[1]);
-                if (target==null) { sender.sendMessage(ChatColor.RED+"That player is not online."); return true; }
+                String found = findSuspectId(args[1]);
+                if (found == null) { sender.sendMessage(ChatColor.RED + "No saved evidence for that player."); return true; }
                 if (!(sender instanceof Player staff)) { sender.sendMessage("Console cannot teleport."); return true; }
+                Location flagged = flaggedLocation(found);
+                if (flagged == null) { sender.sendMessage(ChatColor.RED + "The saved flag location is unavailable."); return true; }
                 if (!vanished.contains(staff.getUniqueId())) { vanished.add(staff.getUniqueId()); applyVanishVisibility(staff); }
-                staff.teleport(target.getLocation()); staff.sendMessage(ChatColor.GREEN+"Teleported to "+target.getName()+" in vanish. Check evidence before taking action."); return true;
+                staff.teleport(flagged);
+                staff.sendMessage(ChatColor.GREEN + "Teleported in vanish to " + data.getString("suspects." + found + ".name", args[1]) + "'s last flagged location.");
+                return true;
             }
             openSuspectGui(sender, suspects);
             return true;
         }
         return false;
+    }
+
+    private Location flaggedLocation(String suspectId) {
+        String base = "suspects." + suspectId;
+        org.bukkit.World world = Bukkit.getWorld(data.getString(base + ".world", ""));
+        if (world == null || !data.contains(base + ".x") || !data.contains(base + ".y") || !data.contains(base + ".z")) return null;
+        return new Location(world, data.getDouble(base + ".x") + 0.5, data.getDouble(base + ".y") + 0.5, data.getDouble(base + ".z") + 0.5);
     }
 
     private long parseLongSafe(String value) { try { return Long.parseLong(value); } catch (NumberFormatException ignored) { return 0L; } }
@@ -312,7 +323,7 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         ConfigurationSection suspects=data.getConfigurationSection("suspects"); if(suspects==null) return;
         long now=System.currentTimeMillis();
         for(String id:new ArrayList<>(suspects.getKeys(false))) {
-            long expires=suspects.getLong(id+".expires",suspects.getLong(id+".time",0)+5L*60L*60L*1000L);
+            long expires=suspects.getLong(id+".expires",suspects.getLong(id+".time",0)+9L*60L*60L*1000L);
             if(expires<=now) data.set("suspects."+id,null);
         }
         save();
@@ -382,18 +393,15 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         if (moderator(p) || hasRole(p,"staff") || hasRole(p,"manager")) return;
         Block block=event.getBlock(); String blockKey=blockKey(block); if (playerPlacedBlocks.remove(blockKey)) return;
         UUID id=p.getUniqueId(); long now=System.currentTimeMillis();
-        Deque<Long> times=minedBlocks.computeIfAbsent(id, x->new ArrayDeque<>()); times.addLast(now);
-        while (!times.isEmpty() && now-times.peekFirst()>10_000L) times.removeFirst();
-        if (times.size()>=45) flag(p,"Breaking "+times.size()+" blocks in 10 seconds",block);
         Material type=block.getType();
         if (type==Material.ANCIENT_DEBRIS) {
             Deque<Long> found=debrisTimes.computeIfAbsent(id,x->new ArrayDeque<>()); found.addLast(now);
-            while(!found.isEmpty() && now-found.peekFirst()>180_000L) found.removeFirst();
-            if(found.size()==2) flag(p,"Mined "+found.size()+" ancient debris within 3 minutes",block);
+            while(!found.isEmpty() && now-found.peekFirst()>30_000L) found.removeFirst();
+            if(found.size()==10) flag(p,"Mined 10 ancient debris within 30 seconds",block);
         } else if (type==Material.DIAMOND_ORE || type==Material.DEEPSLATE_DIAMOND_ORE) {
             Deque<Long> found=diamondTimes.computeIfAbsent(id,x->new ArrayDeque<>()); found.addLast(now);
             while(!found.isEmpty() && now-found.peekFirst()>30_000L) found.removeFirst();
-            if(found.size()==3) flag(p,"Mined "+found.size()+" diamond ores within 30 seconds",block);
+            if(found.size()==10) flag(p,"Mined 10 diamond ores within 30 seconds",block);
         }
     }
     private void flag(Player p,String reason, Block ore) {
@@ -495,7 +503,11 @@ final class StaffFeaturesManager implements Listener, CommandExecutor, TabComple
         ItemStack item=e.getCurrentItem(); if(item==null || item.getType()!=Material.PLAYER_HEAD || !(item.getItemMeta() instanceof SkullMeta meta)) return;
         String name=ChatColor.stripColor(meta.getDisplayName()); Player target=Bukkit.getPlayerExact(name); if(target==null){staff.sendMessage(ChatColor.RED+"That player is offline.");return;}
         if(e.isRightClick()) { ConfigurationSection s=data.getConfigurationSection("suspects."+target.getUniqueId()); if(s!=null) staff.sendMessage(ChatColor.GOLD+target.getName()+": "+s.getString("reason","Suspicious mining pattern")+ChatColor.GRAY+" at "+s.getString("world","?")+" "+s.getInt("x")+", "+s.getInt("y")+", "+s.getInt("z")+" using "+s.getString("tool","unknown")+". Review only; no automatic punishment."); return; }
-        boolean already=vanished.contains(staff.getUniqueId()); if(!already){vanished.add(staff.getUniqueId());applyVanishVisibility(staff);} staff.teleport(target.getLocation()); staff.sendMessage(ChatColor.GREEN+"Teleported to "+target.getName()+" in vanish. Review evidence before action.");
+        String suspectId = findSuspectId(name);
+        if (suspectId == null) { staff.sendMessage(ChatColor.RED + "Saved evidence could not be found."); return; }
+        Location flagged = flaggedLocation(suspectId);
+        if (flagged == null) { staff.sendMessage(ChatColor.RED + "The saved flag location is unavailable."); return; }
+        boolean already=vanished.contains(staff.getUniqueId()); if(!already){vanished.add(staff.getUniqueId());applyVanishVisibility(staff);} staff.teleport(flagged); staff.sendMessage(ChatColor.GREEN+"Teleported to "+name+"'s last flagged location in vanish.");
     }
     @EventHandler public void onJoin(PlayerJoinEvent e) { applyVanishVisibility(e.getPlayer()); }
     @EventHandler public void onQuit(PlayerQuitEvent e) { UUID id=e.getPlayer().getUniqueId(); minedBlocks.remove(id); recentOres.remove(id); recentOreTimes.remove(id); debrisTimes.remove(id); diamondTimes.remove(id); data.set("live."+id+".active",false); data.set("live."+id+".link",null); save(); }
