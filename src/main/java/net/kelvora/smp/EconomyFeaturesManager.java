@@ -32,8 +32,8 @@ final class EconomyFeaturesManager implements Listener {
     private final YamlConfiguration settings;
     private Object economy;
     private final DecimalFormat money = new DecimalFormat("#,##0.##");
-    private static final long CLEAN_INTERVAL_TICKS = 20L * 60L * 10L;
-    private static final long ITEM_MAX_AGE_TICKS = 20L * 60L * 10L;
+    private static final long CLEAN_INTERVAL_TICKS = 20L * 60L * 5L;
+    private static final long ITEM_MAX_AGE_TICKS = 20L * 60L * 5L;
     private static final Map<String, Double> DEFAULT_MOB_REWARDS = Map.ofEntries(
         Map.entry("ZOMBIE", 3.0), Map.entry("SKELETON", 3.0), Map.entry("CREEPER", 4.0),
         Map.entry("SPIDER", 2.0), Map.entry("ENDERMAN", 8.0), Map.entry("BLAZE", 6.0),
@@ -55,7 +55,24 @@ final class EconomyFeaturesManager implements Listener {
         if (plugin.getCommand("lagcleaner") != null) plugin.getCommand("lagcleaner").setExecutor(this::cleanCommand);
         if (plugin.getCommand("optimize") != null) plugin.getCommand("optimize").setExecutor(this::optimizeCommand);
         applyWorldDistances();
-        Bukkit.getScheduler().runTaskTimer(plugin, this::cleanOldDroppedItems, CLEAN_INTERVAL_TICKS, CLEAN_INTERVAL_TICKS);
+        scheduleCleanupCycle();
+    }
+
+    private void scheduleCleanupCycle() {
+        long[] warnings = {60L, 30L, 10L, 5L};
+        for (long seconds : warnings) {
+            long delay = CLEAN_INTERVAL_TICKS - seconds * 20L;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (Bukkit.getOnlinePlayers().isEmpty()) return;
+                String label = seconds == 60L ? "1 minute" : seconds + " seconds";
+                Bukkit.broadcastMessage(ChatColor.YELLOW + "[Kelvora] Lag cleaner runs in " + label + ". Dropped items and stale projectiles may be removed.");
+            }, Math.max(1L, delay));
+        }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            int removed = cleanOldDroppedItems();
+            if (!Bukkit.getOnlinePlayers().isEmpty()) Bukkit.broadcastMessage(ChatColor.GREEN + "[Kelvora] Lag cleaner completed. Removed " + removed + " old entities.");
+            scheduleCleanupCycle();
+        }, CLEAN_INTERVAL_TICKS);
     }
 
     private void connectEconomy() {
@@ -192,9 +209,9 @@ final class EconomyFeaturesManager implements Listener {
             sender.sendMessage(ChatColor.RED + "Only administrators can run the lag cleaner."); return true;
         }
         int removed = cleanOldDroppedItems();
-        sender.sendMessage(ChatColor.GREEN + "Lag cleaner removed " + removed + " ordinary dropped items and stale projectile entities older than 10 minutes.");
-        sender.sendMessage(ChatColor.GRAY + "Mobs (including zombies and snow golems), boats, villagers, bosses, armor stands, item frames, XP orbs, named/custom drops and player inventories are untouched. Old projectiles such as stray arrows and snowballs are cleaned after 10 minutes.");
-        sender.sendMessage(ChatColor.GRAY + "Automatic cleanup runs every 10 minutes.");
+        sender.sendMessage(ChatColor.GREEN + "Lag cleaner removed " + removed + " ordinary dropped items and stale projectile entities older than 5 minutes.");
+        sender.sendMessage(ChatColor.GRAY + "Mobs (including zombies and snow golems), boats, villagers, bosses, armor stands, item frames, XP orbs, named/custom drops and player inventories are untouched. Old projectiles such as stray arrows and snowballs are cleaned after 5 minutes.");
+        sender.sendMessage(ChatColor.GRAY + "Automatic cleanup runs every 5 minutes.");
         return true;
     }
 
