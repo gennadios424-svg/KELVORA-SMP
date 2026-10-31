@@ -100,22 +100,22 @@ final class TeleportSettingsManager implements Listener {
         boolean reduceSpawns = reduceNearbySpawns.getOrDefault(player.getUniqueId(), false);
         boolean deaths = showDeathMessages.getOrDefault(player.getUniqueId(), true);
         inventory.setItem(9, named(deaths ? Material.SKELETON_SKULL : Material.GRAY_DYE,
-            "Death messages: " + (deaths ? "ON" : "OFF"), "death-messages"));
+            "Death Messages: " + (deaths ? "ON" : "OFF"), "death-messages"));
         inventory.setItem(10, named(chatSounds.getOrDefault(player.getUniqueId(), true) ? Material.NOTE_BLOCK : Material.GRAY_DYE,
-            "Chat sounds: " + (chatSounds.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "chat-sounds"));
+            "Chat Sounds: " + (chatSounds.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "chat-sounds"));
         inventory.setItem(11, named(tpa ? Material.LIME_DYE : Material.GRAY_DYE,
-            "Allow /tpa requests: " + (tpa ? "ON" : "OFF"), "allow-tpa"));
+            "Allow TPA Requests: " + (tpa ? "ON" : "OFF"), "allow-tpa"));
         inventory.setItem(12, named(joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? Material.OAK_SIGN : Material.GRAY_DYE,
-            "Join/quit messages: " + (joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "join-quit"));
+            "Join / Leave Messages: " + (joinQuitMessages.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "join-quit"));
         inventory.setItem(13, named(reduceSpawns ? Material.LIME_DYE : Material.GRAY_DYE,
-            "Mob spawning near me: " + (reduceSpawns ? "OFF" : "ON"), "reduce-nearby-spawns"));
+            "Nearby Hostile Spawns: " + (reduceSpawns ? "REDUCED" : "NORMAL"), "reduce-nearby-spawns"));
         inventory.setItem(14, named(sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? Material.BOOK : Material.GRAY_DYE,
-            "Sidebar scoreboard: " + (sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "sidebar"));
+            "Scoreboard: " + (sidebarEnabled.getOrDefault(player.getUniqueId(), true) ? "ON" : "OFF"), "sidebar"));
         inventory.setItem(15, named(here ? Material.LIME_DYE : Material.GRAY_DYE,
-            "Allow /tpahere requests: " + (here ? "ON" : "OFF"), "allow-tpahere"));
+            "Allow TPA Here Requests: " + (here ? "ON" : "OFF"), "allow-tpahere"));
         boolean dms = receivePrivateMessages.getOrDefault(player.getUniqueId(), true);
         inventory.setItem(16, named(dms ? Material.WRITABLE_BOOK : Material.BOOK,
-            "Private messages: " + (dms ? "ON" : "OFF"), "private-messages"));
+            "Private Messages: " + (dms ? "ON" : "OFF"), "private-messages"));
         inventory.setItem(22, named(Material.BARRIER, "Close", "close"));
     }
 
@@ -123,6 +123,19 @@ final class TeleportSettingsManager implements Listener {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(title));
+        String help = switch (action == null ? "" : action) {
+            case "death-messages" -> "Show or hide player death messages in chat.";
+            case "chat-sounds" -> "Play a small sound when a message is sent.";
+            case "allow-tpa" -> "Let players request to teleport to you.";
+            case "join-quit" -> "Show or hide join and leave messages.";
+            case "reduce-nearby-spawns" -> "Reduce natural hostile mob spawns near you.";
+            case "sidebar" -> "Show or hide your scoreboard on the screen.";
+            case "allow-tpahere" -> "Let players ask you to teleport to them.";
+            case "private-messages" -> "Choose whether you receive private messages.";
+            case "close" -> "Close this menu.";
+            default -> "Click to change this option.";
+        };
+        meta.lore(List.of(Component.text(help, NamedTextColor.GRAY), Component.text("Click to change.", NamedTextColor.YELLOW)));
         if (action != null) meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, action);
         item.setItemMeta(meta);
         return item;
