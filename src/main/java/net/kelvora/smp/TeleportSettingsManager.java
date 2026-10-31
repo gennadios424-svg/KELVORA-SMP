@@ -4,6 +4,7 @@ package net.kelvora.smp;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
