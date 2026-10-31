@@ -127,6 +127,7 @@ implements Listener {
         new ChatSpamProtectionManager(this).register();
         CrateManager crateManager = new CrateManager(this);
         crateManager.register();
+        new SpawnerManager(this).register();
         new RankDailyKeysManager(this, crateManager).register();
         new GambleManager(this, this.kelvorasManager).register();
         new LeaderboardManager(this, this.kelvorasManager).register();
