@@ -64,9 +64,20 @@ final class SpawnAfkManager implements Listener {
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
         if (!player.isOp() && !player.hasPermission("kelvora.spawn.admin")) { player.sendMessage(Component.text("You do not have permission.", NamedTextColor.RED)); return true; }
         if (args.length != 0) { player.sendMessage(Component.text("Usage: /setspawn", NamedTextColor.RED)); return true; }
-        data.set("spawn", player.getLocation().clone());
-        save();
-        player.sendMessage(Component.text("Kelvora spawn set at your current location.", NamedTextColor.GREEN));
+        Location location = player.getLocation();
+        data.set("spawn.world", location.getWorld().getName());
+        data.set("spawn.world-uuid", location.getWorld().getUID().toString());
+        data.set("spawn.x", location.getX());
+        data.set("spawn.y", location.getY());
+        data.set("spawn.z", location.getZ());
+        data.set("spawn.yaw", location.getYaw());
+        data.set("spawn.pitch", location.getPitch());
+        data.set("spawn", null);
+        if (!save()) {
+            player.sendMessage(Component.text("Could not save the spawn. Check the server console.", NamedTextColor.RED));
+            return true;
+        }
+        player.sendMessage(Component.text("Kelvora spawn saved permanently.", NamedTextColor.GREEN));
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.3f);
         return true;
     }
@@ -74,7 +85,7 @@ final class SpawnAfkManager implements Listener {
     private boolean spawn(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) { sender.sendMessage("Use this command in-game."); return true; }
         if (args.length != 0) { player.sendMessage(Component.text("Usage: /spawn", NamedTextColor.RED)); return true; }
-        Location destination = data.getLocation("spawn");
+        Location destination = readSpawn();
         if (!valid(destination)) { player.sendMessage(Component.text("Spawn has not been set yet. Ask staff to use /setspawn.", NamedTextColor.RED)); return true; }
         Inventory gui = Bukkit.createInventory(null, 27, Component.text(SPAWN_TITLE, NamedTextColor.DARK_GREEN));
         ItemStack filler = item(Material.GRAY_STAINED_GLASS_PANE, " ", NamedTextColor.DARK_GRAY);
@@ -269,9 +280,50 @@ final class SpawnAfkManager implements Listener {
         save();
     }
 
-    private void save() {
-        try { data.save(file); }
-        catch (IOException ex) { plugin.getLogger().severe("Could not save spawn-afk.yml: " + ex.getMessage()); }
+    private Location readSpawn() {
+        String worldName = data.getString("spawn.world");
+        if (worldName != null && !worldName.isBlank()
+                && data.contains("spawn.x") && data.contains("spawn.y") && data.contains("spawn.z")) {
+            org.bukkit.World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                try { world = Bukkit.createWorld(new org.bukkit.WorldCreator(worldName)); }
+                catch (RuntimeException ex) {
+                    plugin.getLogger().warning("Could not load saved spawn world '" + worldName + "': " + ex.getMessage());
+                    return null;
+                }
+            }
+            if (world == null) return null;
+            return new Location(world, data.getDouble("spawn.x"), data.getDouble("spawn.y"),
+                    data.getDouble("spawn.z"), (float) data.getDouble("spawn.yaw"),
+                    (float) data.getDouble("spawn.pitch"));
+        }
+        Location legacy = data.getLocation("spawn");
+        if (valid(legacy)) {
+            data.set("spawn.world", legacy.getWorld().getName());
+            data.set("spawn.world-uuid", legacy.getWorld().getUID().toString());
+            data.set("spawn.x", legacy.getX());
+            data.set("spawn.y", legacy.getY());
+            data.set("spawn.z", legacy.getZ());
+            data.set("spawn.yaw", legacy.getYaw());
+            data.set("spawn.pitch", legacy.getPitch());
+            data.set("spawn", null);
+            save();
+            return legacy.clone();
+        }
+        return null;
+    }
+
+    private boolean save() {
+        try {
+            File parent = file.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs() && !parent.isDirectory())
+                throw new IOException("Could not create plugin data directory");
+            data.save(file);
+            return file.isFile() && file.length() > 0;
+        } catch (IOException ex) {
+            plugin.getLogger().severe("Could not save spawn-afk.yml: " + ex.getMessage());
+            return false;
+        }
     }
 
     private static boolean valid(Location location) {
