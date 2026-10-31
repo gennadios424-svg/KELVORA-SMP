@@ -22,6 +22,7 @@ final class SpawnerManager implements Listener {
     private final JavaPlugin plugin;
     private final NamespacedKey crateKey, managedKey, stackKey, ownerKey, autoKey, lastKey;
     private final NamespacedKey bonesKey, bowsKey, arrowsKey, stringKey, eyeKey, ingotKey, poppyKey;
+    private final NamespacedKey bonesEnabledKey, bowsEnabledKey, arrowsEnabledKey, stringEnabledKey, eyeEnabledKey, ingotEnabledKey, poppyEnabledKey;
     private final Random random = new Random();
 
     SpawnerManager(JavaPlugin plugin) {
@@ -36,6 +37,10 @@ final class SpawnerManager implements Listener {
         arrowsKey=new NamespacedKey(plugin,"stored-arrows"); stringKey=new NamespacedKey(plugin,"stored-string");
         eyeKey=new NamespacedKey(plugin,"stored-spider-eyes"); ingotKey=new NamespacedKey(plugin,"stored-iron-ingots");
         poppyKey=new NamespacedKey(plugin,"stored-poppies");
+        bonesEnabledKey=new NamespacedKey(plugin,"drop-bones-enabled"); bowsEnabledKey=new NamespacedKey(plugin,"drop-bows-enabled");
+        arrowsEnabledKey=new NamespacedKey(plugin,"drop-arrows-enabled"); stringEnabledKey=new NamespacedKey(plugin,"drop-string-enabled");
+        eyeEnabledKey=new NamespacedKey(plugin,"drop-spider-eyes-enabled"); ingotEnabledKey=new NamespacedKey(plugin,"drop-iron-ingots-enabled");
+        poppyEnabledKey=new NamespacedKey(plugin,"drop-poppies-enabled");
     }
     void register() {
         Bukkit.getPluginManager().registerEvents(this,plugin);
@@ -119,11 +124,40 @@ final class SpawnerManager implements Listener {
     private NamespacedKey key(Material m){return switch(m){case BONE->bonesKey;case BOW->bowsKey;case ARROW->arrowsKey;case STRING->stringKey;case SPIDER_EYE->eyeKey;case IRON_INGOT->ingotKey;case POPPY->poppyKey;default->bonesKey;};}
     private List<Material> drops(EntityType t){
         return switch(t){
-            case SKELETON->{List<Material> l=new ArrayList<>(List.of(Material.BONE));if(plugin.getConfig().getBoolean("spawners.bows-enabled",true))l.add(Material.BOW);if(plugin.getConfig().getBoolean("spawners.arrows-enabled",true))l.add(Material.ARROW);yield l;}
+            case SKELETON->List.of(Material.BONE,Material.ARROW,Material.BOW);
             case SPIDER->List.of(Material.STRING,Material.SPIDER_EYE);
             case IRON_GOLEM->List.of(Material.IRON_INGOT,Material.POPPY);
             default->List.of(Material.BONE);
         };
+    }
+    private NamespacedKey enabledKey(Material m){return switch(m){
+        case BONE->bonesEnabledKey;case ARROW->arrowsEnabledKey;case BOW->bowsEnabledKey;
+        case STRING->stringEnabledKey;case SPIDER_EYE->eyeEnabledKey;case IRON_INGOT->ingotEnabledKey;
+        case POPPY->poppyEnabledKey;default->bonesEnabledKey;};}
+    private boolean dropEnabled(PersistentDataContainer d,Material m){
+        if(m==Material.BOW&&!plugin.getConfig().getBoolean("spawners.bows-enabled",true))return false;
+        if(m==Material.ARROW&&!plugin.getConfig().getBoolean("spawners.arrows-enabled",true))return false;
+        return d.getOrDefault(enabledKey(m),PersistentDataType.BYTE,(byte)1)==1;
+    }
+    private int baseWeight(EntityType t,Material m){
+        if(t==EntityType.SKELETON)return m==Material.BONE?60:m==Material.ARROW?30:10;
+        if(t==EntityType.SPIDER)return m==Material.STRING?60:40;
+        if(t==EntityType.IRON_GOLEM)return m==Material.IRON_INGOT?60:40;
+        return 100;
+    }
+    private List<Material> enabledDrops(EntityType t,PersistentDataContainer d){
+        return drops(t).stream().filter(m->dropEnabled(d,m)).toList();
+    }
+    private Material chooseDrop(EntityType t,PersistentDataContainer d){
+        List<Material> enabled=enabledDrops(t,d);if(enabled.isEmpty())return null;
+        int total=enabled.stream().mapToInt(m->baseWeight(t,m)).sum();
+        int roll=random.nextInt(total);
+        for(Material m:enabled){roll-=baseWeight(t,m);if(roll<0)return m;}
+        return enabled.get(enabled.size()-1);
+    }
+    private int displayedChance(EntityType t,Material m,PersistentDataContainer d){
+        List<Material> enabled=enabledDrops(t,d);int total=enabled.stream().mapToInt(x->baseWeight(t,x)).sum();
+        return total==0?0:baseWeight(t,m)*100/total;
     }
     private int count(PersistentDataContainer p,NamespacedKey k){return Math.max(0,p.getOrDefault(k,PersistentDataType.INTEGER,0));}
     private ItemStack named(Material type,String title,List<String> lore,String action){
@@ -140,19 +174,28 @@ final class SpawnerManager implements Listener {
         PersistentDataContainer data=s.getPersistentDataContainer();
         if(settings){
             boolean auto=data.getOrDefault(autoKey,PersistentDataType.BYTE,(byte)0)==1;
-            inv.setItem(11,named(auto?Material.HOPPER:Material.CHEST,"Collection: "+(auto?"AUTO":"MANUAL"),
-                List.of(auto?"Generated items go to the placer when online.":"Items stay stored until collected here.","Click to switch collection mode."),"toggle-auto"));
-            inv.setItem(13,named(Material.CLOCK,"Production: every 25 seconds",
-                List.of("Each cycle gives 2–4 items per spawner in the stack.","Stack x"+stack(s)+" = "+(2*stack(s))+"–"+(4*stack(s))+" items per cycle."),null));
-            inv.setItem(15,named(Material.ARROW,"Back",List.of("Return to stored drops."),"back"));
+            inv.setItem(4,named(auto?Material.HOPPER:Material.CHEST,"Collection: "+(auto?"AUTO":"MANUAL"),
+                List.of(auto?"Items go to the placer when online.":"Items stay stored for collection.","Click to switch collection mode."),"toggle-auto"));
+            List<Material> all=drops(s.getSpawnedType());int[] toggleSlots={10,12,14,16,18};
+            for(int i=0;i<all.size();i++){
+                Material m=all.get(i);boolean enabled=dropEnabled(data,m);
+                int chance=displayedChance(s.getSpawnedType(),m,data);
+                inv.setItem(toggleSlots[i],named(enabled?m:Material.BARRIER,
+                    (enabled?"ON: ":"OFF: ")+m.name().replace('_',' '),
+                    List.of(enabled?"Drop chance: "+chance+"%":"This item will not be generated.",
+                        "Click to "+(enabled?"disable":"enable")+" this item."),"toggle-drop:"+m.name()));
+            }
+            inv.setItem(22,named(Material.CLOCK,"Production: every 25 seconds",
+                List.of("2–4 drops per cycle, multiplied by stack size.","Enabled drop chances automatically rebalance to 100%."),null));
+            inv.setItem(26,named(Material.ARROW,"Back",List.of("Return to stored drops."),"back"));
         }else{
             EntityType type=s.getSpawnedType();int n=stack(s);
             inv.setItem(4,named(Material.SPAWNER,type.name().replace('_',' ')+" Spawner",
                 List.of("Stack size: x"+n,"Production: every 25 seconds","Next production: "+nextIn(data)+"s","Each cycle: "+(2*n)+"–"+(4*n)+" total items"),null));
-            int[] slots={11,13,15};List<Material> ds=drops(type);
+            int[] slots={10,12,14,16,18};List<Material> ds=enabledDrops(type,data);
             for(int i=0;i<ds.size();i++){Material m=ds.get(i);inv.setItem(slots[i],named(m,m.name().replace('_',' ')+": "+count(data,key(m)),
-                List.of("Stored items: "+count(data,key(m)),"Click to collect all stored items."),"collect:"+m.name()));}
-            inv.setItem(22,named(Material.COMPARATOR,"Spawner settings",List.of("Change how generated drops are collected."),"settings"));
+                List.of("Stored items: "+count(data,key(m)),"Current chance: "+displayedChance(type,m,data)+"%","Click to collect all stored items."),"collect:"+m.name()));}
+            inv.setItem(22,named(Material.COMPARATOR,"Spawner settings",List.of("Toggle individual drops and collection mode."),"settings"));
         }
         inv.setItem(26,named(Material.BARRIER,"Close",List.of(), "close"));p.openInventory(inv);
     }
@@ -169,6 +212,12 @@ final class SpawnerManager implements Listener {
         if(action.equals("toggle-auto")){
             PersistentDataContainer d=s.getPersistentDataContainer();byte next=(byte)(d.getOrDefault(autoKey,PersistentDataType.BYTE,(byte)0)==1?0:1);
             d.set(autoKey,PersistentDataType.BYTE,next);s.update(true,false);openMenu(p,menu.location,true);return;
+        }
+        if(action.startsWith("toggle-drop:")){
+            Material m=Material.valueOf(action.substring("toggle-drop:".length()));
+            PersistentDataContainer d=s.getPersistentDataContainer();
+            d.set(enabledKey(m),PersistentDataType.BYTE,(byte)(dropEnabled(d,m)?0:1));
+            s.update(true,false);openMenu(p,menu.location,true);return;
         }
         if(action.startsWith("collect:")){
             Material m=Material.valueOf(action.substring(8));PersistentDataContainer d=s.getPersistentDataContainer();int amount=count(d,key(m));if(amount<=0)return;
@@ -187,8 +236,8 @@ final class SpawnerManager implements Listener {
             if(!(state instanceof CreatureSpawner s)||!managed(s))continue;
             PersistentDataContainer d=s.getPersistentDataContainer();long last=d.getOrDefault(lastKey,PersistentDataType.LONG,now);
             if(now-last<INTERVAL)continue;d.set(lastKey,PersistentDataType.LONG,now);
-            List<Material> choices=drops(s.getSpawnedType());if(choices.isEmpty())continue;
-            Material chosen=choices.get(random.nextInt(choices.size()));int amount=(min+random.nextInt(max-min+1))*stack(s);
+            Material chosen=chooseDrop(s.getSpawnedType(),d);if(chosen==null)continue;
+            int amount=(min+random.nextInt(max-min+1))*stack(s);
             boolean auto=d.getOrDefault(autoKey,PersistentDataType.BYTE,(byte)0)==1;
             UUID owner=null;try{String raw=d.get(ownerKey,PersistentDataType.STRING);if(raw!=null)owner=UUID.fromString(raw);}catch(IllegalArgumentException ignored){}
             Player placer=owner==null?null:Bukkit.getPlayer(owner);
