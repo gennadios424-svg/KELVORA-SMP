@@ -900,3 +900,12 @@ crates:
   treetrooper:
     max-logs: 64
     include-leaves: false
+
+
+# Donut-style storage spawners. One random item type is added every 25 seconds.
+spawners:
+  interval-seconds: 25
+  minimum-items: 2
+  maximum-items: 4
+  bows-enabled: true
+  arrows-enabled: true
