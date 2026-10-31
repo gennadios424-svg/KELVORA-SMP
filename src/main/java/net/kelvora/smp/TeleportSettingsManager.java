@@ -37,6 +37,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
+// Compatibility note: previous UI label was 'Mob spawning near me:'; the new menu uses a clearer label.
 final class TeleportSettingsManager implements Listener {
     private static final String SETTINGS_TITLE = "KELVORA // SETTINGS";
     private static final long REQUEST_LIFETIME_MS = 60_000L;
