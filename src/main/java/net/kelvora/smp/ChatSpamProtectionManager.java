@@ -101,7 +101,7 @@ final class ChatSpamProtectionManager implements Listener {
         value = value.replace('0', 'o').replace('1', 'i').replace('!', 'i')
             .replace('3', 'e').replace('4', 'a').replace('@', 'a')
             .replace('5', 's').replace('$', 's').replace('7', 't');
-        return value.replaceAll("[^a-z]", "");
+        return value.replaceAll("[^a-z]", "").replaceAll("(.)\\\\1+", "$1");
     }
 
     private boolean containsBlockedTerm(String normalized) {
