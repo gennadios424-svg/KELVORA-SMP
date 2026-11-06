@@ -119,6 +119,7 @@ implements Listener {
         new EconomyFeaturesManager(this).register();
         this.teamManager = new TeamManager(this);
         this.teamManager.register();
+        if (this.placeholderApi) new KelvoraPlaceholderExpansion(this).register();
         new RankKitManager(this).register();
         this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
         this.shardShopManager.register();
@@ -337,6 +338,8 @@ implements Listener {
         };
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
+        String teamName = this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
+        if (!this.useBoardySidebar()) {
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
             Scoreboard externalBoard = player.getScoreboard();
@@ -377,7 +380,6 @@ implements Listener {
         int deaths = player.getStatistic(Statistic.DEATHS);
         long playMinutes = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200L;
         String playtime = playMinutes >= 60 ? (playMinutes / 60) + "h " + (playMinutes % 60) + "m" : playMinutes + "m";
-        String teamName = this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
         // Keep the two authoritative currencies immediately under the server title.
         String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
@@ -399,6 +401,7 @@ implements Listener {
         if (current == Bukkit.getScoreboardManager().getMainScoreboard()
                 || current == board || current.getObjective("kelvora") != null) {
             if (current != board) player.setScoreboard(board);
+        }
         }
         // Keep cosmetic glow teams intact while adding compact Money + Team labels above players.
         if (this.shardShopManager != null) this.shardShopManager.refreshCosmetics(player);
@@ -484,6 +487,28 @@ implements Listener {
             node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(groupName));
     }
     TeamManager getTeamManager() { return this.teamManager; }
+    boolean useBoardySidebar() {
+        return this.getConfig().getBoolean("presentation.boardy-scoreboard", true)
+            && Bukkit.getPluginManager().isPluginEnabled("Boardy");
+    }
+
+    String placeholderValue(OfflinePlayer offline, String parameter) {
+        if (offline == null || parameter == null) return "";
+        Player player = offline.getPlayer();
+        return switch (parameter.toLowerCase(Locale.ROOT)) {
+            case "money" -> { double amount = this.economyBalance(offline); yield Double.isFinite(amount) ? this.formatMoney(amount) : "Unavailable"; }
+            case "money_exact" -> { double amount = this.economyBalance(offline); yield Double.isFinite(amount) ? this.formatExactMoney(amount) : "Unavailable"; }
+            case "kelvoras" -> this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(offline));
+            case "rank" -> { String key = player == null ? "member" : this.rankKey(player); yield this.getConfig().getString("ranks." + key + ".label", key.toUpperCase(Locale.ROOT)); }
+            case "team" -> player == null || this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
+            case "kills" -> Integer.toString(offline.getStatistic(Statistic.PLAYER_KILLS));
+            case "deaths" -> Integer.toString(offline.getStatistic(Statistic.DEATHS));
+            case "playtime" -> { long minutes = offline.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200L; yield minutes >= 60 ? (minutes / 60) + "h " + (minutes % 60) + "m" : minutes + "m"; }
+            case "online" -> Boolean.toString(player != null && player.isOnline());
+            case "ping" -> player == null ? "0" : Integer.toString(player.getPing());
+            default -> null;
+        };
+    }
     void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
     void refreshPresentation(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
 
