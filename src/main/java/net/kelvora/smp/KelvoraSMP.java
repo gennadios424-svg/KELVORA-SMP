@@ -81,6 +81,8 @@ implements Listener {
     private int refreshTask;
     private int tabFrame;
     private int footerFrame;
+    private int sidebarAnimationTask;
+    private int sidebarFrame;
     private final Map<UUID, Scoreboard> playerBoards = new HashMap<UUID, Scoreboard>();
     private final Map<UUID, Long> lastMovementAt = new HashMap<>();
     private final Set<UUID> afkPlayers = new java.util.HashSet<>();
@@ -119,6 +121,7 @@ implements Listener {
         new EconomyFeaturesManager(this).register();
         this.teamManager = new TeamManager(this);
         this.teamManager.register();
+        if (this.placeholderApi) new KelvoraPlaceholderExpansion(this).register();
         new RankKitManager(this).register();
         this.shardShopManager = new ShardShopManager(this, this.kelvorasManager);
         this.shardShopManager.register();
@@ -163,6 +166,10 @@ implements Listener {
             this.footerFrame = (this.footerFrame + 1) % 5;
             for (Player online : Bukkit.getOnlinePlayers()) this.updatePlayer(online);
         }, 60L, 60L);
+        this.sidebarAnimationTask = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+            this.sidebarFrame = (this.sidebarFrame + 1) % 8;
+            for (Player online : Bukkit.getOnlinePlayers()) this.updateSidebarAnimation(online);
+        }, 10L, 10L);
         for (Player player : Bukkit.getOnlinePlayers()) {
             this.updatePlayer(player);
         }
@@ -176,6 +183,9 @@ implements Listener {
         if (this.kelvorasManager != null) this.kelvorasManager.save();
         if (this.refreshTask != 0) {
             Bukkit.getScheduler().cancelTask(this.refreshTask);
+        }
+        if (this.sidebarAnimationTask != 0) {
+            Bukkit.getScheduler().cancelTask(this.sidebarAnimationTask);
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (this.playerBoards.containsKey(player.getUniqueId()) && player.getScoreboard() == this.playerBoards.get(player.getUniqueId())) {
@@ -337,6 +347,7 @@ implements Listener {
         };
         player.sendPlayerListHeaderAndFooter(rotatingMessage, footerMessage);
 
+        String teamName = this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
         Scoreboard board = this.playerBoards.get(player.getUniqueId());
         if (board == null) {
             Scoreboard externalBoard = player.getScoreboard();
@@ -377,19 +388,18 @@ implements Listener {
         int deaths = player.getStatistic(Statistic.DEATHS);
         long playMinutes = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200L;
         String playtime = playMinutes >= 60 ? (playMinutes / 60) + "h " + (playMinutes % 60) + "m" : playMinutes + "m";
-        String teamName = this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
         // Keep the two authoritative currencies immediately under the server title.
         String rankDisplay = rankLabel.toUpperCase(Locale.ROOT);
         String[] lines = new String[]{
-            this.color("&6&l⭐ RANK: " + rankColor + "&l" + rankDisplay),
-            this.color("&a&l💰 Money: &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
-            this.color("&d&l💎 Kelvoras: &d" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
-            this.color("&c⚔ Kills: &f" + kills),
-            this.color("&4☠ Deaths: &f" + deaths),
-            this.color("&b⏱ Playtime: &f" + playtime),
-            this.color("&3🛡 Team: &b" + teamName),
-            this.color("&e👥 Online: &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
-            this.color("&7IP: &f" + this.getConfig().getString("server-address", "Configure server-address"))
+            this.color("&8◆ &6&lRANK &8» " + rankColor + "&l" + rankDisplay),
+            this.color("&8▰ &a&lMONEY &8» &f" + (Double.isFinite(balance) ? "$" + moneyCompact : "Not connected")),
+            this.color("&8✦ &d&lKELVORAS &8» &d✦" + (this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(player)))),
+            this.color("&8◆&2▰&a▰&2▰&8◆"),
+            this.color("&8⚔ &cK/D &8» &f" + kills + " &8/ &f" + deaths),
+            this.color("&8⌛ &bPLAYTIME &8» &f" + playtime),
+            this.color("&8♜ &3TEAM &8» &b" + teamName),
+            this.color("&8👥 &eONLINE &8» &f" + Bukkit.getOnlinePlayers().size() + "&7/" + Bukkit.getMaxPlayers()),
+            this.color("&8◆ &7kelvorasmp.mcsh.gg")
         };
         for (int i = 0; i < lines.length; ++i) {
             Team team = board.getTeam("line" + i);
@@ -403,6 +413,38 @@ implements Listener {
         // Keep cosmetic glow teams intact while adding compact Money + Team labels above players.
         if (this.shardShopManager != null) this.shardShopManager.refreshCosmetics(player);
         this.updateNameplateTeams(player, moneyCompact, teamName, afk);
+    }
+
+    private void updateSidebarAnimation(Player player) {
+        Scoreboard board = this.playerBoards.get(player.getUniqueId());
+        if (board == null) return;
+        Objective objective = board.getObjective("kelvora");
+        if (objective == null) return;
+
+        int frame = this.sidebarFrame % 8;
+        int[] greens = {0x7CFC00, 0x39FF14, 0x00C853, 0x008F39, 0x00A650, 0x7CFC00, 0x39FF14, 0x00C853};
+        String[] emblems = {"◆", "◇", "✦", "✧", "◆", "◇", "✦", "✧"};
+        net.kyori.adventure.text.format.TextColor glow = net.kyori.adventure.text.format.TextColor.color(greens[frame]);
+        Component title = Component.text(emblems[frame] + " ", NamedTextColor.DARK_GREEN)
+            .append(Component.text("KELVORA", glow).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD))
+            .append(Component.text(" SMP ", NamedTextColor.WHITE).decorate(net.kyori.adventure.text.format.TextDecoration.BOLD))
+            .append(Component.text(emblems[frame], NamedTextColor.DARK_GREEN));
+        objective.displayName(title);
+
+        Team divider = board.getTeam("line3");
+        if (divider != null) {
+            String[] depthFrames = {
+                "&8◆&2▰&a▰&2▰&8◆",
+                "&2◆&a▰&2▰&a▰&2◆",
+                "&8◇&a▰&2▰&a▰&8◇",
+                "&2✦&a━&2━&a━&2✦",
+                "&8◆&a▰&2▰&a▰&8◆",
+                "&2◇&2▰&a▰&2▰&2◇",
+                "&8✧&2━&a━&2━&8✧",
+                "&2◆&a▰&2▰&a▰&2◆"
+            };
+            divider.setPrefix(this.color(depthFrames[frame]));
+        }
     }
 
     private void updateNameplateTeams(Player target, String moneyCompact, String teamName, boolean afk) {
@@ -484,6 +526,23 @@ implements Listener {
             node instanceof InheritanceNode inheritance && inheritance.getGroupName().equalsIgnoreCase(groupName));
     }
     TeamManager getTeamManager() { return this.teamManager; }
+    String placeholderValue(OfflinePlayer offline, String parameter) {
+        if (offline == null || parameter == null) return "";
+        Player player = offline.getPlayer();
+        return switch (parameter.toLowerCase(Locale.ROOT)) {
+            case "money" -> { double amount = this.economyBalance(offline); yield Double.isFinite(amount) ? this.formatMoney(amount) : "Unavailable"; }
+            case "money_exact" -> { double amount = this.economyBalance(offline); yield Double.isFinite(amount) ? this.formatExactMoney(amount) : "Unavailable"; }
+            case "kelvoras" -> this.kelvorasManager == null ? "0" : KelvorasManager.format(this.kelvorasManager.balance(offline));
+            case "rank" -> { String key = player == null ? "member" : this.rankKey(player); yield this.getConfig().getString("ranks." + key + ".label", key.toUpperCase(Locale.ROOT)); }
+            case "team" -> player == null || this.teamManager == null ? "No Team" : this.teamManager.teamName(player);
+            case "kills" -> Integer.toString(offline.getStatistic(Statistic.PLAYER_KILLS));
+            case "deaths" -> Integer.toString(offline.getStatistic(Statistic.DEATHS));
+            case "playtime" -> { long minutes = offline.getStatistic(Statistic.PLAY_ONE_MINUTE) / 1200L; yield minutes >= 60 ? (minutes / 60) + "h " + (minutes % 60) + "m" : minutes + "m"; }
+            case "online" -> Boolean.toString(player != null && player.isOnline());
+            case "ping" -> player == null ? "0" : Integer.toString(player.getPing());
+            default -> null;
+        };
+    }
     void refreshSidebar(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
     void refreshPresentation(Player player) { if (player != null && player.isOnline()) updatePlayer(player); }
 

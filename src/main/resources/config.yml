@@ -1,5 +1,6 @@
 # Kelvora SMP settings
 refresh-ticks: 60
+
 currency-format: compact
 
 server-address: "kelvorasmp.mcsh.gg"
