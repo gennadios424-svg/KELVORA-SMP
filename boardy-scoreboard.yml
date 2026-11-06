@@ -1,0 +1,18 @@
+# Copy this file to plugins/Boardy/scoreboard.yml
+# KelvoraSMP provides the %kelvora_*% placeholders through PlaceholderAPI.
+# Leave Boardy's tab-list feature disabled while TAB manages the player list.
+
+title: "<gradient:#008000:#7CFC00><bold>🌿 KELVORA SMP</bold></gradient>"
+lines:
+  - ""
+  - "<gray>⭐ Rank: <white>%kelvora_rank%"
+  - "<gray>💰 Money: <green>$%kelvora_money%"
+  - "<gray>💎 Kelvoras: <light_purple>✦%kelvora_kelvoras%"
+  - ""
+  - "<gray>⚔ Kills: <white>%kelvora_kills%"
+  - "<gray>☠ Deaths: <white>%kelvora_deaths%"
+  - "<gray>⏱ Playtime: <white>%kelvora_playtime%"
+  - "<gray>🛡 Team: <aqua>%kelvora_team%"
+  - ""
+  - "<gray>👥 Online: <white>%server_online%<dark_gray>/<white>%server_max_players%"
+  - "<gradient:#008000:#7CFC00>kelvorasmp.mcsh.gg</gradient>"
